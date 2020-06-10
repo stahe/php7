@@ -23,3 +23,4 @@ pandoc -t rst -f docx -i ../../chapitres/chap-21.docx -o ./chap-21.rst --extract
 pandoc -t rst -f docx -i ../../chapitres/chap-22.docx -o ./chap-22.rst --extract-media=./chap-22
 pandoc -t rst -f docx -i ../../chapitres/chap-23.docx -o ./chap-23.rst --extract-media=./chap-23
 pandoc -t rst -f docx -i ../../chapitres/chap-24.docx -o ./chap-24.rst --extract-media=./chap-24
+pandoc -t rst -f docx -i ../../chapitres/chap-25.docx -o ./chap-25.rst --extract-media=./chap-25

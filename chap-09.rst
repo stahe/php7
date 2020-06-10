@@ -1,545 +1,1027 @@
-Les Traits
-==========
+Exercice d'application – version 3
+==================================
 
-Les **Traits** sont des structures analogues à des classes. Néanmoins on
-ne peut les instancier. Elles sont destinées à être incluses dans des
-classes. L’inclusion d’un **Trait** dans une classe a le même effet que
-si l’on avait copié le code du **Trait** dans la classe. On met dans un
-**Trait** du code susceptible d’être réutilisé dans plusieurs classes.
+On reprend l'exercice déjà étudié précédemment (pages et ) pour le
+résoudre avec un code PHP utilisant une classe.
 
 L’arborescence des scripts
 --------------------------
 
 |image0|
 
-Inclusion d’un trait dans une classe
-------------------------------------
+L’exception [ExceptionImpots]
+-----------------------------
 
-Le script **[traits-01.php]** montre une utilisation basique d’un trait
-dans une classe :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   class Class04 {
-     // attribut
-     private $name;
-
-     // constructeur
-     public function __construct(string $name) {
-       $this->name = $name;
-     }
-
-     // getters et setters
-     public function getName(): string {
-       return $this->name;
-     }
-
-     public function setName(string $name): void {
-       $this->name = $name;
-     }
-
-   }
-
-   trait Trait04 {
-     // attribut
-     private $name;
-
-     // getters et setters
-     public function getName(): string {
-       return $this->name;
-     }
-
-     public function setName(string $name): void {
-       $this->name = $name;
-     }
-
-   }
-
-   class Class05 {
-     // inclusion du Trait
-     use Trait04;
-
-     // constructeur
-     public function __construct(string $name) {
-       $this->name = $name;
-     }
-
-   }
-
-   // test --------------
-   $class04 = new Class04("Tim");
-   $class05 = new Class05("Burton");
-   print $class04->getName() . "\n";
-   print $class05->getName() . "\n";
-   // affichage des deux classes
-   print_r($class04);
-   print_r($class05);
-
-**Commentaires du code**
-
--  lignes 3-21 : définition de la classe **[Class04]** avec un attribut,
-   ses get / set et un constructeur ;
-
--  lignes 23-36 : on reprend le code de **[Class04]** sans son
-   constructeur et on le transfère dans le trait **[Trait04]** tel quel.
-   On ne reprend pas le constructeur puisqu’un Trait n’est pas
-   instanciable ;
-
--  ligne 23 : c’est le mot clé **[trait]** qui fait de **[Trait04]** un
-   trait plutôt qu’une classe ;
-
--  lignes 38-45 : on définit une classe **[Class05]** qui reprend le
-   code du trait **[Trait04]** (ligne 40) et lui ajoute un constructeur
-   (lignes 43-45), identique à celui de la classe **[Class04]** pour
-   rendre la classe instanciable ;
-
--  ligne 40 : c’est le mot clé **[use]** qui permet l’inclusion d’un
-   Trait dans une classe ;
-
--  lignes 50-56 : des tests montrent que les classes **[Class04]** et
-   **[Class05]** fonctionnent de la même façon ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   Tim
-   Burton
-   Class04 Object
-   (
-       [name:Class04:private] => Tim
-   )
-   Class05 Object
-   (
-       [name:Class05:private] => Burton
-   )
-
-Les résultats des lignes 3-10 montrent que les classes **[Class04]** et
-**[Class05]** ont la même contenu ;
-
-**Conclusion**
-
-L’utilisation de l’instruction **[use Trait]** dans une classe est
-équivalente à inclure le code de **[Trait]** dans la classe.
-
-Utiliser un même trait dans différentes classes
------------------------------------------------
-
-Un premier intérêt du **trait** semble être la réutilisation d’un même
-code (attributs +méthodes) entre différentes classes. Nous allons voir
-cependant qu’on peut arriver au même objectif en utilisant de simples
-classes.
-
-Le partage d’un *trait* entre classes est illustré par le script
-**[trait-02.php]** suivant :
+Dans la version 03, lorsqu’un constructeur ou une méthode de classe
+rencontrera une erreur, elle lancera une exception de type
+**[ExceptionImpots]** suivant :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   trait Trait01 {
-     // attribut
-     private $id = 0;
+   // espace de noms
+   namespace Application;
 
-     // méthode
-     public function doSomething() {
-       print "Trait01::doSomething… ($this->id)\n";
+   class ExceptionImpots extends \RuntimeException {
+
+     public function __construct(string $message, int $code=0) {
+       parent::__construct($message, $code);
      }
 
    }
-
-   class Class02 {
-     // inclusion Trait01
-     use Trait01 {
-       // la méthode [Trait01::doSomething] est accessible
-       // dans la classe sous le nom [doSomethingInTrait]
-       Trait01::doSomething as doSomethingInTrait;
-     }
-
-     // méthode propre à la classe
-     public function doSomething(): void {
-       // attribut id
-       $this->id += 10;
-       // utilisation méthode de Trait01
-       $this->doSomethingInTrait();
-       // afichage local
-       print "Class02->doSomething\n";
-     }
-
-   }
-
-   class Class03 {
-     // inclusion Trait01
-     use Trait01;
-
-     // méthode locale à la classe
-     public function doSomethingElse(): void {
-       // attribut id
-       $this->id += 10;
-       // utilisation méthode de Trait01
-       $this->doSomething();
-       // affichage local
-       print "Class03->doSomethingElse\n";
-     }
-
-   }
-
-   // test01 ----------------
-   function test01(): void {
-     $class02 = new Class02();
-     $class03 = new Class03();
-     $class02->doSomething();
-     $class03->doSomethingElse();
-   }
-
-   // test01
-   print "test01-----------------\n";
-   test01();
 
 **Commentaires**
 
--  lignes 3-10 : un trait définissant un attibut (ligne 5) et une
-   méthode (lignes 8-10).
+-  ligne 4 : la classe **[ExceptionImpots]** est dans l’espace de noms
+   **[Application]** ;
 
--  le trait **[Trait01]** est injecté dans deux classes **[Class02]**
-   (lignes 14-32) et **[Class03]** (lignes 34-46).
+-  ligne 6 : la classe **[ExceptionImpots]** étend la classe prédéfinie
+   dans PHP **[RuntimeException]** ;
 
--  lignes 16-20 : injection de **[Trait01]** dans **[Class02]** ;
+-  ligne 8 : le constructeur attend deux paramètres :
 
--  la ligne 19 vise à résoudre un conflit : **[Trait01]** et
-   **[Class02]** ont tous les deux une méthode appelée
-   **[doSomething]**. Il y a deux cas à prévoir :
+   -  $\ **message** : est le message d’erreur associée à l’exception ;
 
-   -  la méthode **[Class02::doSomething]** est appelée de l’extérieur
-      de la classe. Dans ce cas, la méthode **[Class02::doSomething]**
-      est prioritaire sur la méthode **[Trait01::doSomething]** et c’est
-      elle qui est appelée ;
+   -  $\ **code** : est le code d’erreur associé à l’exception. S’il
+      n’est pas présent, alors le code 0 sera utilisé ;
 
-   -  la méthode **[Class02::doSomething]** est appelée de l’intérieur
-      de la classe. Dans ce cas il y a conflit : l’interpréteur PHP ne
-      sait pas quelle méthode appeler ;
+La classe [TaxAdminData]
+------------------------
+
+Dans la version 02, les données de l’administration fiscale ont été
+rassemblées :
+
+-  d’abord dans un fichier jSON ;
+
+-  puis de ce fichier jSON à un tableau associatif ;
+
+Dans la version 03, les données de l’administration fiscale sont
+toujours dans le fichier **[taxadmindata.json]** mais avec des noms
+d’attribut différents :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+   	"limites": [
+   		9964,
+   		27519,
+   		73779,
+   		156244,
+   		0
+   	],
+   	"coeffR": [
+   		0,
+   		0.14,
+   		0.3,
+   		0.41,
+   		0.45
+   	],
+   	"coeffN": [
+   		0,
+   		1394.96,
+   		5798,
+   		13913.69,
+   		20163.45
+   	],
+   	"plafondQfDemiPart": 1551,
+   	"plafondRevenusCelibatairePourReduction": 21037,
+   	"plafondRevenusCouplePourReduction": 42074,
+   	"valeurReducDemiPart": 3797,
+   	"plafondDecoteCelibataire": 1196,
+   	"plafondDecoteCouple": 1970,
+   	"plafondImpotCouplePourDecote": 2627,
+   	"plafondImpotCelibatairePourDecote": 1595,
+   	"abattementDixPourcentMax": 12502,
+   	"abattementDixPourcentMin": 437
+   }
+
+Dans la version 02, ce fichier servait à initialiser un tableau
+associatif. Dans la version 03 le fichier va initialiser la classe
+**[TaxAdminData]** suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   namespace Application;
+
+   class TaxAdminData {
+     // tranches d'impôt
+     private $limites;
+     private $coeffR;
+     private $coeffN;
+     // constantes de calcul de l'impôt
+     private $plafondQfDemiPart;
+     private $plafondRevenusCelibatairePourReduction;
+     private $plafondRevenusCouplePourReduction;
+     private $valeurReducDemiPart;
+     private $plafondDecoteCelibataire;
+     private $plafondDecoteCouple;
+     private $plafondImpotCouplePourDecote;
+     private $plafondImpotCelibatairePourDecote;
+     private $abattementDixPourcentMax;
+     private $abattementDixPourcentMin;
+
+     // initialisation
+     public function setFromJsonFile(string $taxAdminDataFilename): TaxAdminData {
+       // on récupère le contenu du fichier des données fiscales
+       $fileContents = \file_get_contents($taxAdminDataFilename);
+       $erreur = FALSE;
+       // erreur ?
+       if (!$fileContents) {
+         // on note l'erreur
+         $erreur = TRUE;
+         $message = "Le fichier des données [$taxAdminDataFilename] n'existe pas";
+       }
+       if (!$erreur) {
+         // on récupère le code jSON du fichier de configuration dans un tableau associatif
+         $arrayTaxAdminData = \json_decode($fileContents, true);
+         // erreur ?
+         if ($arrayTaxAdminData === FALSE) {
+           // on note l'erreur
+           $erreur = TRUE;
+           $message = "Le fichier de données jSON [$taxAdminDataFilename] n'a pu être exploité correctement";
+         }
+       }
+       // erreur ?
+       if ($erreur) {
+         // on lance une exception
+         throw new ExceptionImpots($message);
+       }
+       // initialisation des attributs de la classe
+       foreach ($arrayTaxAdminData as $key => $value) {
+         $this->$key = $value;
+       }
+       // on vérifie que toutes les clés ont été initialisées
+       $arrayOfAttributes = \get_object_vars($this);
+       foreach ($arrayOfAttributes as $key => $value) {
+         if (!isset($this->$key)) {
+           throw new ExceptionImpots("L'attribut [$key] de [TaxAdminData] n'a pas été initialisé");
+         }
+       }
+       // on vérifie qu'on a que des valeurs réelles
+       foreach ($this as $key => $value) {
+         // $value doit être un nbre réel >=0 ou un tableau de réels >=0
+         $result = $this->check($value);
+         // erreur ?
+         if ($result->erreur) {
+           // on lance une exception
+           throw new ExceptionImpots("La valeur de l'attribut [$key] est invalide");
+         } else {
+           // on note la valeur
+           $this->$key = $result->value;
+         }
+       }
+       // on rend l'objet
+       return $this;
+     }
+
+     private function check($value): \stdClass {
+       …
+       return $result;
+     }
+
+       // toString
+     public function __toString() {
+       // chaîne Json de l'objet
+       return \json_encode(\get_object_vars($this), JSON_UNESCAPED_UNICODE);
+     }
+
+     // getters et setters
+     public function getLimites() {
+       return $this->limites;
+     }
+
+     public function getCoeffR() {
+       return $this->coeffR;
+     }
+
+     …
+     }
+
+     public function setLimites($limites) {
+       $this->limites = $limites;
+       return $this;
+     }
+
+     public function setCoeffR($coeffR) {
+       $this->coeffR = $coeffR;
+       return $this;
+     }
+
+     …
+
+   }
+
+**Commentaires**
+
+-  lignes 6-20 : les attributs qui vont accueillir les attributs de même
+   nom du fichier jSON **[taxadmindata.json]**. C’est un point
+   important : les attributs de la classe **[TaxAdminData]** sont
+   **identiques** à ceux du fichier jSON **[taxadmindata.json]**. Cette
+   particularité facilite beaucoup l’écriture du code ;
+
+-  la classe **[TaxAdminData]** n’a pas de constructeur. En PHP, il
+   n’est pas possible d’avoir plusieurs constructeurs. En fixer un
+   empêche alors d’initialiser l’objet d’une autre façon. Dans la suite,
+   nos classes n’auront pas de constructeur mais plusieurs méthodes de
+   type **[setFromQqChose]** qui permettront de l’initialiser de
+   différentes façons. La construction d’un objet de type
+   **[TaxAdminData]** se fait alors avec l’expression :
+
+.. code-block:: php 
+   :linenos:
+
+   (new TaxAdminData())→setFromQqChose(…)
+
+-  ligne 23 : la méthode **[setFromJsonFile]** initialise les attributs
+   de la classe avec ceux de même nom dans le fichier
+   **[$jsonFilename]** ;
+
+-  lignes 24-42 : le fichier jSON est exploité pour construire le
+   tableau associatif **[$arrayTaxAdminData]**. Nous avons déjà
+   rencontré ce code dans le script **[main.php]** de la version 02 ;
+
+-  lignes 44-47 : si on a rencontré une erreur dans l’exploitation du
+   fichier jSON, on lance une exception. Celle-ci remontera jusqu’au
+   script principal **[main.php]** ;
+
+-  lignes 48-51 : les attributs de la classe sont initialisés. On
+   profite ici du fait que le tableau associatif
+   **[$arrayTaxAdminData]** et la classe **[TaxAdminData]** ont des
+   attributs de mêmes noms que les valeurs provenant du fichier jSON ;
+
+-  lignes 53-57 : on vérifie que tous les attributs de la classe
+   **[TaxAdminData]** ont été initialisés ;
+
+-  ligne 53 : l’expression **[get_object_vars($this)]** rend un tableau
+   associatif dont les attributs sont ceux de l’objet **[$this]**, donc
+   les attributs de la classe **[TaxAdminData]**. Ici il faut comprendre
+   que l’opération d’initialisation des lignes 48-51 a pu ajouter des
+   attributs à l’objet **[$this]**. Ainsi si on écrit :
+
+.. code-block:: php 
+   :linenos:
+
+       $this->x = "1000";
 
 ..
 
-   La ligne 19 permet de renommer **[doSomethingInTrait]** la méthode
-   **[Trait01::doSomething]**. Ainsi, à l’intérieur de **[Class02]** on
-   utilisera les notations :
+   alors l’attribut **[x]** est ajouté à l’objet **[$this]** même si cet
+   attribut n’a pas été déclaré dans la classe **[TaxAdminData]**. Ce
+   qui est sûr, c’est que les attributs des lignes 6-20 font bien partie
+   de l’objet **[$this]**, mais ils ont pu être non initialisés. C’est
+   une erreur facile à faire, il suffit de se tromper dans un nom
+   d’attribut dans le fichier **[taxadmindata.json]** ;
 
--  **[doSomethingInTrait]** pour appeler la méthode
-   **[Trait01::doSomething]** ;
+-  lignes 54-57 : on passe en revue tous les attributs de **[$this]** et
+   si l’un d’eux n’a pas été initialisé, on lance une exception ;
 
--  **[doSomething]** pour appeler la méthode
-   **[Class02::doSomething]** ;
-
--  lignes 25, 27 : la classe **[Class02]** utilisent l’attribut et la
-   méthode de **[Trait01]** comme s’ils lui étaient propres ;
-
--  lignes 34-48 : la classe **[Class03]** est identique à la classe
-   **[Class02]**. L’inclusion de **[Trait01]** est ici plus simple parce
-   qu’il n’y pas collision entre les méthodes de **[Trait01]** et
-   **[Class03]** ;
-
-**Résultats**
+-  un attribut peut être initialisé avec une valeur incorrecte. En PHP,
+   il n’est pas possible de donner un type aux attributs. Ainsi
+   l’opération :
 
 .. code-block:: php 
    :linenos:
 
-   test01-----------------
-   Trait01::doSomething… (10)
-   Class02->doSomething
-   Trait01::doSomething… (10)
-   Class03->doSomethingElse
+   $this→plafondQfDemiPart=’abcd’
 
-On notera bien qu’il n’y a pas partage du trait **[Trait01]** entre les
-classes **[Class02]** et **[Class03]**. Ainsi l’attribut
-**[Trait01::i]** devient par inclusion de **[Trait01]** dans les classes
-**[Class02]** et **[Class03]** deux attributs différents
-**[Class02::i]** et **[Class03::i]**. C’est ce que montrent les lignes 2
-et 4 des résultats. Si l’attribut **[Trait01::i]** avait été partagé
-entre les classes **[Class02]** et **[Class03]** on aurait eu 20 à la
-ligne 4 au lieu de 10.
+..
 
-Le script **[trait-03.php]** montre qu’on peut arriver au même résultat
-en utilisant une classe au lieu du trait :
+   est possible alors que l’attribut **[$plafondQfDemiPart]** devrait
+   être réel ;
+
+-  lignes 59-71 : on vérifie que chacun des attributs de la classe a une
+   valeur numérique réelle positive ou nulle. C’est la fonction
+   **[check]** de la ligne 76 qui fait ce travail. Son paramètre
+   **[$value]** est soit une unique valeur soit un tableau de valeurs ;
+
+-  ligne 62 : la fonction **[check]** rend un objet de type
+   **[\stdClass]** avec deux attributs :
+
+   -  **[erreur]** : à TRUE s’il y a eu erreur, à FALSE sinon ;
+
+   -  **[value]** : la valeur numérique réelle correspondant au
+      paramètre **[$value]** passé en paramètre, ligne 62 ;
+
+-  ligne 64 : on regarde si la vérification a réussi ou pas ;
+
+-  ligne 66 : si un attribut n’est pas un nombre réel positif ou nul, on
+   lance une exception ;
+
+-  ligne 69 : sinon on note sa valeur numérique ;
+
+-  ligne 73 : on rend l’objet **[$this]** comme résultat ;
+
+La fonction **[check]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   private function check($value): \stdClass {
+       // $value est soit un tableau d'éléments soit un unique élément
+       // on crée un tableau
+       if (!\is_array($value)) {
+         $tableau = [$value];
+       } else {
+         $tableau = $value;
+       }
+       // on transforme le tableau d'éléments de type non connu en tableau de réels
+       $newTableau = [];
+       $result = new \stdClass();
+       // les éléments du tableau doivent être des nombres décimaux positifs ou nuls
+       $modèle = '/^\s*([+]?)\s*(\d+\.\d*|\.\d+|\d+)\s*$/';
+       for ($i = 0; $i < count($tableau); $i ++) {
+         if (preg_match($modèle, $tableau[$i])) {
+           // on met le float dans newTableau
+           $newTableau[] = (float) $tableau[$i];
+         } else {
+           // on note l'erreur
+           $result->erreur = TRUE;
+           // on quitte
+           return $result;
+         }
+       }
+       // on rend le résultat
+       $result->erreur = FALSE;
+       if (!\is_array($value)) {
+         // une seule valeur
+         $result->value = $newTableau[0];
+       } else {
+         // une liste de valeurs
+         $result->value = $newTableau;
+       }
+       return $result;
+     }
+
+**Commentaires**
+
+-  ligne 1 : le paramètre **[$value]** est soit un tableau soit un
+   unique élément. Par ailleurs, on ne connaît pas son type. La valeur
+   provient du fichier **[taxadmindata.json]**. Selon les valeurs
+   inscrites dans ce fichier, les valeurs lues peuvent être des entiers,
+   des réels, des chaînes, des booléens. Par exemple :
+
+.. code-block:: php 
+   :linenos:
+
+   "plafondQfDemiPart": 1551,
+   "plafondQfDemiPart": 1551.78,
+   "plafondQfDemiPart": "1551",
+   "plafondQfDemiPart": "xx",
+
+..
+
+   Dans le cas 1, la valeur est de type **[entier]**, dans le cas 2 de
+   type **[réel]**, dans le cas 3 de type **[string]** pouvant être
+   converti en nombre, dans le cas 4 de type **[string]** ne pouvant pas
+   être converti en nombre ;
+
+-  lignes 4-8 : on crée un tableau à partir du paramètre **[$value]**
+   reçu en paramètre ligne 1 ;
+
+-  ligne 10 : le tableau qu’on va remplir avec des nombres réels ;
+
+-  ligne 11 : le résultat sera un objet de type **[\stdClass]** ;
+
+-  ligne 13 : expression relationnelle d’un nombre réel positif ou nul ;
+
+-  lignes 14-24 : on vérifie que tous les éléments du tableau
+   **[$tableau]** sont des nombres réels positifs ou nuls et on remplit
+   le tableau **[$newTableau]** avec ces éléments transformés en type
+   **[float]** (ligne 17) ;
+
+-  lignes 18-23 : dès qu’on détecte un élément qui n’est pas un nombre
+   réel positif ou nul, on note l’erreur dans le résultat et on rend
+   celui-ci ;
+
+-  lignes 25-34 : cas où tous les éléments du tableau **[$tableau]** ont
+   été déclarés corrects ;
+
+-  ligne 32 : la valeur rendue **[$result→value]** est un tableau de
+   réels **[float]** ou un réel unique ;
+
+La fonction **[__toString]** des lignes 82-85 rend la chaîne jSON des
+attributs et valeurs de l’objet **[$this]**.
+
+Lignes 87-110 : les getters et setters de la classe ;
+
+**Note** : il peut être parfois un peu pénible d’avoir à écrire tous les
+get / set d’une classe surtout lorsqu’il y a beaucoup d’attributs.
+Netbeans peut générer automatiquement ceux-ci ainsi que le constructeur.
+Pour ce faire, mettez simplement les attributs **[1]** :
+
+|image1|
+
+-  en **[2]**, cliquez droit là ou voulez insérer du code puis
+   choisissez l’option **[Insert Code]** ;
+
+|image2|
+
+-  en **[4]**, indiquez que vous voulez générer le constructeur ;
+
+-  en **[5]**, cochez tous les attributs : cela veut dire que vous
+   voulez que le constructeur ait un paramètre pour chacun des
+   attributs ;
+
+-  en **[6]**, prenez le style des constructeurs Java ;
+
+-  en **[7]**, indiquez que vous voulez explicitement le mot clé
+   **[public]** devant le constructeur ;
+
+-  en **[8]**, validez ;
+
+|image3|
+
+-  en **[9]**, Netbeans a généré le constructeur. Cependant il n’a pas
+   pu mettre le type des paramètres parce qu’il ne les connaît pas.
+   Ajoutez-les vous-même **[10]** ;
+
+Pour générer les getters et setters, recommencez les étapes 2-4, et à
+l’étape 4, choissez **[Getter and Setter]** :
+
+|image4|
+
+-  en **[5]**, indiquez que vous voulez les getters et setters pour
+   chacun des attributs ;
+
+-  en **[6]**, indiquez que vous voulez les getters et setters dans le
+   style utilisé par Java : setAttribut, getAttribut ;
+
+-  en **[7]**, indiquez que vous que ces getters et setters soient
+   publics ;
+
+-  en **[8]**, validez ;
+
+|image5|
+
+-  en **[9]**, les getters et setters générés par Netbeans ;
+
+Effacez ces getters et setters et recommencez les étapes 2-7.
+
+-  en **[8]**, cochez l’option **[Fluent Setter]** que nous n’avions pas
+   cochée précédemment ;
+
+Le résultat obtenu est le suivant :
+
+|image6|
+
+Chaque setter se termine par une opération **[return $this]**. Ceci
+permet d’initialiser les attributs de la façon suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   $data→setLimites($limites)→setCoeffR($coeffR)→setCoeffN($coeffN) ;
+
+En effet, la valeur de **[$data→setLimites($limites)]** (ligne 32 du
+code) est **[$this]**, donc ici **[$data]**. On peut donc appeler la
+méthode **[setCoeffR($coeffR)]** de cet objet et ainsi de suite,
+puisqu’à son tour, cette méthode rend elle aussi **[$this]** (ligne 37
+du code). Cette écriture des méthodes d’une classe qui fait que les
+méthodes qui ne devraient rien rendre rendent l’objet **[$this]**
+s’appellent une écriture **fluente**. Elle facilite l’utilisation de ces
+méthodes.
+
+L’interface [InterfaceImpots]
+-----------------------------
+
+Nous définissons maintenant l’interface **[InterfaceImpots]** suivante
+**[InterfaceImpots.php]** :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // classe qui remplace le trait
-   class Class01 {
-     // attribut
-     private $id = 0;
+   // espace de noms
+   namespace Application;
 
-     // setter
-     public function setId(int $id) {
-       $this->id = $id;
-     }
+   interface InterfaceImpots {
 
-     // getter
-     public function getId(): int {
-       return $this->id;
-     }
+     // récupérer les données des tranches d'impôt permettant le calcul de l'impôt
+     // peut lancer l'exception ExceptionImpots
+     public function getTaxAdminData(): TaxAdminData;
 
-     // méthode
-     public function doSomething(): void {
-       print "Class01::doSomething… ($this->id)\n";
-     }
+     // l'interface sait calculer un impôt
+     public function calculerImpot(string $marié, int $enfants, int $salaire): array;
 
+     // l'interface sait exploiter des données dans des fichiers texte
+     // $usersFilename : fichier des données utilisateur sous la forme statut marital, nombre d'enfants, salaire annuel
+     // $resultsFilename : fichier des des résultats sous la forme statut marital, nombre d'enfants, salaire annuel, montat de l'impôt
+     // $errorsFilename : fichier des erreurs rencontrées
+     // peut lancer l'exception ExceptionImpots
+     public function executeBatchImpots(string $usersFileName, string $resultsFileName, string $errorsFileName): void;
    }
-
-   class Class02 {
-     // inclusion Class01
-     private $class01;
-
-     // setter
-     public function setClass01(Class01 $class01) {
-       $this->class01 = $class01;
-     }
-
-     // méthode propre à la classe
-     public function doSomething(): void {
-       // chgt attribut de Class01
-       $id = $this->class01->getId();
-       $id += 10;
-       $this->class01->setId($id);
-       // utilisation méthode de Class01
-       $this->class01->doSomething();
-       // afichage local
-       print "Class02->doSomething\n";
-     }
-
-   }
-
-   class Class03 {
-     // inclusion Class01
-     private $class01;
-
-     // setter
-     public function setClass01(Class01 $class01) {
-       $this->class01 = $class01;
-     }
-
-     // méthode locale à la classe
-     public function doSomethingElse(): void {
-       // chgt attribut de Class01
-       $id = $this->class01->getId();
-       $id += 10;
-       $this->class01->setId($id);
-       // utilisation méthode de Class01
-       $this->class01->doSomething();
-       // affichage local
-       print "Class03->doSomethingElse\n";
-     }
-
-   }
-
-   // test01 ----------------
-   function test01(): void {
-     // deux objets
-     $class02 = new Class02();
-     $class03 = new Class03();
-     // vont accéder à deux instances différentes de [Class01]
-     $class02->setClass01(new Class01());
-     $class03->setClass01(new Class01());
-     // vérification
-     $class02->doSomething();
-     $class03->doSomethingElse();
-   }
-
-   // test02 ----------------
-   function test02(): void {
-     // instance partagée de [Class01]
-     $class01 = new Class01();
-     // deux objets
-     $class02 = new Class02();
-     $class03 = new Class03();
-     // vont accéder à la même instance de [Class01]
-     $class02->setClass01($class01);
-     $class03->setClass01($class01);
-     // vérification
-     $class02->doSomething();
-     $class03->doSomethingElse();
-   }
-
-   // test01
-   print "test01-----------------\n";
-   test01();
-   // test02
-   print "test02-----------------\n";
-   test02();
 
 **Commentaires**
 
--  lignes 4-23 : la classe **[Class01]** remplace le trait
-   **[Trait01]**. Le code de **[Trait01]** était incorporé au code des
-   classes **[Class02]** et **[Class03]**. Ici, ce ne sera pas le cas.
-   Ce sera une référence au code de la classe **[Class01]** qui sera
-   injectée dans les classes **[Class02]** et **[Class03]**. Ce qui fait
-   que les attributs de la classe **[Class01]** seront extérieurs au
-   code des **[Class02]** et **[Class03]**. Comme ici, l’attribut
-   **[id]** est privé (ligne 6), il faut prévoir un getter (lignes
-   14-16) et un setter (lignes 9-11). C’est la 1\ :sup:`re` différence
-   avec le trait : il faut créer le code d’accès aux attributs privés de
-   la classe. On aurait pu passer la visibilité de l’attribut **[id]** à
-   **[public]** mais il n’est jamais conseillé de faire cela. Passer par
-   un setter pour fixer la valeur d’un attribut permet d’en vérifier la
-   validité ;
+-  ligne 4 : l’interface est placée dans l’espace de noms
+   **[Application]** ;
 
--  ligne 27 : inclusion dans le code de **[Class02]** d’une référence à
-   la classe **[Class01]**. Parce que cet attribut est privé, il nous
-   faut créer un setter (lignes 30-32) pour l’initialiser ;
+-  ligne 6 : l’interface permettant le calcul des impôts ;
 
--  lignes 37-41 : pour tout usage du code de **[Class01]**, il nous faut
-   passer par l’attribut **[$this→class01]** ;
+-  ligne 10 : la méthode **[getTaxAdminData]** permettra d’acquérir les
+   données de l’administration fiscale dans un objet de type
+   **[TaxAdminData]** que nous venons de présenter. Comme ces données
+   peuvent être dans un fichier ou une base de données voire sur le
+   réseau, la méthode **[getTaxAdminData]** peut échouer à obtenir les
+   données. Dans ce cas, elle lancera une exception de type
+   **[ExceptionImpots]**. C’est la méthode standard en programmation
+   objet pour signaler une erreur rencontrée dans une méthode ou un
+   constructeur ;
 
--  lignes 48-69 : la classe **[Class03]** est un clône de la classe
-   **[Classe02]** si ce n’est que sa méthode a un nom différent ;
+-  ligne 13 : la méthode **[calculerImpot]** permettra de calculer
+   l’impôt d’un usager ;
 
--  lignes 72-82 : le 1\ :sup:`er` test. Celui-ci consiste à injecter
-   dans les classes **[Class02]** et **[Class03]** **deux instances
-   différentes** de la classe **[Class01]** (lignes 77 et 78) ;
+-  ligne 20 : la méthode **[executeBatchImpots]** permettra de calculer
+   l’impôt de plusieurs contribuables :
 
--  lignes 85-97 : le 2\ :sup:`e` test injecte dans les classes
-   **[Class02]** et **[Class03]** **la même instance** de la classe
-   **[Class01]** (lignes 97, 92, 93) ;
+   -  **[$usersFileName]** est le nom du fichier texte contenant les
+      données des contribuables ;
 
--  lignes 100-101 : exécution du test **[test01]** ;
+   -  **[$resultsFileName]** est le nom du fichier texte contenant le
+      montant de l’impôt pour ces contribuables ;
 
--  lignes 103-104 : exécution du test **[test02]** ;
+   -  **[$errorsFileName]** est le nom du fichier texte contenant les
+      erreurs rencontrées lors de l’exploitation de ces fichiers ;
 
-**Résultats**
+Le contenu du fichier texte **[$usersFileName]** pourrait être le
+suivant :
 
 .. code-block:: php 
    :linenos:
 
-   test01-----------------
-   Class01::doSomething… (10)
-   Class02->doSomething
-   Class01::doSomething… (10)
-   Class03->doSomethingElse
-   test02-----------------
-   Class01::doSomething… (10)
-   Class02->doSomething
-   Class01::doSomething… (20)
-   Class03->doSomethingElse
+   oui,2,55555
+   oui,2,50000
+   oui,3,50000
+   non,2,100000
+   non,3x,100000
+   oui,3,100000
+   oui,5,100000x
+   non,0,100000
+   oui,2,30000
+   non,0,200000
+   oui,3,200000
 
-**Commentaires des résultats**
+On notera que les lignes 5 et 7 contiennent des éléments erronés.
 
--  lignes 2-5 : on obtient les mêmes résultats qu’avec le trait
-   **[Trait01]**. On en conclura que l’usage du trait n’est ici pas
-   indispensable mais qu’il amène une réduction du code dû au fait qu’il
-   n’y a pas besoin de méthodes pour accéder aux attributs du trait :
-   ceux-ci font partie intégrante du code dans lequel le trait a été
-   incorporé ;
+Le contenu du fichier texte **[$resultsFileName]** sera alors le
+suivant :
 
--  lignes 7-10 : du fait qu’on a injecté la même référence de
-   **[Class01]** dans les classes **[Class02]** et **[Class03]**,
-   l’attribut **[Class01::id]** a été partagé entre les deux classes.
-   C’est pour cela que la ligne 9 des résultats affiche 20 al lieu de 10
-   avec le trait. On en conclura que si des attributs du trait doivent
-   être **partagés** entre des classes, alors le trait n’est pas
-   utilisable et il faut alors utiliser une classe ;
+.. code-block:: php 
+   :linenos:
 
-Regrouper des méthodes dans un trait
-------------------------------------
+   {"marié":"oui","enfants":2,"salaire":55555,"impôt":2814,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
+   {"marié":"oui","enfants":2,"salaire":50000,"impôt":1384,"surcôte":0,"décôte":384,"réduction":347,"taux":0.14}
+   {"marié":"oui","enfants":3,"salaire":50000,"impôt":0,"surcôte":0,"décôte":720,"réduction":0,"taux":0.14}
+   {"marié":"non","enfants":2,"salaire":100000,"impôt":19884,"surcôte":4480,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":3,"salaire":100000,"impôt":9200,"surcôte":2180,"décôte":0,"réduction":0,"taux":0.3}
+   {"marié":"non","enfants":0,"salaire":100000,"impôt":22986,"surcôte":0,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":2,"salaire":30000,"impôt":0,"surcôte":0,"décôte":0,"réduction":0,"taux":0}
+   {"marié":"non","enfants":0,"salaire":200000,"impôt":64210,"surcôte":7498,"décôte":0,"réduction":0,"taux":0.45}
+   {"marié":"oui","enfants":3,"salaire":200000,"impôt":42842,"surcôte":17283,"décôte":0,"réduction":0,"taux":0.41}
 
-Dans l’exemple précédent, le **trait** comportait attributs et méthodes.
-Nous considérons ici le cas où il ne contient que des méthodes. Dans ce
-cas, le **trait** ressemble à une factorisation de méthodes qu’on peut
-alors utiliser dans différentes classes. Comme le **trait** n’a ici pas
-d’attribut, on va considérer le cas où les méthodes qu’ils rassemblent
-travaillent uniquement sur des paramètres qu’on leur passe. En fait, ce
-n’est pas obligatoire : un trait peut travailler sur un attribut
-**[$this→attribut1]** sans avoir cet attribut. C’est alors aux classes
-qui utilisent ce trait de fournir l’attribut **[$this→attribut1]**.
+et celui du fichier texte **[$errorsFileName]** le suivant :
 
-Dans le cas où le **trait** n’a que des méthodes qui travaillent
-uniquement sur des paramètres qu’on leur passe, nous montrerons que le
-**trait** peut alors être remplacé par une **classe** ayant les mêmes
-méthodes que le **trait** et déclarées statiques.
+.. code-block:: php 
+   :linenos:
 
-L’utilisation du trait est illustré par le script **[trait-04.php]** qui
-reprend le **trait** de l’exemple précédent en lui enlevant tout
-attribut :
+   la ligne 5 du fichier taxpayersdata.txt est erronée
+   la ligne 7 du fichier taxpayersdata.txt est erronée
+
+La classe [Utilitaires]
+-----------------------
+
+Nous définissons par ailleurs une classe **[Utilitaires]** dans un
+fichier **[Utilitaires.php]** :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   trait Trait01 {
+   // espace de noms
+   namespace Application;
 
-     // méthode à partager
-     public function doSomething() {
-       print "Trait01::doSomething ….\n";
+   // une classe de fonctions utilitaires
+   abstract class Utilitaires {
+
+     public static function cutNewLinechar(string $ligne): string {
+       // on supprime la marque de fin de ligne de $ligne si elle existe
+       $longueur = strlen($ligne);  // longueur ligne
+       while (substr($ligne, $longueur - 1, 1) == "\n" or substr($ligne, $longueur - 1, 1) == "\r") {
+         $ligne = substr($ligne, 0, $longueur - 1);
+         $longueur--;
+       }
+       // fin - on rend la ligne
+       return($ligne);
      }
-
    }
-
-   class Class02 {
-     // inclusion Trait01
-     use Trait01 {
-       // la méthode [Trait01::doSomething] est accessible
-       // dans la classe sous le nom [doSomethingInTrait]
-       Trait01::doSomething as doSomethingInTrait;
-     }
-
-     public function doSomething(): void {
-       // appel méthode de Trait01
-       $this->doSomethingInTrait();
-       // affichage local
-       print "Class02->doSomething\n";
-     }
-
-   }
-
-   class Class03 {
-     // inclusion Trait01
-     use Trait01;
-
-     // méthode locale à la classe
-     public function doSomethingElse(): void {
-       // appel méthode de Trait01
-       $this->doSomething();
-       // affichage local
-       print "Class03->doSomethingElse\n";
-     }
-
-   }
-
-   // test ----------------
-   (new Class02())->doSomething();
-   (new Class03())->doSomethingElse();
 
 **Commentaires**
 
--  lignes 3-10 : le trait **[Trait01]** n’a plus d’attributs ;
+-  ligne 4 : la classe **[Utilitaires]** est également placée dans
+   l’espace de noms **[Exemples]** ;
 
--  lignes 14-18 : inclusion de **[Trait01]** dans **[Class02]**. La
-   méthode de **[Trait01]** est utilisée ligne 22 ;
+-  ligne 9 : la méthode **[cutNewLinechar]** enlève l’éventuel caractère
+   de fin de ligne du texte qu’on lui a passé en paramètre. Elle rend la
+   nouvelle ligne ainsi formée. On notera que c’est une méthode
+   **statique**, c’est à dire qu’elle sera appelée sous la former
+   **[Utilitaires::cutNewLineChar]** ;
 
--  ligne 31 : inclusion de **[Trait01]** dans **[Class03]**. La méthode
-   de **[Trait01]** est utilisée ligne 36 ;
+La classe abstraite [AbstractBaseImpots]
+----------------------------------------
 
-**Résultats**
+L’interface **[InterfaceImpots]** sera implémentée par la classe
+abstraite **[AbstractBaseImpots]** suivante
+**[AbstractBaseImpots.php]** :
 
 .. code-block:: php 
    :linenos:
 
-   Trait01::doSomething ….
-   Class02->doSomething
-   Trait01::doSomething ….
-   Class03->doSomethingElse
+   <?php
 
-Dans ce cas d’usage, le trait **[Trait01]** peut aisément être remplacé
-par une classe. Ceci est montré par le script **[trait-05.php]**
+   // espace de noms
+   namespace Application;
+
+   // définition d'une classe abstraite AbstractBaseImpots
+   abstract class AbstractBaseImpots implements InterfaceImpots {
+     // les données de l’administration fiscale
+     private $taxAdminData = NULL;
+
+     // données nécessaires au calcul de l'impôt
+     abstract function getTaxAdminData(): TaxAdminData;
+
+   // calcul de l'impôt
+   // --------------------------------------------------------------------------
+     public function calculerImpot(string $marié, int $enfants, int $salaire): array {
+       // $marié : oui, non
+       // $enfants : nombre d'enfants
+       // $salaire : salaire annuel
+       // $this->taxAdminData : données de l'administration fiscale
+       //
+       // on vérifie qu'on a bien les données de l'administration fiscale
+       if ($this->taxAdminData === NULL) {
+         $this->taxAdminData = $this->getTaxAdminData();
+       }
+       // calcul de l'impôt avec enfants
+       $result1 = $this->calculerImpot2($marié, $enfants, $salaire);
+       $impot1 = $result1["impôt"];
+       // calcul de l'impôt sans les enfants
+       if ($enfants != 0) {
+         $result2 = $this->calculerImpot2($marié, 0, $salaire);
+         $impot2 = $result2["impôt"];
+         // application du plafonnement du quotient familial
+         $plafonDemiPart = $this->taxAdminData->getPlafondQfDemiPart();
+         if ($enfants < 3) {
+           // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants
+           $impot2 = $impot2 - $enfants * $plafonDemiPart;
+         } else {
+           // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants, le double pour les suivants
+           $impot2 = $impot2 - 2 * $plafonDemiPart - ($enfants - 2) * 2 * $plafonDemiPart;
+         }
+       } else {
+         $impot2 = $impot1;
+         $result2 = $result1;
+       }
+       // on prend l'impôt le plus fort
+       if ($impot1 > $impot2) {
+         $impot = $impot1;
+         $taux = $result1["taux"];
+         $surcôte = $result1["surcôte"];
+       } else {
+         $surcôte = $impot2 - $impot1 + $result2["surcôte"];
+         $impot = $impot2;
+         $taux = $result2["taux"];
+       }
+       // calcul d'une éventuelle décôte
+       $décôte = $this->getDecôte($marié, $salaire, $impot);
+       $impot -= $décôte;
+       // calcul d'une éventuelle réduction d'impôts
+       $réduction = $this->getRéduction($marié, $salaire, $enfants, $impot);
+       $impot -= $réduction;
+       // résultat
+       return ["impôt" => floor($impot), "surcôte" => $surcôte, "décôte" => $décôte, "réduction" => $réduction, "taux" => $taux];
+     }
+
+   // --------------------------------------------------------------------------
+     private function calculerImpot2(string $marié, int $enfants, float $salaire): array {
+       …
+       // résultat
+       return ["impôt" => $impôt, "surcôte" => $surcôte, "taux" => $coeffR[$i]];
+     }
+
+     // revenuImposable=salaireAnnuel-abattement
+     // l'abattement a un min et un max
+     private function getRevenuImposable(float $salaire): float {
+       …
+       // résultat
+       return floor($revenuImposable);
+     }
+
+   // calcule une décôte éventuelle
+     private function getDecôte(string $marié, float $salaire, float $impots): float {
+       …
+       // résultat
+       return ceil($décôte);
+     }
+
+   // calcule une réduction éventuelle
+     private function getRéduction(string $marié, float $salaire, int $enfants, float $impots): float {
+       …
+       // résultat
+       return ceil($réduction);
+     }
+
+     public function executeBatchImpots(string $usersFileName, string $resultsFileName, string $errorsFileName): void {
+       …
+     }
+
+   }
+
+**Commentaires**
+
+-  ligne 4 : la classe **[AbstractBaseImpots]** sera dans l’espace de
+   noms **[Application]** comme les autres éléments de l’application en
+   cours d’écriture ;
+
+-  ligne 7 : la classe **[AbstractBaseImpots]** implémente l’interface
+   **[InterfaceImpots]** ;
+
+-  ligne 9 : les données de l’administration fiscale seront placées dans
+   l’attribut **[$taxAdminData] ;**
+
+-  ligne 12 : implémentation de la méthode **[getTaxAdminData]** de
+   l’interface. On ne sait pas encore définir cette méthode : nous avons
+   vu un exemple où les données de l’administration fiscale ont été
+   prises dans un fichier jSON au `paragraphe <#_Version_2>`__. Nous
+   verrons un autre cas où les données seront à chercher dans une base
+   de données. Ce sera aux classes dérivées de définir le contenu de la
+   méthode **[getTaxAdminData]**. Les deux cas précédents donneront
+   naissance à deux classes dérivées. La méthode **[getTaxAdminData]**
+   est donc déclarée abstraite ce qui automatiquement rend la classe
+   elle-même abstraite (ligne 7) ;
+
+-  lignes 15-64 : la fonction de calcul de l’impôt déjà rencontrée aux
+   paragraphes `lien <#_Version_1>`__ et `lien <#_Version_2>`__ ;
+
+-  la version 02 mettait les données de l’administration fiscale dans un
+   tableau associatif **[$taxAdminData]**. La version 03 les met dans
+   l’attribut **[$this→taxAdminData]**. La 1\ :sup:`re` différence entre
+   ces deux solutions est une différence de visibilité des données
+   fiscales :
+
+   -  dans la version 02, le tableau associatif **[$taxAdminData]**
+      n’avait pas une visibilité globale. Il était donc passé en
+      paramètre à toutes les fonctions de calcul de l’impôt ;
+
+   -  dans la version 03, l’attribut **[$this→taxAdminData]** a une
+      visibilité globale pour toutes les méthodes de la classe. Il n’est
+      donc pas passé en paramètre à toutes les fonctions de calcul de
+      l’impôt ;
+
+-  une seconde différence vient du fait que la version 03 remplace des
+   fonctions par des méthodes de classe. Chaque appel de méthode se fait
+   désormais avec une expression **[$this→getMéthode(…)]** (lignes 27,
+   31, 57, 60) ;
+
+-  une troisième différence est que lorsque la méthode
+   **[calculerImpot]** démarre son travail, elle ne sait pas si
+   l’attribut **[private $taxAdminData]** dont elle a besoin a été
+   initialisé. En effet, le constructeur de la classe ne l’initialise
+   pas. C’est donc à la méthode **[calculerImpot]** de le faire à l’aide
+   de la méthode **[getTaxAdminData]** de la ligne 12. C’est ce qui est
+   fait aux lignes 23-25 ;
+
+-  en-dehors de ces différences, les méthodes de calcul de l’impôt
+   restent ce qu’elles étaient dans les versions précédentes ;
+
+La fonction **[executeBatchImpots]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   public function executeBatchImpots(string $usersFileName, string $resultsFileName, string $errorsFileName): void {
+       // pas mal d'erreurs peuvent se produire dès qu'on gère des fichiers
+       try {
+         // ouverture fichier des erreurs
+         $errors = fopen($errorsFileName, "w");
+         if (!$errors) {
+           throw new ExceptionImpots("Impossible de créer le fichier des erreurs [$errorsFileName]", 10);
+         }
+         // ouverture fichier des résultats
+         $results = fopen($resultsFileName, "w");
+         if (!$results) {
+           throw new ExceptionImpots("Impossible de créer le fichier des résultats [$resultsFileName]", 11);
+         }
+         // lecture des données utilisateur
+         // chaque ligne a la forme statut marital, nombre d'enfants, salaire annuel
+         $data = fopen($usersFileName, "r");
+         if (!$data) {
+           throw new ExceptionImpots("Impossible d'ouvrir en lecture les déclarations des contribuables [$usersFileName]", 12);
+         }
+         // on exploite la ligne courante du fichier des données utilisateur
+         // qui a la forme statut marital, nombre d'enfants, salaire annuel
+         $num = 1;         // n° ligne courante
+         $nbErreurs = 0;   // nbre d'erreurs rencontrées
+         while ($ligne = fgets($data, 100)) {
+           // debug
+           //  print "ligne n° " . ($i + 1) . " : " . $ligne;
+           // on enlève l'éventuelle marque de fin de ligne
+           $ligne = Utilitaires::cutNewLineChar($ligne);
+           // on récupère les 3 champs marié:enfants:salaire qui forment $ligne
+           list($marié, $enfants, $salaire) = explode(",", $ligne);
+           // on les vérifie
+           // le statut marital doit être oui ou non
+           $marié = trim(strtolower($marié));
+           $erreur = ($marié !== "oui" and $marié !== "non");
+           if (!$erreur) {
+             // le nombre d'enfants doit être un entier
+             $enfants = trim($enfants);
+             if (!preg_match("/^\s*\d+\s*$/", $enfants)) {
+               $erreur = TRUE;
+             } else {
+               $enfants = (int) $enfants;
+             }
+           }
+           if (!$erreur) {
+             // le salaire est un entier sans les centimes d'euros
+             $salaire = trim($salaire);
+             if (!preg_match("/^\s*\d+\s*$/", $salaire)) {
+               $erreur = TRUE;
+             } else {
+               $salaire = (int) $salaire;
+             }
+           }
+           // erreur ?
+           if ($erreur) {
+             fputs($errors, "la ligne [$num] du fichier [$usersFileName] est erronée\n");
+             $nbErreurs++;
+           } else {
+             // on calcule l'impôt
+             $result = $this->calculerImpot($marié, (int) $enfants, (int) $salaire);
+             // on inscrit le résultat dans le fichier des résultats
+             $result = ["marié" => $marié, "enfants" => $enfants, "salaire" => $salaire] + $result;
+             fputs($results, \json_encode($result, JSON_UNESCAPED_UNICODE) . "\n");
+           }
+           // ligne suivante
+           $num++;
+         }
+         // des erreurs ?
+         if ($nbErreurs > 0) {
+           throw new ExceptionImpots("Il y a eu des erreurs", 15);
+         }
+       } catch (ExceptionImpots $ex) {
+         // on relance l'exception
+         throw $ex;
+       } finally {
+         // on ferme tous les fichiers
+         fclose($data);
+         fclose($results);
+         fclose($errors);
+       }
+     }
+
+**Commentaires du code**
+
+-  ligne 1 : la fonction reçoit trois paramètres :
+
+   -  **[$usersFileName]** : le nom du fichier texte contenant les
+      données des contribuables. Chaque ligne de texte contient les
+      données d’un contribuable sous la forme : statut marital (oui /
+      non), nombre d’enfants, salaire annuel :
+
+.. code-block:: php 
+   :linenos:
+
+   oui,2,55555
+   oui,2,50000
+
+-  **[$resultsFileName]** : le nom du fichier texte qui contiendra les
+   résultats. Chaque ligne de texte aura la forme suivante  :
+
+.. code-block:: php 
+   :linenos:
+
+   {"marié":"oui","enfants":2,"salaire":50000,"impôt":1384,"surcôte":0,"décôte":384,"réduction":347,"taux":0.14}
+   {"marié":"oui","enfants":3,"salaire":50000,"impôt":0,"surcôte":0,"décôte":720,"réduction":0,"taux":0.14}
+
+-  **[$errorsFileName]** : le nom du fichier texte des erreurs :
+
+.. code-block:: php 
+   :linenos:
+
+   la ligne [5] du fichier [taxpayersdata.txt] est erronée
+   la ligne [7] du fichier [taxpayersdata.txt] est erronée
+
+-  ligne 3 : parce qu’un certain nombre d’opérations peuvent lancer une
+   exception, un try / catch / finally entoure tout le code de la
+   méthode ;
+
+-  lignes 3-19 : les trois fichiers sont ouverts. Une exception est
+   lancée dès qu’une ouverture échoue ;
+
+-  ligne 24 : les lignes du fichier **[$data]** sont lues une par une à
+   raison de 100 caractères au plus (les lignes font toutes moins de 100
+   caractères) ;
+
+-  ligne 28 : on utilise la méthode statique
+   **[Utilitaires::cutNewLineChar]** pour enlever l’éventuelle marque de
+   fin de ligne ;
+
+-  ligne 30 : on récupère les trois éléments de la ligne lue ;
+
+-  lignes 33-52 : la validité des trois éléments est vérifiée. Ici, on
+   ne lance pas une exception s’il y a eu erreur mais on écrit le
+   message de celle-ci dans le fichier texte **[$errors]** (ligne 55) ;
+
+-  ligne 59 : si la ligne lue est valide, le calcul de l’impôt est fait.
+   On obtient un résultat sous forme de tableau associatif **["impôt" =>
+   floor($impot), "surcôte" => $surcôte, "décôte" => $décôte,
+   "réduction" => $réduction, "taux" => $taux]** ;
+
+-  ligne 61 : au résultat obtenu, on ajoute les clés **[marié, enfants,
+   salaire]** ;
+
+-  ligne 61 : le résultat est inscrit dans le fichier texte
+   **[$results]** sous la forme de la chaîne jSON du résultat obtenu ;
+
+-  lignes 68-70 : à la fin de l’exploitation du fichier **[$data]**, on
+   regarde le nombre de lignes erronées rencontrées. S’il y en a au
+   moins une, on lance une exception ;
+
+-  lignes 71-74 : on intercepte l’exception qu’a pu lancer le code et on
+   la relance immédiatement (ligne 73). Le but de cet artifice est de
+   pouvoir avoir une clause **[finally]** aux lignes 74-79 : quelque
+   soit la façon dont se termine l’exécution du code de la méthode, les
+   trois fichiers qui ont pu être ouverts par ce code sont fermés.
+   Fermer un fichier qui n’a pas été ouvert ne provoque pas d’erreur ;
+
+La classe [ImpotsWithTaxAdminDataInJsonFile]
+--------------------------------------------
+
+La classe abstraite **[AbstractBaseImpots]** n’implémente pas la méthode
+**[getTaxAdminData]** de l’interface **[InterfaceImpots]**. Il nous faut
+donc la définir dans une classe dérivée. Nous le faisons dans la classe
+dérivée **[ImpotsWithTaxAdminDataInJsonFile]** suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // espace de noms
+   namespace Application;
+
+   // définition d'une classe ImpotsWithDataInArrays
+   class ImpotsWithTaxAdminDataInJsonFile extends AbstractBaseImpots {
+     // un attribut de type Data
+     private $taxAdminData;
+
+     // le constructeur
+     public function __construct(string $jsonFileName) {
+       // on initialise $this->taxAdminData à partir du fichier jSON
+       $this->taxAdminData = (new TaxAdminData())->setFromJsonFile($jsonFileName);
+     }
+
+     // retourne les données permettant le calcul de l'impôt
+     public function getTaxAdminData(): TaxAdminData {
+       // on rend l'attribut [$this->taxAdminData]
+       return $this->taxAdminData;
+     }
+
+   }
+
+**Commentaires**
+
+-  ligne 7 : la classe **[ImpotsWithTaxAdminDataInJsonFile]** étend la
+   classe abstraite **[AbstractBaseImpots]**. Elle aura à définir la
+   méthode **[getTaxAdminData]** que sa classe parent n’a pas définie ;
+
+-  ligne 9 : l’attribut **[$taxAdminData]** contiendra les données de
+   l’administration fiscale ;
+
+-  lignes 12-15 : le constructeur reçoit comme unique paramètre le nom
+   du fichiet jSON contenant les données fiscales ;
+
+-  ligne 14 : un objet de type **[TaxAdminData]** est créé puis
+   initialisé. Cette opération peut lancer une exception de type
+   **[ExceptionImpots]**. Celle-ci remontera jusqu’au script principal
+   **[main.php]** ;
+
+-  lignes 18-20 : on donne un corps à la méthode **[getTaxAdminData]**
+   que la classe parent n’avait pas définie. Ici, il suffit de rendre
+   l’attribut **[$this->taxAdminData]** initialisé par le constructeur ;
+
+Le script [main.php]
+--------------------
+
+Ces classes et interface sont exploitées par le script **[main.php]**
 suivant :
 
 .. code-block:: php 
@@ -547,626 +1029,129 @@ suivant :
 
    <?php
 
-   abstract class Class01 {
+   // respect strict des types déclarés des paramètres de foctions
+   declare(strict_types = 1);
 
-     // méthode statique à partager
-     public static function doSomething() {
-       print "Class01::doSomething ….\n";
-     }
+   // espace de noms
+   namespace Application;
 
+   // inclusion interface et classes
+   require_once __DIR__ . '/InterfaceImpots.php';
+   require_once __DIR__ . "/TaxAdminData.php";
+   require_once __DIR__ . '/ExceptionImpots.php';
+   require_once __DIR__ . '/Utilitaires.php';
+   require_once __DIR__ . '/AbstractBaseImpots.php';
+   require_once __DIR__ . "/ImpotsWithTaxAdminDataInJsonFile.php";
+
+   // test -----------------------------------------------------
+   // définition des constantes
+   const TAXPAYERSDATA_FILENAME = "taxpayersdata.txt";
+   const RESULTS_FILENAME = "resultats.txt";
+   const ERRORS_FILENAME = "errors.txt";
+   const TAXADMINDATA_FILENAME = "taxadmindata.json";
+
+   try {
+     // on crée un objet ImpotsWithTaxAdminDataInJsonFile
+     $impots = new ImpotsWithTaxAdminDataInJsonFile(TAXADMINDATA_FILENAME);
+     // on exécute le batch des impôts
+     $impots->executeBatchImpots(TAXPAYERSDATA_FILENAME, RESULTS_FILENAME, ERRORS_FILENAME);
+   } catch (ExceptionImpots $ex) {
+     // on affiche l'erreur
+     print $ex->getMessage() . "\n";
    }
-
-   class Class02 {
-
-     public function doSomething(): void {
-       // appel méthode de Class01
-       Class01::doSomething();
-       // affichage local
-       print "Class02->doSomething\n";
-     }
-
-   }
-
-   class Class03 {
-
-     // méthode locale à la classe
-     public function doSomethingElse(): void {
-       // appel méthode de Class01
-       Class01::doSomething();
-       // affichage local
-       print "Class03->doSomethingElse\n";
-     }
-
-   }
-
-   // test ----------------
-   (new Class02())->doSomething();
-   (new Class03())->doSomethingElse();
+   // fin
+   print "Terminé\n";
+   exit();
 
 **Commentaires**
 
--  lignes 3-10 : le trait **[Trait01]** est remplacé par une classe
-   abstraite **[Class01]** dont toutes les méthodes sont déclarées
-   statiques. La classe est déclarée abstraite uniquement pour empêcher
-   son **instanciation**. On aurait voulu écrire également **[final]**
-   pour empêcher sa **dérivation** mais PHP 7 n’accepte pas le préfixe
-   **[final abstract]** pour une classe. C’est l’un ou l’autre mais pas
-   les deux ;
+-  ligne 4 : on impose le respect strict des types des paramètres des
+   fonctions ;
 
--  ligne 16 : au lieu d’écrire **[$this→doSomethingInTrait]** on écrit
-   maintenant **[Class01::doSomething]**, ç-à-d qu’on appelle la méthode
-   statique **[doSomething]** de la classe **[Class01]** ;
+-  ligne 7 : le script **[main.php]** est lui aussi placé dans l’espace
+   de noms **[Application]** ;
 
--  ligne 28 : on répète la même démarche dans **[Class03]** ;
+-  lignes 10-15 : on indique à l’interpréteur PHP où se trouvent les
+   classes et interfaces utilisées par le script. On notera qu’ici nous
+   n’avons pas utilisé d’intruction *use* pour déclarer le nom complet
+   des classes utilisées par le script. C’est en effet inutile parce que
+   le script et les classes sont dans le même espace de noms
+   **[Application]** ;
 
-**Résultats**
+-  lignes 18-22 : les noms des fichiers texte utilisés dans le script ;
 
-.. code-block:: php 
-   :linenos:
+-  lignes 24-29 : un objet **[ImpotsWithTaxAdminDataInJsonFile]** est
+   créé et l’éventuelle exception est gérée ;
 
-   Class01::doSomething ….
-   Class02->doSomething
-   Class01::doSomething ….
-   Class03->doSomethingElse
+-  ligne 28 : on exécute la méthode **[executeBatchImpots]** qui va
+   faire le calcul des impôts pour tous les contribuables du fichier
+   **[TAXPAYERSDATA_FILENAME]**. Les résultats seront mis dans le
+   fichier **[RESULTS_FILENAME]** et les erreurs éventuelles dans le
+   fichier **[ERRORS_FILENAME]** ;
 
-On a bien le même résultat qu’avec le trait **[Trait01]** ce qui montre
-que l’usage de celui-ci peut être évité. On a écrit que les méthodes
-d’un trait peuvent travailler sur un attribut **[$this→attribut1]** sans
-que le trait ait cet attribut. C’est alors aux classes qui utilisent ce
-trait de fournir l’attribut **[$this→attribut1]**. C’est un cas
-exotique : autant ‘remonter’ l’attribut **[$this→attribut1]** que les
-classes utilisant le trait doivent avoir, dans le trait lui-même. Ainsi
-il fera forcément partie des attributs de la classe utilisant le trait.
-
-Héritage multiple avec un trait
--------------------------------
-
-Il est fréquent de lire dans la littérature PHP que le trait permettrait
-l’héritage multiple : la possibilité pour une classe d’hériter de
-plusieurs classes. Le langage C++ possède cette possibilité mais pas les
-langages Java ou C# qui ne connaissent que l’héritage simple. Nous
-allons montrer que si effectivement l’usage d’un trait dans une classe
-dérivée permet d’implémenter quelque chose qui ressemble à l’héritage
-multiple, ce cas d’usage peut là encore s’implémenter avec de simples
-classes.
-
-Le script **[trait-06.php]** met en œuvre une classe dérivée et un
-trait :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   trait Trait01 {
-     // attribut
-     private $i;
-
-     // méthode à partager
-     public function doSomethingInTrait01() {
-       // modification Trait01::$i
-       $this->i++;
-       // affichage
-       print "Trait01::doSomethingInTrait01… i=$this->i\n";
-     }
-
-   }
-
-   class Class02 {
-     // attribut
-     protected $j = 0;
-
-     // méthode
-     public function doSomethingInClass02(): void {
-       // modification Class02::j
-       $this->j += 10;
-       // affichage
-       print "Class02->doSomethingInClass02… j=$this->j\n";
-     }
-
-   }
-
-   // classe dérivée
-   class Class03 extends Class02 {
-     // hérite de Class02:j et Trait01::i
-     // inclusion Trait01
-     use Trait01;
-
-     // méthode
-     public function doSomethingInClass03(): void {
-       // utilisation méthode de Trait01
-       $this->doSomethingInTrait01();
-       // modification Trait01::i
-       $this->i += 100;
-       // modification Class03::j (==Class02::j)
-       $this->j += 1000;
-       // affichage
-       print "Class03->doSomethingInClass03… i=$this->i, j=$this->j\n";
-     }
-
-   }
-
-   // test ----------------
-   (new Class02())->doSomethingInClass02();
-   (new Class03())->doSomethingInClass03();
-
-**Commentaires**
-
--  lignes 3-15 : on revient à un trait **[Trait01]** avec un attribut et
-   une méthode manipulant celui-ci ;
-
--  lignes 17-29 : une classe **[Class02]** qui n’a rien à voir avec le
-   trait **[Trait01]**. Elle ne l’utilise pas ;
-
--  ligne 19 : on a déclaré l’unique attribut de **[Class02]** avec une
-   visibilité **[protected]** pour que celui-ci soit accessible dans les
-   classes dérivées ;
-
--  ligne 32 : la classe **[Class03]** étend la classe **[Class02]**. De
-   plus elle incorpore le trait **[Trait01]** (ligne 35). Finalement,
-   elle hérite des attributs et méthodes de **[Class02]** et incorpore
-   les attributs et méthodes de **[Trait01]**. On a donc bien quelque
-   chose d’analogue à l’héritage multiple ;
+-  lignes 29-32 : en cas d’erreur irrécupérable, on affiche le message
+   de l’erreur ;
 
 **Résultats**
 
-.. code-block:: php 
-   :linenos:
-
-   Class02->doSomethingInClass02… j=10
-   Trait01::doSomethingInTrait01… i=1
-   Class03->doSomethingInClass03… i=101, j=1000
-
-De la même façon qu’il a été fait dans un exemple précédent, nous allons
-montrer que :
-
--  le trait peut être remplacé par une classe ;
-
--  au lieu d’incorporer le trait dans la classe dérivée, on incorpore la
-   référence d’une instance de la classe ;
-
-Le script **[trait-07.php]** est le suivant :
+Avec le fichier des contribuables **[taxpayersdata.txt]** suivants :
 
 .. code-block:: php 
    :linenos:
 
-   <?php
+   oui,2,55555
+   oui,2,50000
+   oui,3,50000
+   non,2,100000
+   non,3x,100000
+   oui,3,100000
+   oui,5,100000x
+   non,0,100000
+   oui,2,30000
+   non,0,200000
+   oui,3,200000
 
-   class Class01 {
-     // attribut
-     protected $i;
-
-     // getter et setter
-     public function getI(): int {
-       return $this->i;
-     }
-
-     public function setI(int $i): void {
-       $this->i = $i;
-     }
-
-     // méthode
-     public function doSomethingInClass01(): void {
-       // modification Class01::$i
-       $this->i++;
-       // affichage
-       print "Class01::doSomething in Class01… i=$this->i\n";
-     }
-
-   }
-
-   class Class02 {
-     // attribut
-     protected $j = 0;
-
-     // méthode propre à la classe
-     public function doSomethingInClass02(): void {
-       // modification Class02::j
-       $this->j += 10;
-       // affichage
-       print "Class02->doSomethingInClass02… j=$this->j\n";
-     }
-
-   }
-
-   class Class03 extends Class02 {
-     // inclusion Class01
-     private $class01;
-
-     // setter
-     public function setClass01(Class01 $class01) {
-       $this->class01 = $class01;
-     }
-
-     // méthode locale à la classe
-     public function doSomethingInClass03(): void {
-       // utilisation méthode de Class01
-       $this->class01->doSomethingInClass01();
-       // modification Class01::i
-       $i = $this->class01->getI();
-       $i += 100;
-       $this->class01->setI($i);
-       // modification Class03::j
-       $this->j += 1000;
-       // affichage
-       print "Class03->doSomethingInClass03… i=$i, j=$this->j\n";
-     }
-
-   }
-
-   // test ----------------
-   $class01 = new Class01();
-   $class02 = new Class02();
-   $class03 = new Class03();
-   $class03->setClass01($class01);
-   $class02->doSomethingInClass02();
-   $class03->doSomethingInClass03();
-
-**Commentaires**
-
--  lignes 3-24 : la classe **[Class01]** remplace le trait
-   **[Trait01]**. Comme la classe **[Class01]** va être incorporée dans
-   les classes via une référence, on a prévu des get / set pour
-   l’attribut **[$i]** ;
-
--  lignes 26-38 : la classe **[Classe02]** ne change pas ;
-
--  ligne 40 : la classe **[Class03]** étend la classe **[Classe02]** ;
-
--  ligne 42 : la classe **[Classe01]** est incorporée à **[Classe03]**
-   via une référence ;
-
--  lignes 45-47 : on prévoit un *setter* pour initialiser la référence à
-   la classe **[Classe01]** ;
-
--  lignes 50-61 : la méthode **[doSomethingInClass03]** fait la même
-   chose que précédemment avec cependant un code plus complexe ;
-
-**Résultats**
+on obtient le fichier des erreurs **[errors.txt]** suivant :
 
 .. code-block:: php 
    :linenos:
 
-   Class02->doSomethingInClass02… j=10
-   Class01::doSomething in Class01… i=1
-   Class03->doSomethingInClass03… i=101, j=1000
+   la ligne [5] du fichier [taxpayersdata.txt] est erronée
+   la ligne [7] du fichier [taxpayersdata.txt] est erronée
 
-De cet exemple, on peut conclure que là encore le trait n’est pas
-indispensable mais il faut reconnaître qu’il permet l’écriture d’un code
-plus court dans la classe dérivée.
-
-Utiliser un trait à la place d’une classe abstraite
----------------------------------------------------
-
-On rencontre souvent le cas d’utilisation suivant : on crée une
-interface **I** assez générale qui peut donner naissance à plusieurs
-implémentations. Celles-ci partagent un code commun mais diffèrent par
-d’autres méthodes. On peut implémenter ce cas d’utilisation de deux
-façons :
-
-1. on crée une classe **abstraite** **C** qui regroupe le code commun
-   aux classes dérivées. La classe C implémente l’interface I mais
-   certaines méthodes qui doivent être déclarées dans les classes
-   dérivées sont dans la classe C déclarées abstraites et donc la classe
-   C est elle-même abstraite. On crée ensuite des classes C1 et C2
-   dérivées de C qui implémentent chacune à leur manière les méthodes
-   non définies (abstraites) de leur classe parent C ;
-
-2. on crée un **trait** **T** quasi identique à la classe abstraite C de
-   la solution précédente. Ce trait n’implémente pas l’interface I car
-   syntaxiquement elle ne le peut pas. On crée ensuite des classes C1 et
-   C2 implémentant l’interface I et utilisant le trait T. Il ne reste
-   plus à ces classes qu’à implémenter les méthodes de l’interface I non
-   implémentées par le trait T qu’elles importent ;
-
-Voici un exemple qui montre la grande proximité de ces deux solutions.
-
-L’application 1 implémente la solution 1 décrite précédemment
-**[trait-08.php]** :
+et le fichier des résultats **[resultats.txt]** suivant :
 
 .. code-block:: php 
    :linenos:
 
-   <?php
-
-   interface Interface1 {
-
-     public function doSomething(): void;
-
-     public function doSomethingElse(): void;
-   }
-
-   abstract class AbstractClass implements Interface1 {
-     // attributs
-     protected $attr1 = 11;
-     protected $attr2 = 12;
-
-     // getters et setters
-     public function getAttr1() {
-       return $this->attr1;
-     }
-
-     public function getAttr2() {
-       return $this->attr2;
-     }
-
-     public function setAttr1($attr1) {
-       $this->attr1 = $attr1;
-       return $this;
-     }
-
-     public function setAttr2($attr2) {
-       $this->attr2 = $attr2;
-       return $this;
-     }
-
-     // méthode implémentée
-     public function doSomething(): void {
-       print "AbstractClass::doSomething [$this->attr1,$this->attr2]\n";
-     }
-
-     // méthode non implémentée
-     abstract public function doSomethingElse(): void;
-   }
-
-   // classe dérivée 1
-   class Class1 extends AbstractClass {
-     // attribut
-     private $attr3 = 13;
-
-     // getter et setter
-     public function getAttr3() {
-       return $this->attr3;
-     }
-
-     public function setAttr3($attr3) {
-       $this->attr3 = $attr3;
-       return $this;
-     }
-
-     // implémentation doSomethingElse
-     public function doSomethingElse(): void {
-       print "Class1::doSomethingElse [$this->attr1,$this->attr2,$this->attr3]\n";
-     }
-
-   }
-
-   // classe dérivée 2
-   class Class2 extends AbstractClass {
-     // attribut
-     private $attr4 = 14;
-
-     public function getAttr4() {
-       return $this->attr4;
-     }
-
-     public function setAttr4($attr4) {
-       $this->attr4 = $attr4;
-       return $this;
-     }
-
-     // implémentation doSomethingElse
-     public function doSomethingElse(): void {
-       print "Class2::doSomethingElse [$this->attr1,$this->attr2,$this->attr4]\n";
-     }
-
-   }
-
-   // fonction externe
-   function useInterfaceWith(Interface1 $interface):void{
-     $interface->doSomething();
-     $interface->doSomethingElse();
-   }
-
-   // tests
-   useInterfaceWith(new Class1());
-   useInterfaceWith(new Class2());
-
-**Commentaires**
-
--  lignes 3-8 : **l’interface** **[Interface1]** a deux méthodes ;
-
--  lignes 10-41 : la **classe abstraite** **[AbstractClass]** implémente
-   l’interface **[Interface1]** (ligne 10). Elle a deux attributs avec
-   leurs getters et setters (lignes 12-32), implémente la méthode
-   **[doSomething]** de l’interface **[Interface1]** (lignes 35-37) mais
-   ne sait pas implémenter la méthode **[doSomethingElse]**. Celle-ci
-   est donc déclarée abstraite (ligne 40). La classe abstraite
-   **[AbstractClass]** ne peut être instanciée et pour servir à quelque
-   chose elle doit obligatoirement être dérivée ;
-
--  lignes 44-63 : la classe **Class1** étend la classe abstraite
-   **[AbstractClass]** et donc implémente l’interface **[Interface1]**
-   (ligne 14). Elle donne un corps à la méthode **[doSomethingElse]**
-   que sa classe parent n’avait pas définie (lignes 59-61). Elle ajoute
-   également un attribut à ceux de sa classe parent (lignes 46-56) ;
-
--  lignes 66-82 : la classe **Class2** étend la classe abstraite
-   **[AbstractClass]** et donc implémente l’interface **[Interface1]**
-   (ligne 66). Elle donne un corps à la méthode **[doSomethingElse]**
-   que sa classe parent n’avait pas définie (lignes 80-82). Elle ajoute
-   également un attribut à ceux de sa classe parent (lignes 68-77) ;
-
--  lignes 87-90 : la fonction **[useInterfaceWith]** reçoit en paramètre
-   un type **[Interface1]** et appelle les deux méthodes de cette
-   interface ;
-
--  lignes 93-94 : on appelle la fonction **[useInterfaceWith]** la
-   1\ :sup:`re` fois avec un type **[Class1]** et la seconde fois avec
-   un type **[Class2]**. C’est correct puisque ces deux types
-   implémentent l’interface **[Interface1]** ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   AbstractClass::doSomething [11,12]
-   Class1::doSomethingElse [11,12,13]
-   AbstractClass::doSomething [11,12]
-   Class2::doSomethingElse [11,12,14]
-
-Maintenant nous implémentons la solution 2 avec le script
-**[trait-09.php]**. Cela consiste à remplacer la classe abstraite par un
-trait :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   interface Interface1 {
-
-     public function doSomething(): void;
-
-     public function doSomethingElse(): void;
-   }
-
-   trait Trait1 {
-     // attributs
-     private $attr1 = 11;
-     private $attr2 = 12;
-
-     // getters et setters
-     public function getAttr1() {
-       return $this->attr1;
-     }
-
-     public function getAttr2() {
-       return $this->attr2;
-     }
-
-     public function setAttr1($attr1) {
-       $this->attr1 = $attr1;
-       return $this;
-     }
-
-     public function setAttr2($attr2) {
-       $this->attr2 = $attr2;
-       return $this;
-     }
-
-     // méthode implémentée
-     public function doSomething(): void {
-       print "Trait::doSomething [$this->attr1,$this->attr2]\n";
-     }
-   }
-
-   // classe dérivée 1
-   class Class1 implements Interface1 {
-     // utilisation du trait
-     use Trait1;
-     // attribut
-     private $attr3 = 13;
-
-     // getter et setter
-     public function getAttr3() {
-       return $this->attr3;
-     }
-
-     public function setAttr3($attr3) {
-       $this->attr3 = $attr3;
-       return $this;
-     }
-
-     // implémentation doSomethingElse
-     public function doSomethingElse(): void {
-       print "Class1::doSomethingElse [$this->attr1,$this->attr2,$this->attr3]\n";
-     }
-
-   }
-
-   // classe dérivée 2
-   class Class2 implements Interface1 {
-     // utilisation du trait
-     use Trait1;
-     // attribut
-     private $attr4 = 14;
-
-     public function getAttr4() {
-       return $this->attr4;
-     }
-
-     public function setAttr4($attr4) {
-       $this->attr4 = $attr4;
-       return $this;
-     }
-
-     // implémentation doSomethingElse
-     public function doSomethingElse(): void {
-       print "Class2::doSomethingElse [$this->attr1,$this->attr2,$this->attr4]\n";
-     }
-
-   }
-
-   // fonction externe utilisant l'interface
-   function useInterfaceWith(Interface1 $interface): void {
-     $interface->doSomething();
-     $interface->doSomethingElse();
-   }
-
-   // tests
-   useInterfaceWith(new Class1());
-   useInterfaceWith(new Class2());
-
-**Commentaires**
-
--  lignes 3-8 : l’interface **[Interface1]** n’a pas changé ;
-
--  lignes 10-41 : le trait **[Trait1]** remplace la classe abstraite
-   **[AbstractClass]** de la solution 1. Le code est le même aux détails
-   près suivants :
-
-   -  ligne 10 : le trait **[Trait1]** n’implémente pas l’interface
-      **[Interface1]**. C’est syntaxiquement impossible ;
-
-   -  lignes 12-13 : l’attribut de visibilité **[protected]** des
-      attributs de la classe abstraite **[AbstractClass]** devient ici
-      **[private]**. Ces deux attributs visent à donner aux classes
-      dérivées un accès direct aux attributs de la classe parent
-      (protected) ou du trait (private) sans avoir à passer par les
-      getters et setters ;
-
-   -  le trait **[Trait1]** ne déclare pas la méthode abstraite
-      **[doSomethingElse]** ;
-
--  lignes 41-62 : la classe **[Class1]** de la solution 2 est identique
-   à la classe **[Class1]** de la solution 1 aux détails près suivants :
-
-   -  ligne 41 : la classe **[Class1]** implémente l’interface
-      **[Interface1]** alors que dans la solution 1, elle étendait la
-      classe abstraite **[AbstractClass]** ;
-
-   -  ligne 43 : elle utilise le trait **[Trait1]** pour implémenter une
-      partie de l’interface ;
-
--  lignes 65-85 : on peut faire les mêmes commentaires que pour
-   **[Class1]** ;
-
--  lignes 87-95 : le reste du code ne change pas ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   Trait::doSomething [11,12]
-   Class1::doSomethingElse [11,12,13]
-   Trait::doSomething [11,12]
-   Class2::doSomethingElse [11,12,14]
-
-On obtient bien les mêmes résultats.
-
-Conclusion
-----------
-
-Des exemples précédents, il ressort que les cas d’utilisation où l’usage
-du trait amènerait un avantage net ne sont pas clairs. Sur nos exemples
-on peut toujours s’en passer en le remplaçant par une classe. Il semble
-cependant que son utilisation soit pratique pour factoriser du code
-entre différentes classes dérivées, comme si ce code appartenait à une
-classe parent. C’est ce que nous ferons dans un exemple à suivre.
+   {"marié":"oui","enfants":2,"salaire":55555,"impôt":2814,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
+   {"marié":"oui","enfants":2,"salaire":50000,"impôt":1384,"surcôte":0,"décôte":384,"réduction":347,"taux":0.14}
+   {"marié":"oui","enfants":3,"salaire":50000,"impôt":0,"surcôte":0,"décôte":720,"réduction":0,"taux":0.14}
+   {"marié":"non","enfants":2,"salaire":100000,"impôt":19884,"surcôte":4480,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":3,"salaire":100000,"impôt":9200,"surcôte":2180,"décôte":0,"réduction":0,"taux":0.3}
+   {"marié":"non","enfants":0,"salaire":100000,"impôt":22986,"surcôte":0,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":2,"salaire":30000,"impôt":0,"surcôte":0,"décôte":0,"réduction":0,"taux":0}
+   {"marié":"non","enfants":0,"salaire":200000,"impôt":64210,"surcôte":7498,"décôte":0,"réduction":0,"taux":0.45}
+   {"marié":"oui","enfants":3,"salaire":200000,"impôt":42842,"surcôte":17283,"décôte":0,"réduction":0,"taux":0.41}
 
 .. |image0| image:: ./chap-09/media/image1.png
-   :width: 1.09843in
-   :height: 2.2563in
+   :width: 2.13386in
+   :height: 1.9689in
+.. |image1| image:: ./chap-09/media/image2.png
+   :width: 6.1811in
+   :height: 1.80709in
+.. |image2| image:: ./chap-09/media/image3.png
+   :width: 5.25984in
+   :height: 2.47638in
+.. |image3| image:: ./chap-09/media/image4.png
+   :width: 6.14567in
+   :height: 1.49252in
+.. |image4| image:: ./chap-09/media/image5.png
+   :width: 5.1374in
+   :height: 2.65748in
+.. |image5| image:: ./chap-09/media/image6.png
+   :width: 5.70827in
+   :height: 2.66929in
+.. |image6| image:: ./chap-09/media/image7.png
+   :width: 2.37008in
+   :height: 1.71653in

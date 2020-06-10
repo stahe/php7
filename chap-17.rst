@@ -1,3647 +1,1679 @@
-Services web
-============
+Fonctions réseau
+================
 
-**Note** : par *service web*, on entend ici tout application web
-délivrant des données brutes consommées par un client, un script console
-dans les exemples qui vont suivre. On ne s’intéresse pas à une
-technologie particulière, REST (**RE**\ presentational **S**\ tate
-**T**\ ransfer) ou SOAP (**S**\ imple **O**\ bject **A**\ ccess
-**P**\ rotocol) par exemple, qui délivrent des données plus ou moins
-brutes dans un format bien défini. REST délivre du jSON alors que pour
-SOAP c’est du XML. Chacune de ces technologies décrit précisément la
-façon dont le client doit interroger le serveur et la forme que doit
-prendre la réponse de celui-ci. Dans ce cours, on sera beaucoup plus
-souple quant à la nature de la requête client et celle de la réponse du
-serveur. Cependant, les scripts écrits et les outils utilisés sont
-proches de ceux de la technologie REST.
-
-Introduction
-------------
-
-Les programmes PHP pouvant être exécutés par un serveur WEB, un tel
-programme devient un programme serveur pouvant servir plusieurs clients.
-Du point de vue du client, appeler un service web revient à demander
-l'URL de ce service. Le client peut être écrit avec n'importe quel
-langage, notamment en PHP. Dans ce dernier cas, on utilise alors les
-fonctions réseau que nous venons de voir. Il nous faut par ailleurs
-savoir "converser" avec un service web, c'est-à-dire comprendre le
-protocole *http* de communication entre un serveur WEB et ses clients.
-C'était le but du paragraphe `lien <#_Le_protocole_HTTP>`__.
-
-Le client web décrit au paragraphe `lien <#_Exemple_6>`__ nous a permis
-de découvrir une partie du protocole HTTP.
+Nous abordons maintenant les fonctions réseau de PHP qui nous permettent
+de faire de la programmation TCP / IP (**T**\ ransfer **C**\ ontrol
+**P**\ rotocol / **I**\ nternet **P**\ rotocol).
 
 |image0|
 
-Dans leur version la plus simple, les échanges client / serveur sont les
-suivants :
+Les bases de la programmation internet
+--------------------------------------
 
--  le client ouvre une connexion avec le port 80 du serveur web ;
+Généralités
+~~~~~~~~~~~
 
--  il fait une requête concernant un document ;
-
--  le serveur web envoie le document demandé et ferme la connexion ;
-
--  le client ferme à son tour la connexion ;
-
-Le document peut être de nature diverse : un texte au format HTML, une
-image, une vidéo… Ce peut être un document existant (document statique)
-ou bien un document généré à la volée par un script (document
-dynamique). Dans ce dernier cas, on parle de programmation web. Le
-script de génération dynamique de documents peut être écrit dans divers
-langages : PHP, Python, Perl, Java, Ruby, C#, VB.net…
-
-Dans la suite, nous allons utiliser des scripts PHP pour générer
-dynamiquement des documents texte.
+Considérons la communication entre deux machines distantes A et B :
 
 |image1|
 
--  en **[1]**, le client ouvre une connexion avec le serveur, demande un
-   script PHP, envoie ou non des paramètres à destination de ce script ;
+Lorsque une application *AppA* d'une machine A veut communiquer avec une
+application *AppB* d'une machine B de l'Internet, elle doit connaître
+plusieurs choses :
 
--  en **[2]**, le serveur web fait exécuter le script PHP par
-   l'interpréteur PHP. Le script génère un document qui est envoyé au
-   client **[3] ;**
+-  l'adresse IP (**I**\ nternet **P**\ rotocol) ou le nom de la machine
+   B ;
 
--  le serveur clôt la connexion. Le client en fait autant ;
+-  le numéro du port avec lequel travaille l'application *AppB*. En
+   effet la machine B peut supporter de nombreuses applications qui
+   travaillent sur l'Internet. Lorsqu'elle reçoit des informations
+   provenant du réseau, elle doit savoir à quelle application sont
+   destinées ces informations. Les applications de la machine B ont
+   accès au réseau via des guichets appelés également des **ports de
+   communication**. Cette information est contenue dans le paquet reçu
+   par la machine B afin qu'il soit délivré à la bonne application ;
 
-Le serveur web peut traiter plusieurs clients à la fois.
+-  les protocoles de communication compris par la machine B. Dans notre
+   étude, nous utiliserons uniquement les protocoles TCP-IP ;
 
-Avec le paquetage logiciel **[Laragon]**, le serveur web est un serveur
-Apache, un serveur open source de l'Apache Foundation
-(http://www.apache.org/). Dans les applications qui suivent,
-**[Laragon]** doit être lancé :
+-  le protocole de dialogue accepté par l'application *AppB*. En effet,
+   les machines A et B vont se "parler". Ce qu'elles vont dire va être
+   encapsulé dans les protocoles TCP-IP. Néanmoins, lorsqu'au bout de la
+   chaîne, l'application *AppB* va recevoir l'information envoyée par
+   l'applicaton *AppA*, il faut qu'elle soit capable de l'interpréter.
+   Ceci est analogue à la situation où deux personnes A et B
+   communiquent par téléphone : leur dialogue est transporté par le
+   téléphone. La parole va être codée sous forme de signaux par le
+   téléphone A, transportée par des lignes téléphoniques, arriver au
+   téléphone B pour y être décodée. La personne B entend alors des
+   paroles. C'est là qu'intervient la notion de protocole de dialogue :
+   si A parle français et que B ne comprend pas cette langue, A et B ne
+   pourront dialoguer utilement ;
+
+..
+
+   Aussi les deux applications communicantes doivent-elles être d'accord
+   sur le type de dialogue qu'elles vont adopter. Par exemple, le
+   dialogue avec un service *ftp* n'est pas le même qu'avec un service
+   *pop* : ces deux services n'acceptent pas les mêmes commandes. Elles
+   ont un protocole de dialogue différent ;
+
+Les caractéristiques du protocole TCP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Nous n'étudierons ici que des communications réseau utilisant le
+protocole de transport TCP dont voici les principales caractéristiques :
+
+-  le processus qui souhaite émettre établit tout d'abord une
+   **connexion** avec le processus destinataire des informations qu'il
+   va émettre. Cette connexion se fait entre un port de la machine
+   émettrice et un port de la machine réceptrice. Il y a entre les deux
+   ports un chemin virtuel qui est ainsi créé et qui sera réservé aux
+   deux seuls processus ayant réalisé la connexion ;
+
+-  tous les paquets émis par le processus source suivent ce chemin
+   virtuel et arrivent dans l'ordre où ils ont été émis ;
+
+-  l'information émise a un aspect continu. Le processus émetteur envoie
+   des informations à son rythme. Celles-ci ne sont pas nécessairement
+   envoyées tout de suite : le protocole TCP attend d'en avoir assez
+   pour les envoyer. Elles sont stockées dans une structure appelée
+   *segment TCP*. Ce segment une fois rempli sera transmis à la couche
+   IP où il sera encapsulé dans un paquet IP ;
+
+-  chaque segment envoyé par le protocole TCP est numéroté. Le protocole
+   TCP destinataire vérifie qu'il reçoit bien les segments en séquence.
+   Pour chaque segment correctement reçu, il envoie un accusé de
+   réception à l'expéditeur ;
+
+-  lorsque ce dernier le reçoit, il l'indique au processus émetteur.
+   Celui-ci peut donc savoir qu'un segment est arrivé à bon port ;
+
+-  si au bout d'un certain temps, le protocole TCP ayant émis un segment
+   ne reçoit pas d'accusé de réception, il retransmet le segment en
+   question, garantissant ainsi la qualité du service d'acheminement de
+   l'information ;
+
+-  le circuit virtuel établi entre les deux processus qui communiquent
+   est *full-duplex* : cela signifie que l'information peut transiter
+   dans les deux sens. Ainsi le processus destination peut envoyer des
+   accusés de réception alors même que le processus source continue
+   d'envoyer des informations. Cela permet par exemple au protocole TCP
+   source d'envoyer plusieurs segments sans attendre d'accusé de
+   réception. S'il réalise au bout d'un certain temps qu'il n'a pas reçu
+   l'accusé de réception d'un certain segment n° *n*, il reprendra
+   l'émission des segments à ce point ;
+
+   1. .. rubric:: La relation client-serveur
+         :name: la-relation-client-serveur
+
+Souvent, la communication sur Internet est dissymétrique : la machine A
+initie une connexion pour demander un service à la machine B : il
+précise qu'il veut ouvrir une connexion avec le service SB1 de la
+machine B. Celle-ci accepte ou refuse. Si elle accepte, la machine A
+peut envoyer ses demandes au service SB1. Celles-ci doivent se conformer
+au protocole de dialogue compris par le service SB1. Un dialogue
+demande-réponse s'instaure ainsi entre la machine A qu'on appelle
+machine **cliente** et la machine B qu'on appelle machine **serveur**.
+L'un des deux partenaires fermera la connexion.
+
+Architecture d'un client
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+L'architecture d'un programme réseau demandant les services d'une
+application serveur sera la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   ouvrir la connexion avec le service SB1 de la machine B
+   si réussite alors
+   	tant que ce n'est pas fini
+   		préparer une demande
+   		l'émettre vers la machine B
+   		attendre et récupérer la réponse
+   		la traiter
+   	fin tant que
+   finsi
+   fermer la connexion
+
+Architecture d'un serveur
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+L'architecture d'un programme offrant des services sera la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   ouvrir le service sur la machine locale
+   tant que le service est ouvert
+   	se mettre à l'écoute des demandes de connexion sur un port dit port d'écoute
+   	lorsqu'il y a une demande, la faire traiter par une autre tâche sur un autre port dit port de service
+   fin tant que
+
+Le programme serveur traite différemment la demande de connexion
+initiale d'un client de ses demandes ultérieures visant à obtenir un
+service. Le programme n'assure pas le service lui-même. S'il le faisait,
+pendant la durée du service il ne serait plus à l'écoute des demandes de
+connexion et des clients ne seraient alors pas servis. Il procède donc
+autrement : dès qu'une demande de connexion est reçue sur le port
+d'écoute puis acceptée, le serveur crée une tâche chargée de rendre le
+service demandé par le client. Ce service est rendu sur un autre port de
+la machine serveur appelé **port de service**. On peut ainsi servir
+plusieurs clients en même temps.
+
+Une tâche de service aura la structure suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   tant que le service n'a pas été rendu totalement
+   		attendre une demande sur le port de service
+   		lorsqu'il y en a une, élaborer la réponse
+   		transmettre la réponse via le port de service
+   fin tant que
+   libérer le port de service
+
+Découvrir les protocoles de communication de l'internet
+-------------------------------------------------------
+
+Introduction
+~~~~~~~~~~~~
+
+Lorsqu'un client s'est connecté à un serveur, s'établit ensuite un
+dialogue entre-eux. La nature de celui-ci forme ce qu'on appelle le
+protocole de communication du serveur. Parmi les protocoles les plus
+courants de l'internet on trouve les suivants :
+
+-  HTTP : **H**\ yper\ **T**\ ext **T**\ ransfer **P**\ rotocol - le
+   protocole de dialogue avec un serveur web (serveur HTTP) ;
+
+-  SMTP : **S**\ imple **M**\ ail **T**\ ransfer **P**\ rotocol - le
+   protocole de dialogue avec un serveur d'envoi de courriers
+   électroniques (serveur SMTP) ;
+
+-  POP : **P**\ ost **O**\ ffice **P**\ rotocol - le protocole de
+   dialogue avec un serveur de stockage du courrier électronique
+   (serveur POP). Il s'agit là de récupérer les courriers électroniques
+   reçus et non d'en envoyer ;
+
+-  IMAP : **I**\ nternet **M**\ essage **A**\ ccess **P**\ rotocol - le
+   protocole de dialogue avec un serveur de stockage du courrier
+   électronique (serveur IMAP). Ce protocole a remplacé progressivement
+   le protocole POP plus ancien ;
+
+-  FTP : **F**\ ile **T**\ ransfer **P**\ rotocol - le protocole de
+   dialogue avec un serveur de stockage de fichiers (serveur FTP) ;
+
+Tous ces protocoles ont la particularité d'être des protocoles à lignes
+de texte : le client et le serveur s'échangent des lignes de texte. Si
+on a un client capable de :
+
+-  créer une connexion avec un serveur TCP ;
+
+-  afficher à la console les lignes de texte que le serveur lui envoie ;
+
+-  envoyer au serveur les lignes de texte qu'un utilisateur saisirait au
+   clavier ;
+
+alors on est capable de dialoguer avec un serveur TCP ayant un protocole
+à lignes de texte pour peu qu'on connaisse les règles de ce protocole.
+
+Utilitaires TCP
+~~~~~~~~~~~~~~~
 
 |image2|
 
-Cela lance le serveur web Apache ainsi que le SGBD MySQL.
+Dans les codes associés à ce document, on trouve deux utilitaires de
+communication TCP :
 
-Les scripts exécutés par le serveur web seront écrits avec l'outil
-Netbeans. Nous avons écrit jusqu'à maintenant des scripts PHP exécutés
-dans un contexte console :
+-  **[RawTcpClient]** permet de se connecter sur le port P d’un serveur
+   S ;
+
+-  **[RawTcpServer]** permet de créer un serveur qui attend des clients
+   sur un port P ;
+
+Le serveur TCP **[RawTcpServer]** s’appelle avec la syntaxe
+**[RawTcpServeur port]** pour créer un service TCP sur le port
+**[port]** de la machine locale (l’ordinateur sur lequel vous
+travaillez) :
+
+-  le serveur peut servir plusieurs clients simultanément ;
+
+-  le serveur exécute les commandes tapées par l’utilisateur tapées au
+   clavier. Celles-ci sont les suivantes :
+
+   -  **list** : liste les clients actuellement connectés au serveur.
+      Ceux-ci sont affichés sous la forme **[id=x-nom=y]**. Le champ
+      **[id]** sert à identifier les clients ;
+
+   -  **send x [texte]** : envoie **texte** au client n° **x** (id=x).
+      Les crochets [] ne sont pas envoyés. Ils sont nécessaires dans la
+      commande. Ils servent à délimiter visuellement le texte envoyé au
+      client ;
+
+   -  **close x** : ferme la connexion avec le client n° **x** ;
+
+   -  **quit** : ferme toutes les connexions et arrête le service ;
+
+-  les lignes envoyées par le client au serveur sont affichées sur la
+   console ;
+
+-  l’ensemble des échanges est logué dans un fichier texte portant le
+   nom **[machine-portService.txt]** où
+
+   -  **[machine]** est le nom de la machine sur laquelle s’exécute le
+      code ;
+
+   -  **[port]** est le port de service qui répond aux demandes du
+      client ;
+
+Le client TCP **[RawTcpClient]** s’appelle avec la syntaxe
+**[RawTcpClient serveur port]** pour se connecter au port **[port]** du
+serveur **[serveur]** :
+
+-  les lignes tapées par l’utilisateur au clavier sont envoyées au
+   serveur ;
+
+-  les lignes envoyées par le serveur sont affichées sur la console ;
+
+-  l’ensemble des échanges est logué dans un fichier texte portant le
+   nom **[serveur-port.txt]** ;
+
+Voyons un exemple. On ouvre deux fenêtres de commandes Windows et on se
+positionne dans chacune d’elles sur le dossier des utilitaires. Dans
+l’une des fenêtres on lance le serveur **[RawTcpServer]** sur le port
+100 :
 
 |image3|
 
-L'utilisateur utilise la console pour demander l'exécution d'un script
-PHP et en recevoir les résultats.
+-  en **[1]**, nous sommes placés dans le dossier des utilitaires ;
 
-Dans les applications client /serveur qui vont suivre :
+-  en **[2]**, nous lançons le serveur TCP sur le port 100 ;
 
--  le script du client est exécuté dans un contexte console ;
+-  en **[3]**, le serveur se met en attente d’un client TCP ;
 
--  le script du serveur est exécuté dans un contexte web ;
+-  en **[4]**, le serveur attend une commande tapée par l’utilisateur au
+   clavier ;
+
+Dans l’autre fenêtre de commandes, on lance le client TCP :
 
 |image4|
 
-Le script PHP du serveur ne peut pas être n'importe où dans le système
-de fichiers. En effet, le serveur web cherche dans des endroits précisés
-par configuration, les documents statiques et dynamiques qu'on lui
-demande. La configuration par défaut de Laragon fait que les documents
-sont cherchés dans le dossier *<Laragon>/www* où <*Laragon*> est le
-dossier d'installation de Laragon. Ainsi si un client web demande un
-document D avec l'URL **[http://localhost/D]**, le serveur web lui
-servira le document D de chemin **[<Laragon>/www/D]**.
+-  en **[5]**, nous sommes placés dans le dossier des utilitaires ;
 
-Dans les exemples qui suivent, nous mettrons les scripts serveur dans le
-dossier **[www/php7/scripts-web]**. Si un script serveur s'appelle
-*S.php*, il sera demandé au serveur web avec l'URL
-**[http://localhost/php7/scripts-web/S.php]**. Le document
-**[<Laragon>/www/php7/scripts-web/S.php]** lui sera alors servi.
+-  en **[6]**, nous lançons le client TCP : nous lui disons de se
+   connecter au port 100 de la machine locale (celle avec laquelle vous
+   travaillez) ;
+
+-  en **[7]**, le client a réussi à se connecter au serveur. On indique
+   les coordonnées du client : il est sur la machine
+   **[DESKTOP-528I5CU]** (la machine locale dans cet exemple) et utilise
+   le port **[50405]** pour communiquer avec le serveur :
+
+-  en **[8]**, le client attend une commande tapée par l’utilisateur au
+   clavier ;
+
+Revenons sur la fenêtre du serveur. Son contenu a évolué :
 
 |image5|
 
--  en **[1]**, le dossier **[<laragon>/www]** ;
+-  en **[9]**, un client a été détecté. Le serveur lui a donné le n° 1.
+   Le serveur a correctement identifié le client distant (machine et
+   port) ;
 
--  en **[2]**, le dossier **[php7/scripts-web]** ;
+-  en **[10]**, le serveur se remet en attente d’un nouveau client ;
 
-Pour créer des scripts serveur avec Netbeans, nous procéderons de la
-façon suivante :
+Revenons sur la fenêtre du client et envoyons une commande au serveur :
 
 |image6|
 
--  en **[1-2]**, nous créons un nouveau projet
+-  en **[11]**, la commande envoyée au serveur ;
 
--  en **[3-4]**, nous prenons la catégorie **[PHP]** et le projet **[PHP
-   Application]**
+Revenons sur la fenêtre du serveur. Son contenu a évolué :
 
 |image7|
 
--  en **[5]**, le nom du projet ;
+-  en **[12]**, entre cochets, le message reçu par le serveur ;
 
--  en **[6]**, le dossier du projet dans le système de fichiers. Notez
-   que celui-ci est dans le dossier **[<laragon>/www]** où il doit
-   être ;
-
--  en **[7-8]**, acceptez les valeurs par défaut proposées ;
-
--  en **[9-10]**, acceptez les valeurs par défaut proposées. En
-   **[10]**, notez que l’URL des scripts que nous placerons dans ce
-   projet commencera par le chemin
-   **[http://localhost/php7/scripts-web/]** ;
+Envoyons une réponse au client :
 
 |image8|
 
--  en **[11]**, des frameworks web écrits en PHP vous sont proposés. Ces
-   frameworks sont indispensables dès que l’application web prend un peu
-   d’ampleur ;
+-  en **[13]**, la réponse envoyée au client 1. Seul le texte entre les
+   crochets est envoyé, pas les crochets eux-mêmes ;
 
--  en **[12]**, on peut ajouter des bibliothèques PHP à l’aide de
-   l’outil **[Composer]**. Nous avons utilisé cet outil à deux reprises
-   dans une fenêtre **[Terminal]** de Laragon :
-
-   -  pour installer la bibliothèque **[SwiftMailer]** qui permet
-      d’envoyer des mails ;
-
-   -  pour installer la bibliothèque **[php-mime-mail-parser]** qui
-      permet de lire des mails ;
-
--  en **[13]**, une fois l’assistant de création du projet validé,
-   celui-ci apparaît en **[13]** dans l’onglet des projets ;
-
-Ecriture d’une page statique
-----------------------------
-
-**Note **: Pour la suite, il faut que **[Laragon]** soit lancé.
-
-Nous allons montrer comment créer une page statique HTML (HyperText
-Markup Language) à l’aide de Netbeans :
+Revenons à la fenêtre du client :
 
 |image9|
 
--  en **[1-5]**, nous créons un dossier nommé **[01]** ;
+-  en **[14]**, la réponse reçue par le client. Le texte reçu est celui
+   entre crochets ;
+
+Revenons à la fenêtre du serveur pour voir d’autres commandes :
 
 |image10|
 
+-  en **[15]**, nous demandons la liste des clients ;
+
+-  en **[16]**, la réponse ;
+
+-  en **[17]**, nous fermons la connexion avec le client n° 1 ;
+
+-  en **[18]**, la confirmation du serveur ;
+
+-  en **[19]**, nous arrêtons le serveur ;
+
+-  en **[20]**, la confirmation du serveur ;
+
+Revenons à la fenêtre du client :
+
 |image11|
 
--  en **[6-12]**, nous créons un fichier HTML **[exemple-01.html]** ;
+-  en **[21]**, le client a détecté la fin du service ;
 
-Le fichier **[exemple-01.html]** est généré prérempli de la façon
-suivante (mai 2019) :
-
-.. code-block:: php 
-   :linenos:
-
-   <!DOCTYPE html>
-   <!--
-   To change this license header, choose License Headers in Project Properties.
-   To change this template file, choose Tools | Templates
-   and open the template in the editor.
-   -->
-   <html>
-       <head>
-           <title>TODO supply a title</title>
-           <meta charset="UTF-8">
-           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       </head>
-       <body>
-           <div>TODO write content</div>
-       </body>
-   </html>
-
-Faisons évoluer son contenu de la façon suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <!DOCTYPE html>
-   <html>
-       <head>
-           <title>PHP7 par l'exemple</title>
-           <meta charset="UTF-8">
-           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       </head>
-       <body>
-           <div><b>Ceci est un exemple de page statique</b></div>
-       </body>
-   </html>
-
-Nous avons changé le titre de la page (ligne 4) ainsi que son contenu
-(ligne 9).
-
-Maintenant faisons afficher cette page HTML par le serveur Apache de
-Laragon :
+Deux fichiers de logs ont été créés, un pour le serveur, un autre pour
+le client :
 
 |image12|
 
--  en **[1-2]**, nous faisons afficher la page par le serveur Apache de
-   Laragon ;
+-  en **[25]**, les logs du serveur : le nom du fichier est le nom du
+   client **[machine-port]** ;
 
--  en **[3]**, l’URL de la page affichée ;
+-  en **[26]**, les logs du client : le nom du fichier est le nom du
+   serveur **[machine-port]** ;
 
--  en **[4]**, le titre que nous avons modifié ;
+Les logs du serveur sont les suivants :
 
--  en **[5]**, le contenu que nous avons modifié ;
+.. code-block:: php 
+   :linenos:
 
-La page affichée est une page statique : on peut la charger autant de
-fois que l’on veut dans le navigateur (F5), c’est toujours le même
-contenu qui est affiché.
+   <-- [hello from client]
+   --> [hello from server]
 
-La plupart des navigateurs donnent accès aux données échangées entre le
-client et le serveur, celles qui ont été décrites au paragraphe
-`lien <#_Le_protocole_HTTP>`__. Avec le navigateur Firefox (mai 2019),
-il faut faire F12 pour avoir accès à ces données :
+Les logs du client sont les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   --> [hello from client]
+   <-- [hello from server]
+
+Obtenir le nom ou l'adresse IP d'une machine de l'Internet
+----------------------------------------------------------
 
 |image13|
 
-Comme indiqué en **[1]**, rechargeons la page (F5) :
+Les machines de l’internet sont identifiées par une adresse IP (IPv4 ou
+IPv6) et le plus souvent par un nom. Mais finalement seule l’adresse IP
+est utilisée. Il faut donc parfois connaître l’adresse IP d’une machine
+identifiée par son nom.
+
+Le script **[ip-01.php]** est le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // respect strict des types déclarés des paramètres de fonctions
+   declare (strict_types=1);
+   //
+   // gestion des erreurs
+   error_reporting(E_ALL & E_STRICT);
+   ini_set("display_errors", "on");
+   //
+   // constantes
+   $HOTES = array("istia.univ-angers.fr", "www.univ-angers.fr", "www.ibm.com", "localhost", "", "xx");
+   // adresses IP et noms des machines de $HOTES
+   for ($i = 0; $i < count($HOTES); $i++) {
+     getIPandName($HOTES[$i]);
+   }
+   // fin
+   print "Terminé\n";
+   exit;
+
+   //------------------------------------------------
+   function getIPandName(string $nomMachine): void {
+     //$nomMachine : nom de la machine dont on veut l'adresse IP
+     //
+     // nomMachine-->adresse IP
+     $ip = gethostbyname($nomMachine);
+     print "---------------\n";
+     if ($ip !== $nomMachine) {
+       print "ip[$nomMachine]=$ip\n";
+       // adresse IP --> nomMachine
+       $name = gethostbyaddr($ip);
+       if ($name !== $ip) {
+         print "name[$ip]=$name\n";
+       } else {
+         print "Erreur, machine[$ip] non trouvée\n";
+       }
+     } else {
+       print "Erreur, machine[$nomMachine] non trouvée\n";
+     }
+   }
+
+**Commentaires**
+
+-  lignes 7-8 : on demande à ce que PHP signale toutes les erreurs
+   (E_ALL & E_STRICT) et que celles-ci soient affichées. Ce mode n’est
+   recommandé qu’en mode développement pour améliorer le code avec les
+   avertissements de PHP. En mode production, ligne 8, on mettrait
+   « off ». Depuis PHP 5.4, le niveau E_STRICT est inclus dans E_ALL ;
+
+-  ligne 11 : la liste de machines dont on veut le nom et l’adresse IP ;
+
+Les fonctions réseau de PHP sont utilisées dans la fonction
+*getIpandName* de la ligne 21.
+
+-  ligne 25 : la fonction *gethostbyname($nom)* permet d'obtenir
+   l'adresse IP "ip3.ip2.ip1.ip0" de la machine s'appelant $\ *nom*. Si
+   la machine $\ *nom* n'existe pas, la fonction rend $\ *nom* comme
+   résultat ;
+
+-  ligne 30 : la fonction *gethostbyaddr($ip)* permet d'obtenir le nom
+   de la machine d'adresse $ip de la forme "ip3.ip2.ip1.ip0". Si la
+   machine $\ *ip* n'existe pas, la fonction rend $\ *ip* comme
+   résultat ;
+
+**Résultats** :
+
+.. code-block:: php 
+   :linenos:
+
+   ---------------
+   ip[istia.univ-angers.fr]=193.49.144.41
+   name[193.49.144.41]=ametys-fo-2.univ-angers.fr
+   ---------------
+   ip[www.univ-angers.fr]=193.49.144.41
+   name[193.49.144.41]=ametys-fo-2.univ-angers.fr
+   ---------------
+   ip[www.ibm.com]=2.18.220.211
+   name[2.18.220.211]=a2-18-220-211.deploy.static.akamaitechnologies.com
+   ---------------
+   ip[localhost]=127.0.0.1
+   name[127.0.0.1]=DESKTOP-528I5CU
+   ---------------
+   ip[]=192.168.1.38
+   name[192.168.1.38]=DESKTOP-528I5CU.home
+   ---------------
+   Erreur, machine[xx] non trouvée
+   Terminé
+
+Le protocole HTTP (HyperText Transfer Protocol)
+-----------------------------------------------
+
+Exemple 1
+~~~~~~~~~
 
 |image14|
 
--  en **[2]**, le document chargé par le navigateur : nous le
-   sélectionnons ;
+Lorsqu’un navigateur affiche une URL, il est le client d’un serveur web
+ou dit autrement d’un serveur HTTP. C’est lui qui prend l’initiative et
+il commence par envoyer un certain nombre de commandes au serveur. Pour
+ce premier exemple :
+
+-  le serveur sera l’utilitaire **[RawTcpServer]** ;
+
+-  le client sera un navigateur ;
+
+Nous lançons d’abord le serveur sur le port 100 :
 
 |image15|
 
--  en **[5]**, le document à analyser est sélectionné ;
-
--  en **[3-4]**, nous demandons à voir les échanges client / serveur ;
-
--  en **[6]**, ces échanges ;
+Puis avec un navigateur, nous demandons l’URL **[localhost:100]**, ç-a-d
+que nous disons que le serveur HTTP interrogé travaille sur le port 100
+de la machine locale :
 
 |image16|
 
--  en **[7]**, on sélectionne l’onglet des entêtes ;
-
--  en **[8]**, l’URL demandée par le navigateur ;
-
--  en **[9]**, la commande envoyée au serveur est **[GET
-   http://localhost/php7/scripts-web/01/exemple-01.html HTTP/1.1]** ;
-
--  en **[10]**, les entêtes HTTP envoyés ensuite par le navigateur (le
-   client) ;
-
--  en **[11]**, les entêtes HTTP de la réponse du serveur ;
+Revenons sur la fenêtre du serveur :
 
 |image17|
 
--  en **[12-14]**, la réponse du serveur envoyée après les entêtes
-   HTTP ;
+-  en **[3]**, le client qui s’est connecté ;
 
--  en **[14]**, on voit que le navigateur client a reçu la page HTML que
-   nous avons construite. Il a ensuite interprété ce code pour afficher
-   la chose suivante :
+-  en **[4-7]**, la série de lignes de texte qu’il a envoyées :
+
+   -  en **[4]** : cette ligne a le format **[GET URL HTTP/1.1]**. Elle
+      demande l’URL / et demande au serveur d’utiliser le protocole HTTP
+      1.1 ;
+
+   -  en **[5]** : cette ligne a le format **[Host: serveur:port]**. La
+      casse de la commande **[Host]** n’importe pas. On rappelle ici que
+      le client interroge un serveur local opérant sur le port 100 ;
+
+   -  la commande **[User-Agent]** donne l’identité du client ;
+
+   -  la commande **[Accept]** indique quels types de document sont
+      acceptés par le client ;
+
+   -  la commande **[Accept-Language]** indique dans quelle langue sont
+      souhaités les documents demandés s’ils existent en plusieurs
+      langues ;
+
+   -  la commande **[Connection]** indique le mode de connexion
+      souhaité : **[keep-alive]** indique que la connexion doit être
+      maintenue jusqu’à ce que les échanges soient terminés ;
+
+   -  en **[7]** : le client termine ses commandes par une ligne vide ;
+
+Nous terminons la connexion en terminant le serveur :
 
 |image18|
 
-Création d’une page dynamique en PHP
-------------------------------------
+Exemple 2
+~~~~~~~~~
 
-Nous écrivons maintenant une page dynamique en PHP :
+Maintenant que nous connaissons les commandes envoyées par un navigateur
+pour réclamer une URL, nous allons réclamer cette URL avec notre client
+TCP **[RawTcpClient]**. Le serveur Apache de Laragon sera notre serveur
+web.
+
+Lançons Laragon puis le serveur web Apache :
 
 |image19|
 
 |image20|
 
--  en **[1-8]**, nous créons une page **[exemple-01.php]** ;
-
-Le fichier **[exemple-01.php]** est généré prérempli de la façon
-suivante (mai 2019) :
-
-.. code-block:: php 
-   :linenos:
-
-   <!DOCTYPE html>
-   <!--
-   To change this license header, choose License Headers in Project Properties.
-   To change this template file, choose Tools | Templates
-   and open the template in the editor.
-   -->
-   <html>
-       <head>
-           <meta charset="UTF-8">
-           <title></title>
-       </head>
-       <body>
-           <?php
-           // put your code here
-           ?>
-       </body>
-   </html>
-
-Nous faisons évoluer le code ci-dessus de la façon suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <!DOCTYPE html>
-   <html>
-       <head>
-           <meta charset="UTF-8">
-           <title>Exemple de page dynamique</title>
-       </head>
-       <body>
-           <?php
-           // time : nb de millisecondes entre le moment présent et le 01/01/1970
-           // format affichage date-heure
-           // d : jour sur 2 chiffres
-           // m : mois sur 2 chiffres
-           // y : année sur 2 chiffres
-           // H : heure 0,23
-           // I : minutes
-           // s: secondes
-           print "<b>Date et heure du jour : </b>" . date("d/m/y H:i:s", time());
-           ?>
-       </body>
-   </html>
-
-**Commentaires**
-
--  ligne 5 : nous avons changé le titre de la page ;
-
--  ligne 17 : écrit la date et l’heure du moment présent ;
-
-Basiquement, le script PHP ci-dessus écrit l'heure courante sur la
-console. Cependant, lorsqu'il est exécuté par un serveur web, le flux de
-sortie de l’instruction **[print]** qui est habituellement associé à la
-console d’exécution du script est redirigé ici vers la connexion qui lie
-le serveur à son client. Donc, dans un contexte web, le script ci-dessus
-envoie l'heure courante sous forme de texte au client, ici un
-navigateur.
-
-Exécutons le script **[exemple-01.php]** :
+Maintenant avec un navigateur, demandons l’URL
+**[http://localhost:80]**. Ici nous ne précisons que le serveur
+**[localhost:80]** et pas d’URL de document. Dans ce cas c’est l’URL /
+qui est demandée, ç-à-d la racine du serveur web :
 
 |image21|
 
--  en **[3]**, l’URL demandée au serveur web Apache ;
+-  en **[1]**, l’URL demandée. On a tapé initialement
+   **[http://localhost:80]** et le navigateur (Firefox ici) l’a
+   transformée simplement en **[localhost]** car le protocole **[http]**
+   est implicite lorsqu’aucun protocole n’est mentionné et le port
+   **[80]** est implicite lorsque le port n’est pas précisé ;
 
--  en **[4]**, le titre de la page que nous avons changé ;
+-  en **[2]**, la page racine / du serveur web interrogé ;
 
--  en **[5]**, le contenu généré par l’instruction **[print]** ;
-
-Nous avons ici une page **dynamique** car si on recharge plusieurs fois
-la page dans le navigateur (F5), son contenu change (l’heure change).
-
-Le navigateur a reçu un flux HTML. Pour connaître celui-ci, il faut
-faire apparaître le code source de la page dans le navigateur :
+Maintenant, visualisons le texte reçu par le navigateur :
 
 |image22|
 
--  pour avoir le menu **[1]**, cliquer droit sur la page dans le
-   navigateur ;
+-  on clique droit sur la page reçue et on choisit l’option **[2]**. on
+   obtient le code source suivant :
 
--  en **[2]**, l’URL de la page **[exemple-01.php]** mais préfixée par
-   **[view-source :]** **[3]** ;
+.. code-block:: php 
+   :linenos:
 
--  en **[4]**, le contenu HTML que le navigateur a affiché ;
+   <!DOCTYPE HTML>
+   <HTML>
+       <head>
+           <title>Laragon</title>
 
-Il faut donc se rappeler qu’un script PHP destiné à être exécuté par un
-serveur web doit produire un flux HTML.
+           <link href="https://fonts.googleapis.com/css?family=Karla:400" rel="stylesheet" type="text/css">
 
-Regardons (F12) maintenant les entêtes HTTP envoyés par le serveur au
-navigateur client :
+           <style>
+               HTML, body {
+                   height: 100%;
+               }
+
+               body {
+                   margin: 0;
+                   padding: 0;
+                   width: 100%;
+                   display: table;
+                   font-weight: 100;
+                   font-family: 'Karla';
+               }
+
+               .container {
+                   text-align: center;
+                   display: table-cell;
+                   vertical-align: middle;
+               }
+
+               .content {
+                   text-align: center;
+                   display: inline-block;
+               }
+
+               .title {
+                   font-size: 96px;
+               }
+
+               .opt {
+                   margin-top: 30px;
+               }
+
+               .opt a {
+                 text-decoration: none;
+                 font-size: 150%;
+               }
+               
+               a:hover {
+                 color: red;
+               }
+           </style>
+       </head>
+       <body>
+           <div class="container">
+               <div class="content">
+                   <div class="title" title="Laragon">Laragon</div>
+        
+                   <div class="info"><br />
+                         Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11<br />
+                         PHP version: 7.2.11   <span><a title="phpinfo()" href="/?q=info">info</a></span><br />
+                         Document Root: C:/myprograms/laragon-lite/www<br />
+
+                   </div>
+                   <div class="opt">
+                     <div><a title="Getting Started" href="https://laragon.org/docs">Getting Started</a></div>
+                   </div>
+               </div>
+
+           </div>
+       </body>
+   </HTML>
+
+Maintenant demandons l’URL **[http://localhost:80]** avec notre client
+TCP :
 
 |image23|
 
--  en **[3]**, un entête HTTP qui n’était pas présent lorsqu’on a
-   demandé la page statique. Cet entête montre que la réponse du serveur
-   a été générée par un script PHP ;
+-  en **[1]**, nous nous connectons au port 80 du serveur *localhost*.
+   C’est là qu’opère le serveur web de Laragon ;
 
-Nous avons vu que la réponse (le flux HTML ici) du serveur pouvait être
-générée par un script PHP. Le script peut également générer les entêtes
-HTTP et à peu près tous les éléments de la réponse du serveur.
-
-Rudiments du langage HTML
--------------------------
-
-Ce chapitre ne va pas s’appesantir sur la programmation WEB en PHP. Une
-application web MVC est développée au paragraphe
-`lien <#_Exercice_d’application_–>`__. Ce chapitre s’intéresse plutôt
-aux **services web** : des pages PHP qui délivrent, via un serveur web,
-des données à destination d’autres clients PHP. Néanmoins il nous a
-semblé utile de donner quelques rudiments de HTML au lecteur.
-
-Un navigateur web peut afficher divers documents, le plus courant étant
-le document HTML (HyperText Markup Language). Celui-ci est un texte
-formaté avec des balises de la forme *<balise>texte</balise>*. Ainsi le
-texte *<b>important</b>* affichera le texte *important* en gras. Il
-existe des balises seules, telles que la balise *<hr/>* qui affiche une
-ligne horizontale. Nous ne passerons pas en revue les balises que l'on
-peut trouver dans un texte HTML. Il existe de nombreux logiciels WYSIWYG
-permettant de construire une page WEB sans écrire une ligne de code
-HTML. Ces outils génèrent automatiquement le code HTML d'une mise en
-page faite à l'aide de la souris et de contrôles prédéfinis. On peut
-ainsi insérer (avec la souris) dans la page un tableau puis consulter le
-code HTML généré par le logiciel pour découvrir les balises à utiliser
-pour définir un tableau dans une page WEB. Ce n'est pas plus compliqué
-que cela. Par ailleurs, la connaissance du langage HTML est
-indispensable puisque les applications web dynamiques doivent générer
-elles-mêmes le code HTML à envoyer aux clients WEB. Ce code est généré
-par programme et il faut bien sûr savoir ce qu'il faut générer pour que
-le client ait la page web qu'il désire.
-
-Pour résumer, il n'est nul besoin de connaître la totalité du langage
-HTML pour démarrer la programmation web. Cependant cette connaissance
-est nécessaire et peut être acquise au travers de l'utilisation de
-logiciels WYSIWYG de construction de pages WEB tels que DreamWeaver et
-des dizaines d'autres. Une autre façon de découvrir les subtilités du
-langage HTML est de parcourir le web et d'afficher le code source des
-pages qui présentent des caractéristiques intéressantes et encore
-inconnues pour vous.
-
-Considérons l'exemple suivant qui présente quelques éléments qu'on peut
-trouver dans un document WEB tels que :
-
--  un tableau ;
-
--  une image ;
-
--  un lien.
+Nous tapons maintenant les commandes que nous avons découvertes dans le
+paragraphe précédent :
 
 |image24|
 
-Un document HTML a la forme générale suivante :
+-  en **[1]**, la commande **[GET]**. On demande la racine / du serveur
+   web ;
 
-L'ensemble du document est encadré par les balises **<html>…</html>**.
-Il est formé de deux parties :
+-  en **[2]**, la commande **[Host]** ;
 
-1. **<head>…</head>** : c'est la partie non affichable du document. Elle
-   donne des renseignements au navigateur qui va afficher le document.
-   On y trouve souvent la balise **<title>…</title>** qui fixe le texte
-   qui sera affiché dans la barre de titre du navigateur. On peut y
-   trouver d'autres balises notamment des balises définissant les mots
-   clés du document, mot clés utilisés ensuite par les moteurs de
-   recherche. On peut trouver également dans cette partie des scripts,
-   écrits le plus souvent en javascript ou vbscript et qui seront
-   exécutés par le navigateur.
+-  ce sont les deux seules commandes indispensables. Pour les autres
+   commandes, le serveur web prendra des valeurs par défaut ;
 
-2. **<body attributs>…</body>** : c'est la partie qui sera affichée par
-   le navigateur. Les balises HTML contenues dans cette partie indiquent
-   au navigateur la forme visuelle "souhaitée" pour le document. Chaque
-   navigateur va interpréter ces balises à sa façon. Deux navigateurs
-   peuvent alors visualiser différemment un même document web. C'est
-   généralement l'un des casse-têtes des concepteurs web.
+-  en **[3]**, la ligne vide qui doit terminer les commandes du client ;
 
-Le code HTML de notre document exemple est le suivant :
+-  dessous la ligne 3, vient la réponse du serveur web ;
+
+-  en **[4]** jusqu’à la ligne vide **[5]** viennent les entêtes HTTP de
+   la réponse du serveur ;
+
+-  après la ligne **[5]** vient le document HTML demandé **[6]** ;
+
+Nous tapons **[quit]** pour terminer le client et nous chargeons le
+fichier de logs **[localhost-80.txt]** :
 
 .. code-block:: php 
    :linenos:
 
-   <!DOCTYPE html>
-   <html xmlns="http://www.w3.org/1999/xhtml">
-       <head>
-           <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-           <title>Quelques balises HTML</title>
-       </head>
+   --> [GET / HTTP/1.1]
+   --> [Host: localhost:80]
+   --> []
+   <-- [HTTP/1.1 200 OK]
+   <-- [Date: Thu, 16 May 2019 14:24:39 GMT]
+   <-- [Server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11]
+   <-- [X-Powered-By: PHP/7.2.11]
+   <-- [Content-Length: 1781]
+   <-- [Content-Type: text/HTML; charset=UTF-8]
+   <-- []
+   <-- [<!DOCTYPE HTML>]
+   <-- [<HTML>]
+   <-- [    <head>]
+   <-- [        <title>Laragon</title>]
+   <-- []
+   <-- [        <link href="https://fonts.googleapis.com/css?family=Karla:400" rel="stylesheet" type="text/css">]
+   <-- []
+   <-- [        <style>]
+   <-- [            HTML, body {]
+   <-- [                height: 100%;]
+   <-- [            }]
+   <-- []
+   <-- [            body {]
+   <-- [                margin: 0;]
+   <-- [                padding: 0;]
+   <-- [                width: 100%;]
+   <-- [                display: table;]
+   <-- [                font-weight: 100;]
+   <-- [                font-family: 'Karla';]
+   <-- [            }]
+   <-- []
+   <-- [            .container {]
+   <-- [                text-align: center;]
+   <-- [                display: table-cell;]
+   <-- [                vertical-align: middle;]
+   <-- [            }]
+   <-- []
+   <-- [            .content {]
+   <-- [                text-align: center;]
+   <-- [                display: inline-block;]
+   <-- [            }]
+   <-- []
+   <-- [            .title {]
+   <-- [                font-size: 96px;]
+   <-- [            }]
+   <-- []
+   <-- [            .opt {]
+   <-- [                margin-top: 30px;]
+   <-- [            }]
+   <-- []
+   <-- [            .opt a {]
+   <-- [              text-decoration: none;]
+   <-- [              font-size: 150%;]
+   <-- [            }]
+   <-- [            ]
+   <-- [            a:hover {]
+   <-- [              color: red;]
+   <-- [            }]
+   <-- [        </style>]
+   <-- [    </head>]
+   <-- [    <body>]
+   <-- [        <div class="container">]
+   <-- [            <div class="content">]
+   <-- [                <div class="title" title="Laragon">Laragon</div>]
+   <-- [     ]
+   <-- [                <div class="info"><br />]
+   <-- [                      Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11<br />]
+   <-- [                      PHP version: 7.2.11   <span><a title="phpinfo()" href="/?q=info">info</a></span><br />]
+   <-- [                      Document Root: C:/myprograms/laragon-lite/www<br />]
+   <-- []
+   <-- [                </div>]
+   <-- [                <div class="opt">]
+   <-- [                  <div><a title="Getting Started" href="https://laragon.org/docs">Getting Started</a></div>]
+   <-- [                </div>]
+   <-- [            </div>]
+   <-- []
+   <-- [        </div>]
+   <-- [    </body>]
+   <-- [</HTML>]
 
-       <body style="background-image: url(images/standard.jpg)">
-           <h1 style="text-align: left">Quelques balises HTML</h1>
-           <hr />
+-  lignes 11-79 : le document HTML reçu. Dans l’exemple précédent,
+   Firefox avait reçu le même ;
 
-           <table border="1">
-               <thead>
-                   <tr>
-                       <th>Colonne 1</th>
-                       <th>Colonne 2</th>
-                       <th>Colonne 3</th>
-                   </tr>
-               </thead>
-               <tbody>
-                   <tr>
-                       <td>cellule(1,1)</td>
-                       <td style="text-align: center;">cellule(1,2)</td>
-                       <td>cellule(1,3)</td>
-                   </tr>
-                   <tr>
-                       <td>cellule(2,1)</td>
-                       <td>cellule(2,2)</td>
-                       <td>cellule(2,3</td>
-                   </tr>
-               </tbody>
-           </table>
-           <br/><br/>
-           <table border="0">
-               <tr>
-                   <td>Une image</td>
-                   <td>
-                       <img border="0" src="images/cerisier.jpg"/></td>
-               </tr>
-               <tr>
-                   <td>Le site de Polytech'Angers</td>
-                   <td><a href="http://www.polytech-angers.fr/fr/index.html">ici</a></td>
-               </tr>
-           </table>
-       </body>
-   </html>
+Nous avons désormais les bases pour programmer un client TCP qui
+demanderait une URL.
 
-+-------------------+-------------------------------------------------+
-| Elément           | balises et exemples HTML                        |
-+===================+=================================================+
-| titre du document | <title>Quelques balises HTML</title> (ligne 5)  |
-|                   |                                                 |
-|                   | le texte **[Quelques balises HTML]** apparaîtra |
-|                   | dans la barre de titre du navigateur qui        |
-|                   | affichera le document                           |
-+-------------------+-------------------------------------------------+
-| barre horizontale | *<hr />* : affiche un trait horizontal (ligne   |
-|                   | 10)                                             |
-+-------------------+-------------------------------------------------+
-| tableau           | *<table attributs>….</table>* : pour définir le |
-|                   | tableau (lignes 12, 32)                         |
-|                   |                                                 |
-|                   | *<thead>…</thead>* : pour définir les entêtes   |
-|                   | des colonnes (lignes 13, 19)                    |
-|                   |                                                 |
-|                   | *<tbody>…</tbody>* : pour définir le contenu du |
-|                   | tableau (ligne 20, 31)                          |
-|                   |                                                 |
-|                   | *<tr attributs>…</tr>* : pour définir une ligne |
-|                   | (lignes 21, 25)                                 |
-|                   |                                                 |
-|                   | *<td attributs>…</td>* : pour définir une       |
-|                   | cellule (ligne 22)                              |
-|                   |                                                 |
-|                   | **exemples** :                                  |
-|                   |                                                 |
-|                   | *<table border="1">…</table>* : l'attribut      |
-|                   | border définit l'épaisseur de la bordure du     |
-|                   | tableau                                         |
-|                   |                                                 |
-|                   | *<td style="text-align:                         |
-|                   | center;">cellule(1,2)</td>* (ligne 23) :        |
-|                   | définit une cellule dont le contenu sera        |
-|                   | **cellule(1,2)**. Ce contenu sera centré        |
-|                   | horizontalement (text-align :center).           |
-+-------------------+-------------------------------------------------+
-| image             | *<img border="0" src="images/cerisier.jpg"/>*   |
-|                   | (ligne 38) : définit une image sans bordure     |
-|                   | (border=0") dont le fichier source est          |
-|                   | **[images/cerisier.jpg]** sur le serveur web    |
-|                   | (src="images/cerisier.jpg"). Ce lien se trouve  |
-|                   | sur un document web obtenu avec l'URL           |
-|                   | **http://lo                                     |
-|                   | calhost/php7/scripts-web/01**\ */balises.html*. |
-|                   | Aussi, le navigateur demandera-t-il l'URL       |
-|                   | **http://localhos                               |
-|                   | t/php7/scripts-web/01**\ */images/cerisier.jpg* |
-|                   | pour avoir l'image référencée ici.              |
-+-------------------+-------------------------------------------------+
-| lien              | *<a                                             |
-|                   | href="http:/                                    |
-|                   | /www.polytech-angers.fr/fr/index.html">ici</a>* |
-|                   | (ligne 42) : fait que le texte *ici* sert de    |
-|                   | lien vers l'URL                                 |
-|                   | *http://www.polytech-angers.fr/fr/index.html*.  |
-+-------------------+-------------------------------------------------+
-| fond de page      | *<body style="background-image:                 |
-|                   | url(images/standard.jpg)"> (ligne 8)* : indique |
-|                   | que l'image qui doit servir de fond de page se  |
-|                   | trouve à l'URL **[images/standard.jpg]** du     |
-|                   | serveur WEB. Dans le contexte de notre exemple, |
-|                   | le navigateur demandera l'URL                   |
-|                   | *http://loc                                     |
-|                   | alhost/php7/scripts-web/01/images/standard.jpg* |
-|                   | pour obtenir cette image de fond.               |
-+-------------------+-------------------------------------------------+
-
-On voit dans ce simple exemple que pour construire l'intéralité du
-document, le navigateur doit faire trois requêtes au serveur :
-
-1. *http://localhost/php7/scripts-web/01/images/balises.html* pour avoir
-   le source HTML du document
-
-2. *http://localhost/php7/scripts-web/01/images/cerisier.jpg* pour avoir
-   l'image *cerisier.jpg*
-
-3. *http://localhost/php7/scripts-web/01/images/standard.jpg* pour
-   obtenir l'image de fond *standard.jpg*
-
-C’est ce que montrent les échanges réseau entre le client et le serveur
-(F12 dans le navigateur) :
+Exemple 3
+~~~~~~~~~
 
 |image25|
 
--  en **[3-5]**, on voit les trois requêtes faites par le navigateur ;
+Le script **[http-01.php]** est un client HTTP configuré par le fichier
+jSON **[config-http-01.json]**. Le contenu de celui-ci est le suivant :
 
-Rendre dynamique une page statique
-----------------------------------
+.. code-block:: php 
+   :linenos:
 
-Montrons comment nous pouvons dynamiser la page HTML
-**[exemple-01.html]**. Copions le contenu
+   {
+       "localhost": {
+           "port": 80,
+           "GET": "/",
+           "Host": "localhost:80",
+           "User-Agent": "client PHP",
+           "Accept": "text/HTML",
+           "Accept-Language": "fr",
+           "endOfLine":"\r\n"
+       }
+   }
+
+-  ligne 2 : le nom de la machine hébergeant le serveur web à
+   atteindre ;
+
+-  ligne 3 : le port sur lequel opère ce serveur web ;
+
+-  ligne 4 : l’URL du document désiré ;
+
+-  ligne 5 : la machine cible sous la forme machine:port ;
+
+-  ligne 6 : l’identification du client HTTP : on peut mettre ce qu’on
+   veut ;
+
+-  ligne 7 : le type de document accepté par le client, ici du texte
+   HTML ;
+
+-  ligne 8 : la langue souhaitée pour le document demandé ;
+
+-  ligne 9 : la marque de fin de ligne pour les commandes envoyées par
+   le client : en effet elle peut différer selon que le serveur est sur
+   une machine Unix (\n) ou Windows (\r\n) ;
+
+Le script **[http-01.php]** est le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // respect strict des types déclarés des paramètres de foctions
+   declare (strict_types=1);
+   //
+   // gestion des erreurs
+   // error_reporting(E_ALL & E_STRICT);
+   // ini_set("display_errors", "on");
+   //
+   // constantes
+   const CONFIG_FILE_NAME = "config-http-01.json";
+   //
+   // on récupère la configuration
+   $config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+   // otenir le texte HTML des URL du fichier de configuration
+   foreach ($config as $site => $protocole) {
+     // lecture page index du site $ite
+     $résultat = getURL($site, $protocole);
+     // affichage résultat
+     print "$résultat\n";
+   }//for
+   // fin
+   exit;
+
+   //-----------------------------------------------------------------------
+   function getURL(string $site, array $protocole, $suivi = TRUE): string {
+     // lit l'URL $site["GET"] et la stocke dans le fichier $site.HTML
+     // le dialogue client /serveur se fait selon le protocole $protocole
+     //
+     // ouverture d'une connexion sur le port de $site
+     $erreurNumber = 0;
+     $erreur = "";
+     $connexion = fsockopen($site, $protocole["port"], $erreurNumber, $erreur);
+     // retour si erreur
+     if ($connexion === FALSE) {
+       return "Echec de la connexion au site (" . $site . " ," . $protocole["port"] . " : $erreur";
+     }
+     // $connexion représente un flux de communication bidirectionnel
+     // entre le client (ce programme) et le serveur web contacté
+     // ce canal est utilisé pour les échanges de commandes et d'informations
+     // le protocole de dialogue est HTTP
+     //
+     // création du fichier $site.HTML
+     $HTML = fopen("output/$site.HTML", "w");
+     if ($HTML === FALSE) {
+       // fermeture connexion client / serveur
+       fclose($connexion);
+       // retour erreur
+       return "Erreur lors de la création du fichier $site.HTML";
+     }
+     // le client va commencer le dialogue HTTP avec le serveur
+     if ($suivi) {
+       print "Client : début de la communication avec le serveur [$site] ----------------------------\n";
+     }
+     // selon les serveurs, les lignes du client doivent se terminer par \n ou \r\n
+     $endOfLine = $protocole["endOfLine"];
+     // par simplification, on ne teste pas les cas d'erreur dans la communication client /serveur
+     // le client envoie la commande GET pour demander l'URL $protocole["GET"]
+     // syntaxe GET URL HTTP/1.1
+     $commande = "GET " . $protocole["GET"] . " HTTP/1.1$endOfLine";
+     // suivi ?
+     if ($suivi) {
+       print "--> $commande";
+     }
+     // on envoie la commande au serveur
+     fputs($connexion, $commande);
+     // émission des autres entêtes HTTP
+     foreach ($protocole as $verb => $value) {
+       if ($verb !== "GET" && $verb != "port"" && $verb !="endOfLine") {
+         // on construit la commande
+         $commande = "$verb: $value$endOfLine";
+         // suivi ?
+         if ($suivi) {
+           print "--> $commande";
+         }
+         // on envoie la commande au serveur
+         fputs($connexion, $commande);
+       }
+     }
+     // les entêtes (headers) du protocole HTTP doivent se terminer par une ligne vide
+     fputs($connexion, $endOfLine);
+     //
+     // le serveur va maintenant répondre sur le canal $connexion. Il va envoyer toutes
+     // ses données puis fermer le canal. Le client lit donc tout ce qui arrive de $connexion
+     // jusqu'à la fermeture du canal
+     //
+     // on lit tout d'abord les entêtes HTTP envoyés par le serveur
+     // ils se terminent eux-aussi par une ligne vide
+     if ($suivi) {
+       print "Réponse du serveur [$site] ----------------------------\n";
+     }
+     $fini = FALSE;
+     while (!$fini && $ligne = fgets($connexion, 1000)) {
+       // a-t-on une ligne vide ?
+       $champs = [];
+       preg_match("/^(.*?)\s+$/", $ligne, $champs);
+       if ($champs[1] !== "") {
+         if ($suivi) {
+           // on affiche l'entête HTTP
+           print "<-- " . $champs[1] . "\n";
+         }
+       } else {
+         // c'était la ligne vide - les entêtes HTTP sont terminés
+         $fini = TRUE;
+       }
+     }
+     // on lit le document HTML qui va suivre la ligne vide
+     while ($ligne = fgets($connexion, 1000)) {
+       // on mémorise la ligne dans le fichier HTML du site
+       fputs($HTML, $ligne);
+     }
+     // le serveur a fermé la connexion -  le client la ferme à son tour
+     fclose($connexion);
+     // fermeture du fichier $HTML
+     fclose($HTML);
+     // retour
+     return "Fin de la communication avec le site [$site]. Vérifiez le fichier [$site.HTML]";
+   }
+
+**Commentaires du code :**
+
+-  ligne 14 : le fichier de configuration est exploité pour créer un
+   dictionnaire :
+
+   -  les clés du dictionnaire sont les serveurs web à interroger ;
+
+   -  les valeurs fixent le protocole HTTP à respecter ;
+
+-  lignes 16-21 : on boucle sur la liste des serveurs web de la
+   configuration ;
+
+-  ligne 26 : la fonction *getURL($site,$protocole,$suivi)* demande un
+   document du site web $\ *site* et le stocke dans le fichier texte
+   $\ *site.HTML.*\ Par défaut, les échanges client/serveur sont logués
+   sur la console ($suivi=TRUE) ;
+
+-  ligne 33 : la fonction *fsockopen($site,$port,$errNumber,$erreur)*
+   permet de créer une connexion avec un service TCP / IP travaillant
+   sur le port $\ *port* de la machine $\ *site*. Si la connexion
+   échoue, **[$errNumber]** est un n° d’erreur et **[$erreur]** le
+   message d’erreur associé. Une fois la connexion client / serveur
+   ouverte, de nombreux services TCP / IP échangent des lignes de texte.
+   C'est le cas ici du protocole HTTP (HyperText Transfer Protocol). Le
+   flux du serveur parvenant au client peut alors être traité comme un
+   fichier texte lu avec **[fgets]**. Il en est de même pour le flux
+   partant du client vers le serveur qui peut être écrit avec
+   **[fputs]** ;
+
+-  lignes 44-50 : création du fichier **[$site.HTML]** dans lequel on
+   stockera le document HTML reçu ;
+
+-  ligne 60 : la première commande du client doit être la commande
+   **[GET URL HTTP/1.1]** ;
+
+-  ligne 66 : la fonction *fputs* permet au client d'envoyer des données
+   au serveur. Ici la ligne de texte envoyée a la signification
+   suivante : "Je veux (GET) la page **[URL]** du site web auquel je
+   suis connecté. Je travaille avec le protocole HTTP version 1.1" ;
+
+-  lignes 68-79 : on envoie les autres lignes du protocole HTTP **[Host,
+   User-Agent, Accept, Accept-Language]**. Leur ordre n’importe pas ;
+
+-  ligne 81 : on envoie une ligne vide au serveur pour signifier que le
+   client a terminé d’envoyer ses entêtes HTTP et qu’il attend désormais
+   le document demandé ;
+
+-  lignes 92-106 : le serveur va tout d’abord envoyer une série
+   d’entêtes HTTP qui vont donner diverses informations sur le document
+   demandé. Ces entêtes se terminent par une ligne vide ;
+
+-  ligne 93 : on lit une ligne envoyée par le serveur avec la fonction
+   PHP **[fgets]** ;
+
+-  ligne 96 : on récupère le corps de la ligne sans les espaces (blancs,
+   marque de fin de ligne) de la fin de ligne ;
+
+-  ligne 97 : on regarde si on a récupéré la ligne vide qui marque la
+   fin des entêtes HTTP envoyés par le serveur ;
+
+-  lignes 98-101 : si on est en mode **[suivi]**, l’entête HTTP reçu est
+   affiché à la console ;
+
+-  lignes 108-111 : les lignes de texte de la réponse du serveur peuvent
+   être lues ligne par ligne avec une boucle *while* et enregistrées
+   dans le fichier texte **[output/$site.HTML]**. Lorsque le serveur web
+   a envoyé la totalité de la page qu'on lui a demandée, il ferme sa
+   connexion avec le client. Côté client, cela sera détecté comme une
+   fin de fichier ;
+
+**Résultats** :
+
+La console affiche les logs suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Client : début de la communication avec le serveur [localhost] ----------------------------
+   --> GET / HTTP/1.1
+   --> Host: localhost:80
+   --> User-Agent: client PHP
+   --> Accept: text/HTML
+   --> Accept-Language: fr
+   Réponse du serveur [localhost] ----------------------------
+   <-- HTTP/1.1 200 OK
+   <-- Date: Thu, 16 May 2019 15:43:18 GMT
+   <-- Server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
+   <-- X-Powered-By: PHP/7.2.11
+   <-- Content-Length: 1781
+   <-- Content-Type: text/HTML; charset=UTF-8
+   Fin de la communication avec le site [localhost]. Vérifiez le fichier [localhost.HTML]
+
+Dans notre exemple, le fichier **[output/localhost.HTML]** reçu est le
+suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <!DOCTYPE HTML>
+   <HTML>
+       <head>
+           <title>Laragon</title>
+
+           <link href="https://fonts.googleapis.com/css?family=Karla:400" rel="stylesheet" type="text/css">
+
+           <style>
+               HTML, body {
+                   height: 100%;
+               }
+
+               body {
+                   margin: 0;
+                   padding: 0;
+                   width: 100%;
+                   display: table;
+                   font-weight: 100;
+                   font-family: 'Karla';
+               }
+
+               .container {
+                   text-align: center;
+                   display: table-cell;
+                   vertical-align: middle;
+               }
+
+               .content {
+                   text-align: center;
+                   display: inline-block;
+               }
+
+               .title {
+                   font-size: 96px;
+               }
+
+               .opt {
+                   margin-top: 30px;
+               }
+
+               .opt a {
+                 text-decoration: none;
+                 font-size: 150%;
+               }
+               
+               a:hover {
+                 color: red;
+               }
+           </style>
+       </head>
+       <body>
+           <div class="container">
+               <div class="content">
+                   <div class="title" title="Laragon">Laragon</div>
+        
+                   <div class="info"><br />
+                         Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11<br />
+                         PHP version: 7.2.11   <span><a title="phpinfo()" href="/?q=info">info</a></span><br />
+                         Document Root: C:/myprograms/laragon-lite/www<br />
+
+                   </div>
+                   <div class="opt">
+                     <div><a title="Getting Started" href="https://laragon.org/docs">Getting Started</a></div>
+                   </div>
+               </div>
+
+           </div>
+       </body>
+   </HTML>
+
+Nous avons bien obtenu le même document qu’avec le navigateur Firefox.
+
+Exemple 4
+~~~~~~~~~
+
+Dans cet exemple, nous allons montrer que le client HTTP que nous avons
+écrit est insuffisant. Faison évoluer le fichier de configuration
+**[config-http-01.json]** de la façon suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "tahe.developpez.com": {
+           "port": 443,
+           "GET": "/",
+           "Host": "sergetahe.com:443",
+           "User-Agent": "script PHP 7",
+           "Accept": "text/HTML",
+           "Accept-Language": "fr",
+           "endOfLine":"\n"
+       }
+   }
+
+Ici, nous allons demander l’URL **[http://tahe.developpez.com:443/]**.
+Le port 443 de la machine **[tahe.developpez.com]** est un port utilisé
+pour le protocole http sécurisé appelé https. Dans ce protocole, le
+dialogue client / serveur commence par un échange d’informations qui
+vont sécuriser la liaison. Le client doit alors parler le protocole
+**[HTTPS]** et non le protocole **[HTTP]**, ce que ne fait pas notre
+client.
+
+Avec ce fichier de configuration, les résultats de la console sont les
+suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Client : début de la communication avec le serveur [tahe.developpez.com] ----------------------------
+   --> GET / HTTP/1.1
+   --> Host: sergetahe.com:443
+   --> User-Agent: script PHP 7
+   --> Accept: text/HTML
+   --> Accept-Language: fr
+   Réponse du serveur [tahe.developpez.com] ----------------------------
+   <-- HTTP/1.1 400 Bad Request
+   <-- Date: Fri, 17 May 2019 13:02:26 GMT
+   <-- Server: Apache/2.4.25 (Debian)
+   <-- Content-Length: 454
+   <-- Connection: close
+   <-- Content-Type: text/HTML; charset=iso-8859-1
+   Fin de la communication avec le site [tahe.developpez.com]. Vérifiez le fichier [output/tahe.developpez.com.HTML]
+
+-  ligne 8 : le serveur **[tahe.developpez.com]** a répondu que la
+   requête du client était incorrecte ;
+
+Le contenu du fichier **[output/tahe.developpez.com.HTML]** est alors le
+suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+   <HTML><head>
+   <title>400 Bad Request</title>
+   </head><body>
+   <h1>Bad Request</h1>
+   <p>Your browser sent a request that this server could not understand.<br />
+   Reason: You're speaking plain HTTP to an SSL-enabled server port.<br />
+    Instead use the HTTPS scheme to access this URL, please.<br />
+   </p>
+   <hr>
+   <address>Apache/2.4.25 (Debian) Server at 2eurocents.developpez.com Port 443</address>
+   </body></HTML>
+
+Le serveur dit clairement que nous n’avons pas utilisé le bon protocole.
+
+Utilisons maintenant, le fichier de configuration suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "sergetahe.com": {
+           "port": 80,
+           "GET": "/cours-tutoriels-de-programmation/",
+           "Host": "sergetahe.com:80",
+           "User-Agent": "script PHP 7",
+           "Accept": "text/HTML",
+           "Accept-Language": "fr",
+           "endOfLine": "\n"
+       }
+   }
+
+Les résultats console sont alors les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Client : début de la communication avec le serveur [sergetahe.com] ----------------------------
+   --> GET /cours-tutoriels-de-programmation/ HTTP/1.1
+   --> Host: sergetahe.com:80
+   --> User-Agent: script PHP 7
+   --> Accept: text/HTML
+   --> Accept-Language: fr
+   Réponse du serveur [sergetahe.com] ----------------------------
+   <-- HTTP/1.1 200 OK
+   <-- Date: Fri, 17 May 2019 13:36:06 GMT
+   <-- Content-Type: text/HTML; charset=UTF-8
+   <-- Transfer-Encoding: chunked
+   <-- Server: Apache
+   <-- X-Powered-By: PHP/7.0
+   <-- Vary: Accept-Encoding
+   <-- Set-Cookie: SERVERID68971=2621207|XN64y|XN64y; path=/
+   <-- Cache-control: private
+   <-- X-IPLB-Instance: 17106
+   Fin de la communication avec le site [sergetahe.com]. Vérifiez le fichier [output/sergetahe.com.HTML]
+
+-  la ligne 11 indique que le serveur envoie le document par morceaux ;
+
+Cela se traduit par la présence de nombres dans le flux envoyé au
+client : chaque nombre indique au client le nombre de caractères du
+prochain morceau envoyé par le serveur. Voici ce que ça donne dans le
+fichier **[output/sergetahe.com.HTML]** :
 
 |image26|
 
-Nous avons recopié le contenu de **[exemple-01.html]** dans le fichier
-**[page-01.php]**. Si nous exécutons **[2]** ce script web, nous
-obtenons la chose suivante dans le navigateur :
+-  en **[1]** et **[2]**, la taille en hexadécimal des morceaux 1 et 2
+   du document ;
+
+Un client HTTP correct ne devrait pas laisser ces nombres dans le
+document HTML final.
+
+Voici un autre exemple :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "sergetahe.com": {
+           "port": 80,
+           "GET": "/cours-tutoriels-de-programmation",
+           "Host": "sergetahe.com:80",
+           "User-Agent": "script PHP 7",
+           "Accept": "text/HTML",
+           "Accept-Language": "fr",
+           "endOfLine": "\n"
+       }
+   }
+
+Il ressemble à l’exemple précédent mais l’URL demandée en ligne 4 n’a
+pas le caractère / pour la terminer. Ce ne sont pas les mêmes URL.
+L’exécution du client HTTP donne alors les résultats console suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Client : début de la communication avec le serveur [sergetahe.com] ----------------------------
+   --> GET /cours-tutoriels-de-programmation HTTP/1.1
+   --> Host: sergetahe.com:80
+   --> User-Agent: script PHP 7
+   --> Accept: text/HTML
+   --> Accept-Language: fr
+   Réponse du serveur [sergetahe.com] ----------------------------
+   <-- HTTP/1.1 301 Moved Permanently
+   <-- Date: Fri, 17 May 2019 13:47:00 GMT
+   <-- Content-Type: text/HTML; charset=iso-8859-1
+   <-- Content-Length: 262
+   <-- Server: Apache
+   <-- Location: http://sergetahe.com:80/cours-tutoriels-de-programmation/
+   <-- Set-Cookie: SERVERID68971=2621207|XN67V|XN67V; path=/
+   <-- Cache-control: private
+   <-- X-IPLB-Instance: 17095
+   Fin de la communication avec le site [sergetahe.com]. Vérifiez le fichier [output/sergetahe.com.HTML]
+
+-  la ligne 8 indique que le document demandé a changé d’URL. La
+   nouvelle URL est donnée ligne 13. Notez cette fois-ci le caractère /
+   qui termine la nouvelle URL ;
+
+Le fichier **[output/serge.tahe.com.HTML]** est alors le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+   <HTML><head>
+   <title>301 Moved Permanently</title>
+   </head><body>
+   <h1>Moved Permanently</h1>
+   <p>The document has moved <a href="http://sergetahe.com/cours-tutoriels-de-programmation/">here</a>.</p>
+   </body></HTML>
+
+Un client HTTP devrait pouvoir suivre les redirections. Ici il devrait
+redemander automatiquement la nouvelle URL
+**[http://sergetahe.com/cours-tutoriels-de-programmation/]**.
+
+Exemple 5
+~~~~~~~~~
+
+Les exemples précédents nous ont montré que notre client HTTP était
+insuffisant. Nous allons maintenant présenter un outil appelé **[curl]**
+qui permet de récupérer des documents web en gérant les difficultés
+mentionnées : protocole https, document envoyé par morceaux,
+redirections… L’outil **[curl]** a été installé avec Laragon :
 
 |image27|
 
--  en **[3]**, l’URL demandée ;
-
--  en **[4]**, le titre de la page ;
-
--  en **[5]**, le contenu de la page ;
-
-Si on fait afficher le code reçu par le navigateur, on trouve ceci :
+Ouvrons un terminal Laragon **[1]** :
 
 |image28|
 
--  en **[7]**, on a le code HTML placé dans le script
-   **[exemple-01.php]**
-
-L’interpréteur PHP a interprété le script **[page-01.php]** et a produit
-le même flux HTML que la page statique **[exemple-01.html]**. Dans le
-script **[page-01.php]**, il n’y avait pas de PHP, uniquement du HTML.
-On apprend ainsi une chose : lorsque l’interpréteur PHP trouve du HTML
-dans un script PHP, il n’y touche pas et l’envoie tel quel au client.
-
-Maintenant mettons quelques instructions PHP dans le script
-**[page-01.php]** pour que l’interpréteur PHP ait quelque chose à
-faire :
-
-.. code-block:: php 
-   :linenos:
-
-   <!DOCTYPE html>
-   <html>
-       <head>
-           <title><?php print $page->title ?></title>
-           <meta charset="UTF-8">
-           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       </head>
-       <body>
-           <div><b><?php print $page->contents ?></b></div>
-       </body>
-   </html>
-
-Lignes 4 et 9 on a mis du code PHP pour générer dynamiquement le titre
-et le contenu de la page. On fait ici l’hypothèse que la variable
-**[$page]** est un objet qui a les données à afficher.
-
-Si nous exécutons ce nouveau code, on a le résultat suivant dans le
-navigateur :
+Dans le terminal nous tapons la commande suivante :
 
 |image29|
 
--  en **[1]**, l’URL demandée ;
+-  en **[1]**, le type de la console ;
 
--  en **[2]**, le titre de la page n’a pu être affiché parce que la
-   variable **[$page]** n’était pas définie ;
+-  en **[2]**, le dossier courant. Ce dossier est particulier : c’est là
+   où le serveur Apache de Laragon vient chercher les documents qu’on
+   lui demande. On évitera donc de polluer ce dossier ;
 
--  en **[3]**, pareil pour le contenu ;
+-  en **[3]**, la commande tapée ;
 
-Maintenant, écrivons le script web **[exemple-02.php]** suivant :
+Il est possible que la commande **[curl --help]** produise une erreur.
+La cause la plus probable est que vous n’avez pas le bon type de
+terminal. Dans ce cas, ouvrez un autre terminal avec les commandes
+**[4-6]** ;
+
+La commande **[curl --help]** fait afficher toutes les options de
+configuration de **[curl]**. Il y en a plusieurs dizaines. Nous en
+utiliserons très peu. Pour demander une URL il suffit de taper la
+commande **[curl URL]**. Cette commande affichera sur la console le
+document demandé. Si on veut de plus les échanges HTTP entre le client
+et le serveur on écrira **[curl --verbose URL]**. Enfin pour enregistrer
+le document HTML demandé dans un fichier on écrira **[curl --verbose
+--output fichier URL]**.
+
+Pour éviter de polluer le dossier **[www]** de Laragon, déplaçons-nous à
+un autre endroit du système de fichiers :
 
 |image30|
 
-Le script **[exemple-02.php]** sera le suivant :
+-  en **[1]**, on se déplace dans le dossier **[c:\temp]**. Si ce
+   dossier n’existe pas, vous pouvez le créer ou en choisir un autre ;
+
+-  en **[2]**, on crée un dossier appelé **[curl]** ;
+
+-  en **[3]**, on se positionne dessus ;
+
+-  en **[4]**, on liste son contenu. Il est vide ;
+
+Assurez-vous que le serveur Apache de Laragon est lancé et avec
+**[curl]** demandez l’URL **[http://localhost/]** avec la commande
+**[curl –verbose –output localhost.HTML http://localhost/]**. On obtient
+les résultats suivants :
 
 .. code-block:: php 
    :linenos:
 
-   <?php
+   c:\Temp\curl                                                                                    
+   λ curl --verbose --output localhost.HTML http://localhost/                                      
+     % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current                 
+                                    Dload  Upload   Total   Spent    Left  Speed                   
+     0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying ::1…
+   * TCP_NODELAY set                                                                               
+   * Connected to localhost (::1) port 80 (#0)                                                     
+   > GET / HTTP/1.1                                                                                
+   > Host: localhost                                                                               
+   > User-Agent: curl/7.63.0                                                                       
+   > Accept: */*                                                                                   
+   >                                                                                               
+   < HTTP/1.1 200 OK                                                                               
+   < Date: Fri, 17 May 2019 14:32:47 GMT                                                           
+   < Server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11                                       
+   < X-Powered-By: PHP/7.2.11                                                                      
+   < Content-Length: 1781                                                                          
+   < Content-Type: text/HTML; charset=UTF-8                                                        
+   <                                                                                               
+   { [1781 bytes data]                                                                             
+   100  1781  100  1781    0     0  14248      0 --:--:-- --:--:-- --:--:-- 14248                  
+   * Connection #0 to host localhost left intact                                                   
 
-   // on définit les éléments de la page à afficher
-   $page=new \stdclass();
-   $page->title="Un nouveau titre";
-   $page->contents="Un nouveau contenu généré dynamiquement";
-   // on fait afficher [page-01]
-   require_once "page-01.php";
+-  lignes 8-12 : lignes envoyées par **[curl]** au serveur
+   **[localhost]**. On reconnaît le protocole HTTP ;
 
--  lignes 4-6 : on définit l’objet **[$page]** ;
+-  lignes 13-19 : lignes envoyées en réponse par le serveur ;
 
--  ligne 8 : on inclut le script **[page-01.php]**. Le code de ce script
-   va être interprété à son tour :
+-  ligne 13 : indique qu’on a bien eu le document demandé ;
 
-   -  la variable **[$page]** est maintenant définie et l’interpréteur
-      PHP va l’utiliser ;
+Le fichier **[localhost.HTML]** contient le document demandé. Vous
+pouvez le vérifier en chargeant le fichier dans un éditeur de texte.
 
-   -  le code HTML de **[page-01.php]** va être envoyé tel quel au
-      client ;
+Maintenant demandons l’URL **[https://tahe.developpez.com:443/]**. Pour
+avoir cette URL, le client HTTP doit savoir parler HTTPS. C’est le cas
+du client **[curl]**.
 
-   -  les résultats des opérations PHP **[print]** vont être inclus dans
-      le flux texte envoyé au client ;
+Les résultats console sont les suivants :
 
-Maintenant si nous exécutons le script web **[exemple-02.php]**, nous
-obtenons la chose suivante dans le navigateur :
+.. code-block:: php 
+   :linenos:
+
+   c:\Temp\curl
+   λ curl --verbose --output tahe.developpez.com.HTML https://tahe.developpez.com:443/
+     % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                    Dload  Upload   Total   Spent    Left  Speed
+     0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 87.98.130.52…
+   * TCP_NODELAY set
+   * Connected to tahe.developpez.com (87.98.130.52) port 443 (#0)
+   * ALPN, offering h2
+   * ALPN, offering http/1.1
+   * successfully set certificate verify locations:
+   *   CAfile: C:\myprograms\laragon-lite\bin\laragon\utils\curl-ca-bundle.crt
+     CApath: none
+   } [5 bytes data]
+   * TLSv1.3 (OUT), TLS handshake, Client hello (1):
+   } [512 bytes data]
+   * TLSv1.3 (IN), TLS handshake, Server hello (2):
+   { [108 bytes data]
+   * TLSv1.2 (IN), TLS handshake, Certificate (11):
+   { [2558 bytes data]
+   * TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+   { [333 bytes data]
+   * TLSv1.2 (IN), TLS handshake, Server finished (14):
+   { [4 bytes data]
+   * TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+   } [70 bytes data]
+   * TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
+   } [1 bytes data]
+   * TLSv1.2 (OUT), TLS handshake, Finished (20):
+   } [16 bytes data]
+   * TLSv1.2 (IN), TLS handshake, Finished (20):
+   { [16 bytes data]
+   * SSL connection using TLSv1.2 / ECDHE-RSA-AES128-GCM-SHA256
+   * ALPN, server accepted to use http/1.1
+   * Server certificate:
+   *  subject: CN=*.developpez.com
+   *  start date: Apr  4 08:25:09 2019 GMT
+   *  expire date: Jul  3 08:25:09 2019 GMT
+   *  subjectAltName: host "tahe.developpez.com" matched cert's "*.developpez.com"
+   *  issuer: C=US; O=Let's Encrypt; CN=Let's Encrypt Authority X3
+   *  SSL certificate verify ok.
+   } [5 bytes data]
+   > GET / HTTP/1.1
+   > Host: tahe.developpez.com
+   > User-Agent: curl/7.63.0
+   > Accept: */*
+   >
+   { [5 bytes data]
+   < HTTP/1.1 200 OK
+   < Date: Fri, 17 May 2019 14:39:41 GMT
+   < Server: Apache/2.4.25 (Debian)
+   < X-Powered-By: PHP/5.3.29
+   < Vary: Accept-Encoding
+   < Transfer-Encoding: chunked
+   < Content-Type: text/HTML
+   <
+   { [6 bytes data]
+   100 96559    0 96559    0     0   163k      0 --:--:-- --:--:-- --:--:--  163k
+   * Connection #0 to host tahe.developpez.com left intact
+
+-  lignes 10-40 : les échanges client / serveur pour sécuriser la
+   connexion : celle-ci sera chiffrée ;
+
+-  lignes 42-45 : les entêtes HTTP envoyés par le client **[curl]** au
+   serveur ;
+
+-  ligne 48 : le document demandé a bien été trouvé ;
+
+-  ligne 53 : le document est envoyé par morceaux ;
+
+**[curl]** gère correctement à la fois le protocole sécurisé HTTPS et le
+fait que le document soit envoyé par morceaux. Le document envoyé sera
+trouvé ici dans le fichier **[tahe.developpez.com.HTML]**.
+
+Demandons maintenant l’URL
+**[http://sergetahe.com/cours-tutoriels-de-programmation]**. Nous avions
+vu que pour cette URL, il y avait une redirection vers l’URL
+**[http://sergetahe.com/cours-tutoriels-de-programmation/]** (avec un /
+à la fin).
+
+Les résultats console sont alors les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   c:\Temp\curl
+   λ curl --verbose --output sergetahe.com.HTML --location http://sergetahe.com/cours-tutoriels-de-programmation
+     % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                    Dload  Upload   Total   Spent    Left  Speed
+     0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 87.98.154.146…
+   * TCP_NODELAY set
+   * Connected to sergetahe.com (87.98.154.146) port 80 (#0)
+   > GET /cours-tutoriels-de-programmation HTTP/1.1
+   > Host: sergetahe.com
+   > User-Agent: curl/7.63.0
+   > Accept: */*
+   >
+   < HTTP/1.1 301 Moved Permanently
+   < Date: Fri, 17 May 2019 15:13:03 GMT
+   < Content-Type: text/HTML; charset=iso-8859-1
+   < Content-Length: 262
+   < Server: Apache
+   < Location: http://sergetahe.com/cours-tutoriels-de-programmation/
+   < Set-Cookie: SERVERID68971=2621207|XN7Pg|XN7Pg; path=/
+   < Cache-control: private
+   < X-IPLB-Instance: 17095
+   <
+   * Ignoring the response-body
+   { [262 bytes data]
+   100   262  100   262    0     0   1401      0 --:--:-- --:--:-- --:--:--  1401
+   * Connection #0 to host sergetahe.com left intact
+   * Issue another request to this URL: 'http://sergetahe.com/cours-tutoriels-de-programmation/'
+   * Found bundle for host sergetahe.com: 0x1c88548 [can pipeline]
+   * Could pipeline, but not asked to!
+   * Re-using existing connection! (#0) with host sergetahe.com
+   * Connected to sergetahe.com (87.98.154.146) port 80 (#0)
+     0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+   > GET /cours-tutoriels-de-programmation/ HTTP/1.1
+   > Host: sergetahe.com
+   > User-Agent: curl/7.63.0
+   > Accept: */*
+   >
+   < HTTP/1.1 200 OK
+   < Date: Fri, 17 May 2019 15:13:04 GMT
+   < Content-Type: text/HTML; charset=UTF-8
+   < Transfer-Encoding: chunked
+   < Server: Apache
+   < X-Powered-By: PHP/7.0
+   < Vary: Accept-Encoding
+   < Set-Cookie: SERVERID68971=2621207|XN7Pg|XN7Pg; path=/
+   < Cache-control: private
+   < X-IPLB-Instance: 17095
+   <
+   { [14205 bytes data]
+   100 43101    0 43101    0     0  78795      0 --:--:-- --:--:-- --:--:--  168k
+   * Connection #0 to host sergetahe.com left intact
+
+-  ligne 2 : on utilise l’option **[--location]** pour indiquer qu’on
+   veut suivre les redirections envoyées par le serveur ;
+
+-  ligne 13 : le serveur indique que le document demandé a changé
+   d’URL ;
+
+-  ligne 18 : il indique la nouvelle URL du document demandé ;
+
+-  ligne 27 : **[curl]** émet une nouvelle requête vers cette fois la
+   nouvelle URL ;
+
+-  ligne 33 : la nouvelle URL est utilisée ;
+
+-  ligne 38 : le serveur répond qu’il a trouvé le document demandé ;
+
+-  ligne 41 : il l’envoie par morceaux ;
+
+Le document demandé sera trouvé dans le fichier
+**[sergetahe.com.HTML]**.
+
+Exemple 6
+~~~~~~~~~
+
+PHP possède une extension appelée **[libcurl]** qui permet d’utiliser
+les capacités de l’outil **[curl]** dans un programme PHP. Il faut tout
+d’abord s’assurer que cette extension est activée dans le fichier
+**[php.ini]** décrit au paragraphe `lien <#_Configuration_de_PHP>`__ :
 
 |image31|
 
-Si nous visualisons le contenu texte reçu par le navigateur :
+Assurez-vous que la ligne 889 ci-dessus est décommentée.
 
-|image32|
-
--  les codes PHP qui étaient en **[2]** et **[3]** ont été remplacés par
-   les résultats des deux commandes **[print]** ;
-
-De cet exemple, on retiendra deux choses :
-
--  les pages HTML destinées au navigateur peuvent être isolées dans des
-   scripts PHP ne contenant que ce code HTML et quelques partie
-   dynamiques générées par du code PHP. Il doit y avoir le moins de PHP
-   possible dans ces pages ;
-
--  toute la logique qui génère les données dynamiques incluses dans les
-   pages HTML doit être isolée dans des scripts PHP purs, ne comportant
-   aucun code de présentation des pages (HTML, CSS, Javascript…) ;
-
-Cela autorise une séparation des tâches :
-
--  la tâche de réalisation des pages web à afficher (HTML, CSS,
-   Javascript…) ;
-
--  la tâche de la logique de l’application web que l’on construit. Cette
-   logique pourra être implémentée avec une architecture trois couches,
-   exactement comme nous l’avons fait avec les scripts console ;
-
-Par la suite, nous allons construire des scripts web particuliers ;
-
--  ils n’enverront que des données au client et aucune décoration (HTML,
-   CSS, Javascript). Ce seront donc des serveurs de données plutôt que
-   des page web ;
-
--  les clients de ces scripts web seront des scripts console qui se
-   chargeront de récupérer les données envoyées par le serveur et d’en
-   faire quelque chose ;
-
-Application client/ serveur de date/heure
------------------------------------------
-
-Nous nous plaçons maintenant dans la configuration suivante :
-
-|image33|
-
-Nous allons écrire :
-
--  un script web **[1]** qui envoie à son client la date et l’heure du
-   moment présent ;
-
--  un script console **[2]** qui sera le client du script web : il va
-   récupérer la date et heure envoyées par le script web et les afficher
-   sur la console ;
-
-|image34|
-
--  en **[1]**, le script web **[date-time-server.php]** ;
-
--  en **[2]**, le script console **[date-time-client]** client du script
-   web ;
-
-Le script serveur
-~~~~~~~~~~~~~~~~~
-
-Nous avons déjà écrit un script web générant la date et l’heure du
-moment présent au paragraphe
-`lien <#création-dune-page-dynamique-en-php>`__. C’était le script
-**[exemple-01.php]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <!DOCTYPE html>
-   <html>
-       <head>
-           <meta charset="UTF-8">
-           <title>Exemple de page dynamique</title>
-       </head>
-       <body>
-           <?php
-           // time : nb de millisecondes depuis 01/01/1970
-           // format affichage date-heure
-           // d: jour sur 2 chiffres
-           // m: mois sur 2 chiffres
-           // y : année sur 2 chiffres
-           // H : heure 0,23
-           // i : minutes
-           // s: secondes
-           print "<b>Date et heure du jour : </b>" . date("d/m/y H:i:s", time());
-           ?>
-       </body>
-   </html>
-
-Nous avons dit que nous allions écrire des serveurs de données : des
-données brutes sans habillage HTML. Le script serveur
-**[date-time-server.php]** sera alors le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // on fixe l'entête HTP [Content-Type]
-   header('Content-Type: text/plain; charset=UTF-8');
-   //
-   // on envoie date et heure
-   // time : nb de millisecondes depuis 01/01/1970
-   // format affichage date-heure
-   // d: jour sur 2 chiffres
-   // m: mois sur 2 chiffres
-   // y : année sur 2 chiffres
-   // H : heure 0,23
-   // i : minutes
-   // s: secondes
-   print date("d/m/y H:i:s", time());
-
--  ligne 4 : on fixe l’entête HTTP **[Content-Type]** qui dit au client
-   la nature du document qu’il va recevoir. Jusqu’à maintenant, le
-   **[Content-Type]** était : **[Content-Type: text/html;
-   charset=UTF-8]**. Ici, nous indiquons au client que le document est
-   du texte sans habillage HTML. Ce n’est pas important pour notre
-   client console qui ne cherchera pas à exploiter cet entête. C’est
-   plus important pour les navigateurs clients qui eux exploitent cet
-   entête ;
-
-Exécutons ce script serveur :
-
-|image35|
-
-Si nous examinons dans le navigateur la réponse du serveur (F12), nous
-voyons en **[5]** l’entête HTTP que le script serveur a fixé et en
-**[8]**, le document texte reçu ;
-
-|image36|
-
-Le script client
-~~~~~~~~~~~~~~~~
-
-Au paragraphe `lien <#_Le_protocole_HTTP>`__ nous avons développé
-plusieurs clients HTTP. Nous pourrions les utiliser pour récupérer le
-document texte envoyé par le script serveur **[date-time-server.php]**.
-Nous n’allons pas le faire. Comme nous l’avons fait pour les protocole
-SMTP et IMAP, nous allons utiliser une bibliothèque tierce, à savoir le
-composant **[HttpClient]** du framework Symfony
-**[https://symfony.com/doc/master/components/http_client.html]**.
-
-Comme pour les deux précédentes bibliothèques, on utilise l’outil
-**[Composer]** pour installer le composant **[HttpClient]** de Symfony.
-Dans une fenêtre **[Terminal]** de Laragon (cf paragraphe
-`lien <#_Installation_de_Laragon>`__), on tape la commande suivante :
-
-|image37|
-
--  en **[3]**, vérifiez que vous êtes positionné sur le dossier
-   **[<laragon>/www/]** où <laragon> est le dossier d’installation de
-   Laragon ;
-
--  en **[4]**, la commande **[composer]** qui installe la bibliothèque
-   **[HttpClient]** de Symfony ;
-
--  en **[5]**, rien n’est installé car la bibliothèque **[HttpClient]**
-   avait déjà été installée sur ce poste ;
-
--  en **[6-7]**, de nouveaux dossiers apparaissent dans
-   **[<laragon>/www/vendor/symfony]** ;
-
-A la place de **[5]**, vous devriez avoir quelque chose comme suit :
-
-.. code-block:: php 
-   :linenos:
-
-   C:\myprograms\laragon-lite\www
-   ? composer require symfony/http-client
-   Using version ^4.3 for symfony/http-client
-   ./composer.json has been updated
-   Loading composer repositories with package information
-   Updating dependencies (including require-dev)
-   Package operations: 4 installs, 0 updates, 0 removals
-     - Installing symfony/polyfill-php73 (v1.11.0): Downloading (100%)
-     - Installing symfony/http-client-contracts (v1.1.1): Downloading (100%)
-     - Installing psr/log (1.1.0): Loading from cache
-     - Installing symfony/http-client (v4.3.0): Downloading (100%)
-   Writing lock file
-   Generating autoload files
-
-Assurez-vous que le dossier **[<laragon>/www/vendor]** fait partie de la
-branche **[Include Path]** de votre projet (cf paragraphe
-`lien <#_Installation_de_l'IDE>`__) :
-
-|image38|
-
-Ceci fait, nous pouvons écrire le script console
-**[date-time-client.php]** :
-
-|image39|
-
-Le script console **[date-time-client.php]** exploitera le fichier jSON
-**[config-date-time-client.json]** suivant :
+Nous allons écrire un script **[http-02.php]** qui exploitera le fichier
+de configuration jSON suivant :
 
 .. code-block:: php 
    :linenos:
 
    {
-       "url": "http://localhost/php7/scripts-web/02/date-time-server.php"
+       "sergetahe.com": {
+           "timeout": 5,
+           "url": "http://sergetahe.com"
+       },
+       "tahe.developpez.com": {
+           "timeout": 5,
+           "url": "https://tahe.developpez.com"
+       },  
+       "www.polytech-angers.fr": {
+           "timeout": 5,
+           "url": "http://www.polytech-angers.fr"
+       },  
+       "localhost": {
+           "timeout": 5,
+           "url": "http://localhost"
+       }
    }
 
--  ligne 2 : l’URL du script serveur ;
-
-Le script client **[date-time-client.php]** sera le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client du service date / heure
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-date-time-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-
-   try {
-     // on fait la requête
-     $response = $httpClient->request('GET', $config['url']);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on récupère le corps de la réponse
-     $content = $response->getContent();
-     // on l'affiche
-     print "---Réponse du serveur : [$content]\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-     exit;
-   }
-
-**Commentaires**
-
--  ligne 10 : comme nous l’avions fait pour les bibliothèques
-   précédentes, nous chargeons le fichier
-   **[<laragon>/www/vendor/autoload.php]** ;
-
--  ligne 11 : nous déclarons la classe **[HttpClient]** que nous allons
-   utiliser ;
-
--  lignes 13-24 : on récupère la configuration du script dans le
-   dictionnaire **[$config]** ;
-
--  ligne 27 : on crée un objet de type **[HttpClient]** ;
-
--  ligne 31 : on demande l’URL du script serveur à l’aide d’une commande
-   GET : **[GET URL HTTTP/1.1]**. Cette opération est asynchrone.
-   L’exécution se poursuit en ligne 33 sans attendre que la réponse soit
-   obenue ;
-
--  ligne 33 : on demande le statut de la réponse. Ce statut se trouve
-   dans le 1\ :sup:`er` entête HTTP renvoyé par le serveur. Ainsi si cet
-   entête est **[HTTP/1.1 200 OK]**, le statut de la réponse est 200.
-   Cette opération est bloquante : on n’en revient que lorsque le client
-   a reçu toute la réponse du serveur ;
-
--  ligne 37 : on demande les entêtes HTTP de la réponse ;
-
--  ligne 42 : on demande le document renvoyé par le serveur : on sait
-   que ce document est ici un texte.
-
--  lignes 45-49 : en cas d’erreur, on affiche le message d’erreur ;
-
-Lorsqu’on exécute le script client (il faut que Laragon soit lancé pour
-que le script serveur puisse être atteint), on obtient le résultat
-suivant sur la console :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Thu, 30 May 2019 14:42:03 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   content-length: 17
-   content-type: text/plain; charset=UTF-8
-   ---Réponse du serveur : [30/05/19 14:42:03]
-
-On récupère bien la date et l’heure du moment présent en ligne 8.
-
-On peut avoir la curiosité de savoir ce qu’à envoyé le script client au
-serveur. Pour cela nous allons utiliser notre serveur TCP générique (cf
-paragraphe `lien <#_Utilitaires_TCP>`__) :
-
-|image40|
-
--  en **[1]**, le dossier des utilitaires ;
-
--  en **[2]**, le serveur TCP est lancé sur le port 100 ;
-
--  en **[3]**, attente d’une commande tapée au clavier ;
-
-Nous modifions le fichier de configuration du script
-**[date-time-client.php]** :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost:100/php7/scripts-web/02/date-time-server.php"
-   }
-
-Cette fois-ci, le client contacte le serveur **[localhost]** sur le port
-100. C’est donc notre serveur TCP générique qui va être sollicité.
-Lorsque nous exécutons le script console **[date-time-client.php]**, la
-console du serveur TCP générique évolue de la façon suivante :
-
-|image41|
-
--  en **[3]**, la commande HTTP GET construite par le script client ;
-
--  en **[4]**, la signature du script console ;
-
--  en **[5]**, la réponse du serveur au script client. On notera que ce
-   n’est pas une réponse HTTP valide :
-
-   -  il devrait y avoir des entêtes HTTP ;
-
-   -  puis une ligne vide ;
-
-   -  puis le document texte envoyé au client ;
-
--  en **[6]**, on ferme la communication avec le script client pour que
-   celui-ci détecte qu’il a eu la totalité de la réponse ;
-
-Côté script client, on a l’affichage console suivant :
-
-|image42|
-
--  en **[7]**, ce qu’a reçu le client Symfony ;
-
-Le script serveur – version 2
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-De base, les fonctions PHP pour écrire un script web ne sont pas
-orientées objet. Côté serveur, on est alors amenés à mélanger classes et
-fonctions PHP classiques. Pour avoir une écriture plus homogène, nous
-allons utiliser la bibliothèque **[HttpFoundation]** du framework
-Symfony. Elle a encapsulé toutes les fonctions PHP classiques pour un
-service web dans un système de classes et interfaces. La documentation
-de la bibliothèque est disponible à l’URL
-**[https://symfony.com/doc/current/components/http_foundation.html]**
-(mai 2019).
-
-Pour installer la bibliothèque, nous procédons de la façon suivante dans
-un terminal Laragon (cf paragraphe
-`lien <#_Installation_de_Laragon>`__) :
-
-|image43|
-
--  **[2-3]** : assurez-vous d’être positionné dans le dossier
-   **[<laragon>/www]** ;
-
--  **[4]** : la commande **[composer]** qui va installer la bibliothèque
-   **[HttpFoundation]** ;
-
--  **[5]** : sur cet exemple, la bibliothèque était déjà installée ;
-
-A la première installation, vous devriez avoir des logs console
-ressemblant à ceci :
-
-.. code-block:: php 
-   :linenos:
-
-   C:\myprograms\laragon-lite\www
-   ? composer require symfony/http-foundation
-   Using version ^4.3 for symfony/http-foundation
-   ./composer.json has been updated
-   Loading composer repositories with package information
-   Updating dependencies (including require-dev)
-   Package operations: 2 installs, 0 updates, 0 removals
-     - Installing symfony/mime (v4.3.0): Downloading (100%)
-     - Installing symfony/http-foundation (v4.3.0): Downloading (100%)
-   Writing lock file
-   Generating autoload files
-
-La seconde version du serveur web **[date-time-server-2.php]** est la
+Chaque élément du dictionnaire **[clé, valeur]** a la structure
 suivante :
 
-.. code-block:: php 
-   :linenos:
+-  *clé* : le nom d’un serveur web ;
 
-   <?php
+-  *valeur* est un dictionnaire avec les clés suivantes :
 
-   // usage des bibliothèques de Symfony
+   -  *timeout* : durée maximale d’attente de la réponse du serveur.
+      Au-delà, le client se déconnectera ;
 
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpFoundation\Response;
+   -  *url* : URL du document demandé ;
 
-   // on fixe l'entête Content-Type
-   $response=new Response();
-   $response->headers->set("content-type","text/plain");
-   $response->setCharset("utf-8");
-
-   // on fixe le contenu de la réponse
-   //
-   // on envoie date et heure
-   // time : nb de millisecondes depuis 01/01/1970
-   // format affichage date-heure
-   // d: jour sur 2 chiffres
-   // m: mois sur 2 chiffres
-   // y : année sur 2 chiffres
-   // H : heure 0,23
-   // i : minutes
-   // s: secondes
-   $response->setContent(date("d/m/y H:i:s", time()));
-
-   // on envoie la réponse
-   $response->send();
-
-**Commentaires**
-
--  ligne 7 : la classe **[Response]** de la bibliothèque
-   **[HttpFoundation]** de Symfony gère la totalité de la réponse aux
-   clients du service web ;
-
--  ligne 10 : création d’une instance de la classe **[Response]** ;
-
--  ligne 11 : on indique que la réponse est de type **[text/plain]** ;
-
--  ligne 12 : la réponse est du texte UTF-8 ;
-
--  ligne 25 : on fixe le document de la réponse, ce qu’a demandé le
-   client ;
-
--  ligne 28 : on envoie la réponse au client ;
-
-Le script client – version 2
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Le script client ne change pas. On change seulement son fichier de
-configuration **[config-date-time-client.json]** :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost/php7/scripts-web/02/date-time-server-2.php"
-   }
-
-Les résultats sont les mêmes que dans la version 1.
-
-Un serveur de données jSON
---------------------------
-
-La réponse d’un script web peut être composée de plusieurs données qu’on
-peut rassembler dans des tableaux et des objets. Le script peut alors
-envoyer ces divers éléments au sein d’une chaîne jSON que le client
-décodera.
-
-|image44|
-
-.. _le-script-serveur-1:
-
-Le script serveur
-~~~~~~~~~~~~~~~~~
-
-Le script **[json-server.php]** utilise la classe **[Personne]**
-suivante :
+Le code du script **[http-02.php]** est le suivant :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   namespace Modèles;
-
-   class Personne implements \JsonSerializable {
-     // attributs
-     private $nom;
-     private $prénom;
-     private $âge;
-
-     // conversion d'un tableau associatif vers un objet [Personne]
-     public function setFromArray(array $assoc): Personne {
-       // on initialise l'objet courant avec le tableau associatif
-       foreach ($assoc as $attribute => $value) {
-         $this->$attribute = $value;
-       }
-       // résultat
-       return $this;
-     }
-
-     // getters et setters
-     public function getNom() {
-       return $this->nom;
-     }
-
-     public function getPrénom() {
-       return $this->prénom;
-     }
-
-     public function setNom($nom) {
-       $this->nom = $nom;
-       return $this;
-     }
-
-     public function setPrénom($prénom) {
-       $this->prénom = $prénom;
-       return $this;
-     }
-
-     public function getÂge() {
-       return $this->âge;
-     }
-
-     public function setÂge($âge) {
-       $this->âge = $âge;
-       return $this;
-     }
-
-     // toString
-     public function __toString(): string {
-       return "Personne [$this->prénom, $this->nom, $this->âge]";
-     }
-
-     // implémente l'interface JsonSerializable
-     public function jsonSerialize(): array {
-       // on rend un tableau associatif avec pour clés les attributs de l'objet
-       // ce tableau pourra ensuite être encodé en jSON
-       return get_object_vars($this);
-     }
-
-     // conversion d'un jSON vers un objet [Personne]
-     public static function jsonUnserialize(string $json): Personne {
-       // on crée une personne à partir de la chaîne jSON
-       return (new Personne())->setFromArray(json_decode($json, true));
-     }
-
-   }
-
-**Commentaires**
-
--  ligne 5 : la classe implémente l’interface PHP
-   **[JsonSerializable]**. Cela lui impose d’implémenter la méthode
-   **[jsonSerialize]** des lignes 55-59. La méthode doit rendre un
-   tableau associatif qui devra être sérialisé en jSON. Lorsqu’on
-   utilise l’expression **[json_encode($personne)]**, la fonction
-   **[json_encode]** regarde si la classe **[Personne]** implémente
-   l’interface **[JsonSerializable]**. Si oui, l’expression devient
-   **[json_encode($personne→serialize())]** ;
-
--  lignes 12-19 : la classe n’a pas de constructeur mais un
-   initialiseur. La classe **[Personne]** peut être alors instanciée par
-   l’expression **[(new Personne())→setFromArray($array)]**. On peut
-   avoir divers types d’initialiseurs alors qu’on ne peut avoir qu’un
-   constructeur. Ces initialiseurs permettent divers modes
-   d’instanciation du type **[(new Personne())→initialiseuri(…)]** ;
-
--  lignes 62-65 : la fonction statique **[jsonUnserialize]** permet de
-   créer un objet **[Personne]** à partir de sa chaîne jSON ;
-
-Le script **[json-server.php]** sera le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // dépendances
-   require_once __DIR__ . "/Personne.php";
-   use \Modèles\Personne;
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use \Symfony\Component\HttpFoundation\Response;
-
-   // on fixe l'entête Content-Type et la bibliothèque de caractères utilisée
-   $response = new Response();
-   $response->headers->set("content-type", "application/json");
-   $response->setCharset("utf-8");
-
-   // on crée un objet Personne
-   $personne = (new Personne())->setFromArray([
-     "nom" => "de la Hûche",
-     "prénom" => "jean-paul",
-     "âge" => 27]);
-   // un tableau associatif
-   $assoc = ["attr1" => "value1",
-     "attr2" => [
-       "prenom" => "Jean-Paul",
-       "nom" => "de la Hûche"
-     ]
-   ];
-   // le contenu de la réponse est du jSON
-   $response->setContent(json_encode([$personne, $assoc]));
-
-   // envoi de la réponse
-   $response->send();
-
-**Commentaires**
-
--  lignes 4-5 : on importe la classe **[Personne]** ;
-
--  ligne 11 : on indique que le document sera de type
-   **[application/json]**. A la réception de cet entête, les navigateurs
-   afficheront une mise en forme de la chaîne jSON plutôt que d’afficher
-   du texte brut ;
-
--  ligne 12 : la chaîne jSON contiendra des caractères UTF-8 ;
-
--  lignes 15-18 : on crée un objet **[Personne]** ;
-
--  lignes 20-25 : on crée un tableau associatif à deux niveaux ;
-
--  ligne 27 : on envoie au client la chaîne jSON d’un tableau :
-
-   -  l’élément **[$personne]** sera sérialisée en jSON grâce à sa
-      méthode **[jsonSerialize]** ;
-
-   -  l’élemént **[$assoc]** sera nativement sérialisé en jSON ;
-
-Si on exécute ce script serveur (Laragon doit être lancé), on obtient la
-réponse suivante dans un navigateur :
-
-|image45|
-
-|image46|
-
-**Commentaires**
-
--  en **[2]**, la réponse jSON mise en forme ;
-
--  en **[4]**, la réponse jSON brute. On remarquera l’encodage des
-   caractères accentués ;
-
--  en **[6]**, c’est le type de contenu **[application/json]** envoyé
-   par le serveur qui a conduit le navigateur à faire cette mise en
-   forme ;
-
-Le client
-~~~~~~~~~
-
-|image47|
-
-Le client **[json-client.php]** est configuré par le fichier jSON
-**[config-json-client.json]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost/php7/scripts-web/03/json-server.php"
-   }
-
-Le script **[json-client.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client d'un service jSON
+   // respect strict des types déclarés des paramètres de foctions
+   declare (strict_types=1);
    //
    // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
+   //error_reporting(E_ALL & E_STRICT);
+   //ini_set("display_errors", "on");
    //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-   require_once __DIR__ . "/Personne.php";
-   use \Modèles\Personne;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-json-client.json";
-
+   // constantes
+   const CONFIG_FILE_NAME = "config-http-02.json";
+   //
    // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-
-   try {
-     // on fait la requête
-     $response = $httpClient->request('GET', $config['url']);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on récupère le corps jSON de la réponse
-     list($personne, $assoc) = json_decode($response->getContent(), true);
-     // on instancie une personne à partir du tableau de ses attributs
-     $personne = (new Personne())->setFromArray($personne);
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur\n";
-     print "$personne\n";
-     print "tableau=" . json_encode($assoc, JSON_UNESCAPED_UNICODE) . "\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  lignes 12-13 : importation de la classe **[Personne]** ;
-
--  ligne 30 : création du client HTTP ;
-
--  ligne 44 : on décode la chaîne jSON envoyée par le serveur. On sait
-   que ce qui a été encodé est un tableau à deux éléments comprenant
-   deux tableaux associatifs ;
-
--  ligne 46 : on crée un objet **[Personne]** pour l’afficher ensuite en
-   ligne 49 ;
-
--  ligne 50 : on affiche le 2\ :sup:`e` tableau associatif.
-   L’instruction **[print]** ne sait pas afficher des tableaux. Aussi
-   transforme-t-on celui-ci en chaîne jSON. Pour avoir correctement les
-   caractères accentués, il faut mettre le second paramètre
-   **[JSON_UNESCAPED_UNICODE]**. On a vu qu’effectivement les caractères
-   accentués sont encodés dans la chaîne jSON ;
-
-L’exécution du script client donne les résultats suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Sun, 02 Jun 2019 09:56:29 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 143
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur
-   Personne [jean-paul, de la Hûche, 27]
-   tableau={"attr1":"value1","attr2":{"prenom":"Jean-Paul","nom":"de la Hûche"}}
-
-Lignes 11 et 12, on a récupéré correctement les caractères accentués.
-
-Récupération des variables d'environnement du service web
----------------------------------------------------------
-
-Un script serveur s'exécute dans un environnement web qu'il peut
-connaître. Cet environnement est stocké dans le dictionnaire $_SERVER,
-une variable globale de PHP. Si nous utilisons la bibliothèque
-**[HttpFoundation]**, cet environnement sera trouvé dans le champ
-**[Request→server]** où **[Request]** est la requête HTTP traitée par le
-script web.
-
-.. _le-script-serveur-2:
-
-Le script serveur
-~~~~~~~~~~~~~~~~~
-
-Nous écrivons une application serveur qui envoie à ses clients son
-environnement d’exécution.
-
-|image48|
-
-Le script web **[env-server.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use \Symfony\Component\HttpFoundation\Response;
-   use Symfony\Component\HttpFoundation\Request;
-
-   // on récupère la requête
-   $request = Request::createFromGlobals();
-   // on élabore la réponse
-   $response = new Response();
-   // le contenu de la réponse est du json utf-8
-   $response->headers->set("content-type", "application/json");
-   $response->setCharset("utf-8");
-   // on fixe le contenu jSON de la réponse
-   $response->setContent(json_encode($request->server->all()));
-   // envoi de la réponse
-   $response->send();
-
--  ligne 9 : on récupère l’objet de type **[Request]** qui encapsule la
-   totalité des informations disponibles sur la requête HTTP reçue par
-   le script web ainsi que sur l’environnement d’exécution de celui-ci ;
-
--  lignes 13-14 : on va envoyer du texte brut avec caractères UTF-8 au
-   client ;
-
--  ligne 16 : l’information envoyée au client sera une chaîne de
-   caractères obtenue par sérialisation jSON de l’objet
-   **[$request→server→all()]** : **[$request→server]** représente
-   l’environnement d’exécution du script web. C’est un objet de type
-   **[ServerBag]**, une sorte de dictionnaire.
-   **[$request→server→all()]** est lui un vrai dictionnaire, celui du
-   contenu du **[ServerBag]** ;
-
--  ligne 18 : on envoie l’information ;
-
-Si on exécute ce script à partir de Netbeans, le navigateur affiche la
-page suivante :
-
-|image49|
-
--  en **[2]**, les différentes clés du dictionnaire de l’environnement ;
-
--  en **[3]**, les valeurs de ces clés ;
-
-.. _le-script-client-1:
-
-Le script client
-~~~~~~~~~~~~~~~~
-
-|image50|
-
-Le script client **[env-client.php]** est configuré par le fichier jSON
-**[config-env-client.json]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost/php7/scripts-web/04/env-server.php"
-   }
-
-Le script client **[env-client.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // environnement d'un script serveur
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-env-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-   try {
-     // on fait la requête au serveur
-     $response = $httpClient->request('GET', $config['url']);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur\n";
-     $env = json_decode($response->getContent());
-     foreach ($env as $key => $value) {
-       print "[$key]=>$value\n";
-     }
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  ligne 42 : on désérialise la réponse jSON du serveur. On obtient un
-   tableau associatif ;
-
--  lignes 43-45 : on affiche toutes les valeurs de ce tableau
-   associatif ;
-
-On obtient le résultat console suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Sun, 02 Jun 2019 17:35:50 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 1505
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur
-   [HTTP_HOST]=>localhost
-   [HTTP_USER_AGENT]=>Symfony HttpClient/Curl
-   [HTTP_ACCEPT_ENCODING]=>deflate, gzip
-   [PATH]=>C:\Program Files (x86)\Mail Enable\BIN;C:\windows\system32;C:\windows;C:\windows\System32\Wbem;C:\windows\System32\WindowsPowerShell\v1.0\;C:\windows\System32\OpenSSH\;C:\Program Files\dotnet\;C:\Program Files\Microsoft SQL Server\130\Tools\Binn\;C:\Program Files (x86)\Mail Enable\BIN64;C:\Users\serge\AppData\Local\Microsoft\WindowsApps;;C:\myprograms\Microsoft VS Code\bin
-   [SystemRoot]=>C:\windows
-   [COMSPEC]=>C:\windows\system32\cmd.exe
-   [PATHEXT]=>.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
-   [WINDIR]=>C:\windows
-   [SERVER_SIGNATURE]=>
-   [SERVER_SOFTWARE]=>Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   [SERVER_NAME]=>localhost
-   [SERVER_ADDR]=>::1
-   [SERVER_PORT]=>80
-   [REMOTE_ADDR]=>::1
-   [DOCUMENT_ROOT]=>C:/myprograms/laragon-lite/www
-   [REQUEST_SCHEME]=>http
-   [CONTEXT_PREFIX]=>
-   [CONTEXT_DOCUMENT_ROOT]=>C:/myprograms/laragon-lite/www
-   [SERVER_ADMIN]=>admin@example.com
-   [SCRIPT_FILENAME]=>C:/myprograms/laragon-lite/www/php7/scripts-web/04/env-server.php
-   [REMOTE_PORT]=>63744
-   [GATEWAY_INTERFACE]=>CGI/1.1
-   [SERVER_PROTOCOL]=>HTTP/1.1
-   [REQUEST_METHOD]=>GET
-   [QUERY_STRING]=>
-   [REQUEST_URI]=>/php7/scripts-web/04/env-server.php
-   [SCRIPT_NAME]=>/php7/scripts-web/04/env-server.php
-   [PHP_SELF]=>/php7/scripts-web/04/env-server.php
-   [REQUEST_TIME_FLOAT]=>1559496950.644
-   [REQUEST_TIME]=>1559496950
-
-Voici la signification de certaines des variables (pour windows. Sous
-Linux, elles seraient différentes) :
-
-+-------------------------+-------------------------------------------+
-| ::                      | la valeur xxx de l’entête HTTP **[Host:   |
-|                         | xxx]** envoyée par le client              |
-|    HTTP_HOST            |                                           |
-+=========================+===========================================+
-| ::                      | la valeur xxx de l’entête HTTP            |
-|                         | **[User_Agent: xxx]** envoyée par le      |
-|    HTTP_USER_AGENT      | client                                    |
-+-------------------------+-------------------------------------------+
-| ::                      | la valeur xxx de l’entête HTTP            |
-|                         | **[Accept-Encoding: xxx]** envoyée par le |
-|    HTTP_ACCEPT_ENCODING | client                                    |
-+-------------------------+-------------------------------------------+
-| ::                      | le chemin des exécutables sur la machine  |
-|                         | sur laquelle s'exécute le script serveur  |
-|    PATH                 |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le chemin de l'interpréteur de commandes  |
-|                         | DOS                                       |
-|    COMSPEC              |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | les extensions des fichiers exécutables   |
-|                         |                                           |
-|    PATHEXT              |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le dossier d'installation de Windows      |
-|                         |                                           |
-|    WINDIR               |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | la signature du serveur web. Ici rien.    |
-|                         |                                           |
-|    SERVER_SIGNATURE     |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le type du serveur web                    |
-|                         |                                           |
-|    SERVER_SOFTWARE      |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le nom Internet de la machine du serveur  |
-|                         | web                                       |
-|    SERVER_NAME          |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le port d'écoute du serveur web           |
-|                         |                                           |
-|    SERVER_PORT          |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | l'adresse IP de la machine du serveur     |
-|                         | web, ici 127:0:0:1                        |
-|    SERVER_ADDR          |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | l'adresse IP du client. Ici le client     |
-|                         | était sur la même machine que le serveur. |
-|    REMOTE_ADDR          |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le port de communication du client        |
-|                         |                                           |
-|    REMOTE_PORT          |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | la racine de l'arborescence des documents |
-|                         | servis par le serveur web                 |
-|    DOCUMENT_ROOT        |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le protocole TCP de la requête d’URL      |
-|                         | http://localhost/php7/…                   |
-|    REQUEST_SCHEME       |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | l'adresse électronique de                 |
-|                         | l'administrateur du serveur web           |
-|    SERVER_ADMIN         |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le chemin complet du script serveur       |
-|                         |                                           |
-|    SCRIPT_FILENAME      |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | le port à partir duquel le client a fait  |
-|                         | sa demende                                |
-|    REMOTE_PORT          |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | la version du protocole HTTP utilisée par |
-|                         | le serveur web                            |
-|    SERVER_PROTOCOL      |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | l'ordre HTTP utilisé par le client. Il y  |
-|                         | en a quatre : GET, POST, PUT, DELETE      |
-|    REQUEST_METHOD       |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | les paramètres envoyés avec un ordre GET  |
-|                         | /url?paramètres                           |
-|    QUERY_STRING         |                                           |
-+-------------------------+-------------------------------------------+
-| ::                      | l'URL demandée par le client. Si le       |
-|                         | navigateur demande l'URL                  |
-|    REQUEST_URI          | http://machine\ **[:port]**/uri, on aura  |
-|                         | REQUEST_URI=uri                           |
-+-------------------------+-------------------------------------------+
-| ::                      | $_SERVER\ **['S                           |
-|                         | CRIPT_FILENAME']**\ =$_SERVER\ **['DOCUME |
-|    SCRIPT_NAME          | NT_ROOT']**.$_SERVER\ **['SCRIPT_NAME']** |
-+-------------------------+-------------------------------------------+
-
-Récupération par le serveur de paramètres envoyés par un client
----------------------------------------------------------------
-
-.. _introduction-1:
-
-Introduction
-~~~~~~~~~~~~
-
-Dans le protocole HTTP, un client a deux méthodes pour passer des
-paramètres au serveur WEB :
-
--  il demande l'URL du service sous la forme
-
-..
-
-   **GET**\ *url?param1=val1&param2=val2&param3=val3… HTTP/1.0*
-
-   où les valeurs *vali* doivent au préalable subir un encodage afin que
-   certains caractères réservés soient remplacés par leur valeur
-   hexadécimale ;
-
--  il demande l'URL du service sous la forme
-
-..
-
-   **POST**\ *url HTTP/1.0*
-
-   puis parmi les entêtes HTTP envoyés au serveur place l'entête
-   suivant :
-
-   *Content-length=N*
-
-   La suite des entêtes envoyés par le client se terminent par une ligne
-   vide. Il peut alors envoyer ses données sous la forme
-
-   *val1&param2=val2&param3=val3…*
-
-   où les valeurs *vali* doivent, comme pour la méthode GET, être
-   préalablement encodées. Le nombre de caractères envoyés au serveur
-   doit être N où N est la valeur déclarée dans l'entête
-
-   *Content-length=N*
-
-Le script PHP du service web qui récupère les paramètres *parami*
-précédents envoyés par le client obtient leurs valeurs dans le tableau :
-
--  $_GET\ **["parami"]** pour une commande GET ;
-
--  $_POST\ **["parami"]** pour une commande POST ;
-
-ceci pour les fonctions de base de PHP. Si on utilise la bibliothèque
-**[HttpFoundation]**, ces paramètres seront trouvés dans :
-
--  **[Request]->query->get**\ (‘parami’) pour une commande GET ;
-
--  **[Request]->request->get**\ (‘parami’) pour une commande POST ;
-
-où **[Request]** représente la totalité des informations sur la requête
-reçue par le script web ;
-
-Le client GET – version 1
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-|image51|
-
-Les scripts clients sont configurés par le fichier jSON
-**[config-parameters-client.json]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url-get": "http://localhost/php7/scripts-web/05/parameters-server.php",
-       "url-post": "http://localhost/php7/scripts-web/05/parameters-server.php"
-   }
-
--  ligne 1 : l’URL du script web cible des clients GET ;
-
--  ligne 2 : l’URL du script web cible du client POST ;
-
-Les clients GET envoient trois paramètres **[nom, prenom, age]** au
-serveur. Le client **[parameters-get-client.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client GET d'un serveur web
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-parameters-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-
-   try {
-     // on prépare les paramètres
-     list($prenom, $nom, $age) = array("jean-paul", "de la hûche", 45);
-   // on encode les informations
-     $parameters = "prenom=" . urlencode($prenom) .
-       "&nom=" . urlencode($nom) .
-       "&age=$age”;
-     // on fait la requête
-     $response = $httpClient->request('GET', $config['url-get'] . "?$parameters");
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur [" . $response->getContent() . "]\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  lignes 33-35 : encodage des paramètres envoyés au serveur. Les
-   paramètres **[$prenom, $nom]** qui peuvent avoir des caractères UTF-8
-   sont encodés avec la fonction **[urlencode]**. Tous les caractères
-   non alphanumériques (au sens des expressions relationnelles) sont
-   remplacés par %xx où xx est la valeur hexadécimale du caractère. Les
-   espaces sont eux remplacés par le signe + ;
-
--  ligne 37 : l'URL demandée est **$URL?$parameters** où $\ *parameters*
-   est de la forme *nom=val1&prenom=val2&age=val3 *;
-
--  ligne 48 : le client se contentera d’afficher a réponse du client ;
-
-On peut avoir la curiosité de voir ce que reçoit le serveur lors d’une
-requête GET paramétrée. Pour cela, nous lançons notre serveur générique
-**[RawTcpServer]** sur le port 100 de la machine locale à partir d’un
-terminal Laragon (cf paragraphe `lien <#_Utilitaires_TCP>`__) :
-
-|image52|
-
-Vérifiez qu’en **[4]**, vous êtes bien dans le dossier des utilitaires.
-
-Nous modifions le fichier jSON **[parameters-get-client.json]** qui
-configure les clients GET et POST :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url-get": "http://localhost:100/php7/scripts-web/05/parameters-server.php",
-       "url-post": "http://localhost/php7/scripts-web/05/parameters-server.php"
-   }
-
--  ligne 2 : nous avons changé le port du serveur web. Ce sera donc
-   **[RawTcpServer]** qui sera contacté ;
-
-Nous exécutons le client. Dans la fenêtre de **[RawTcpServer]** nous
-obtenons les informations suivantes :
-
-|image53|
-
--  en **[1]**, la commande GET paramétrée envoyée par le client. On voit
-   clairement l’encodage de certains caractères ;
-
-Le serveur GET / POST
-~~~~~~~~~~~~~~~~~~~~~
-
-|image54|
-
-Le script serveur **[parameters-server.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use \Symfony\Component\HttpFoundation\Response;
-   use Symfony\Component\HttpFoundation\Request;
-
-   // on récupère la requête
-   $request = Request::createFromGlobals();
-   // on récupère les paramètres de la requête
-   $getParameters = $request->query->all();
-   $bodyParameters = $request->request->all();
-
-   // on élabore la réponse
-   $response = new Response();
-   // le contenu de la réponse est du texte utf-8
-   $response->headers->set("content-type", "application/json");
-   $response->setCharset("utf-8");
-   // contenu de la réponse - un tableau encodé en jSON
-   $response->setContent(json_encode([
-     "method" => $request->getMethod(),
-     "uri" => $request->getRequestUri(),
-     "getParameters" => $getParameters,
-     "bodyParameters" => $bodyParameters
-       ], JSON_UNESCAPED_UNICODE));
-   // envoi de la réponse
-   $response->send();
-
-**Commentaires**
-
--  ligne 9 : création de l’objet **[Request]** du script web. Cet objet
-   encapsule la totalité des informations que le script web a reçues du
-   client ;
-
--  ligne 11 : l’objet **[Request→query]** est de type **[ParameterBag]**
-   et rassemble les paramètres de l’éventuelle opération GET d’un
-   client. L’expression **[Request→query→get(«X»)]** permet d’avoir le
-   paramètre nommé X dans les paramètres du GET
-   **[nom=val1&prenom=val2&age=val3]**. L’expression
-   **[Request→query→all()]** permet d’avoir le dictionnaire des
-   paramètres du GET ;
-
--  ligne 12 : l’objet **[Request→request]** est de type
-   **[ParameterBag]** et rassemble les paramètres envoyés comme document
-   du client au serveur. On dit également de ces paramètres qu’ils sont
-   uploadés parce qu’ils appartiennent à un document que le client
-   envoie au serveur. L’expression **[Request→request→get(«X»)]** permet
-   d’avoir le paramètre nommé X dans les paramètres uploadés
-   **[nom=val1&prenom=val2&age=val3]**. L’expression
-   **[Request→request→all()]** permet d’avoir le dictionnaire des
-   paramètres uploadés ;
-
--  lignes 17-18 : on indique au client qu’on va lui envoyer du jSON codé
-   en UTF-8 ;
-
--  lignes 20-25 : le serveur renvoie au client tous les paramètres qu’il
-   a reçus ainsi, le type d’opération **[GET / POST / …]** faite par le
-   client, et l’URI demandée. Cette méthode est obtenue par l’expression
-   **[$request→getMethod()]**. Le document envoyé au client est la
-   chaîne jSON d’un tableau associatif dont certaines valeurs sont
-   eux-mêmes des tableaux associatifs. Le paramètre
-   **[JSON_UNESCAPED_UNICODE]** demande à ce que les caractères Unicode
-   (comme les caractères accentués par exemple) soient envoyés tels
-   quels et pas encodés ;
-
--  ligne 27 : la réponse est envoyée au client ;
-
-L’exécution du script client donne les résultats suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Mon, 03 Jun 2019 10:08:45 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 207
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur [{"method":"GET","uri":"\/php7\/scripts-web\/05\/parameters-server.php?prenom=jean-paul&nom=de+la+h%C3%BBche&age=45","getParameters":{"prenom":"jean-paul","nom":"de la hûche","age":"45"},"bodyParameters":[]}]
-
--  ligne 10 :
-
-   -  **[method]** : la méthode est GET ;
-
-   -  **[uri]** : on voit les paramètres url-encodés de la requête GET
-      dans l’URI demandée ;
-
-   -  **[getParameters]** : le tableau des paramètres du GET ;
-
-   -  **[bodyParameters]** : le tableau des paramètres uploadés : il est
-      vide ;
-
-Le client GET – version 2
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Dans la version précédente du script client, nous avons url-encodé
-nous-mêmes les paramètres envoyés au serveur, dans un but pédagogique.
-L’objet **[HttpClient]** sait faire ce travail lui-même. C’est le script
-**[parameters-get-client-2.php]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client GET d'un serveur web
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-parameters-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-   try {
-     // on prépare les paramètres
-     list($prenom, $nom, $age) = array("jean-paul", "de la hûche", 45);
-     // on fait la requête au serveur
-     $response = $httpClient->request('GET', $config['url-get'],
-       ["query" => [
-           "prenom" => $prenom,
-           "nom" => $nom,
-           "age" => $age
-     ]]);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur [" . $response->getContent() . "]\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  lignes 33-37 : l’ajout de paramètres à la requête GET de la ligne 32.
-   L’objet **[HttpClient]** s’occupera lui-même de l’encodage de l’URL ;
-
-Le client POST
-~~~~~~~~~~~~~~
-
-Un client HTTP envoie au serveur web la séquence de texte suivante :
-*entêtes HTTP, ligne vide, document*. Dans le client précédent, cette
-séquence était la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   GET /url?paramètres HTTP/1.1
-   … autres entêtes HTTP
-   ligne vide
-
-Il n'y avait pas de document. Il existe une autre façon de transmettre
-des paramètres, la méthode dite POST. Dans ce cas, la séquence de texte
-envoyée au serveur web est la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   POST /url HTTP/1.1
-   … autres entêtes HTTP
-   ligne vide
-   paramètres
-
-Cette fois-ci, les paramètres qui pour le client GET étaient inclus dans
-les entêtes HTTP, font partie, dans le client POST, du document envoyé
-après les entêtes.
-
-Le script du client POST **[parameters-postclient.php]** est le
-suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client POST d'un serveur web
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-parameters-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-   try {
-     // on prépare les paramètres
-     list($prenom, $nom, $age) = array("jean-paul", "de la hûche", 45);
-     // on fait la requête au serveur
-     $response = $httpClient->request('POST', $config['url-post'],
-       ["body" => [
-           "prenom" => $prenom,
-           "nom" => $nom,
-           "age" => $age
-     ]]);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur [" . $response->getContent() . "]\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
--  ligne 32 : on a maintenant une requête HTTP de type POST ;
-
--  lignes 33-37 : les paramètres du POST sont appelés le corps (body) de
-   la requête POST : c’est le document envoyé par le client au serveur.
-   Ici, trois paramètres sont envoyés **[nom, prenom, age]** ;
-
--  ligne 48 : on affiche la réponse jSON du serveur ;
-
-Les résultats de l’exécution du script client sont les suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Mon, 03 Jun 2019 11:43:02 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 163
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur [{"method":"POST","uri":"\/php7\/scripts-web\/05\/parameters-server.php","getParameters":[],"bodyParameters":{"prenom":"jean-paul","nom":"de la hûche","age":"45"}}]
-
--  ligne 10 : la méthode est **[Post]** et les paramètres sont de type
-   **[bodyParameters]**. Il n’y a pas de paramètres **[getParameters]**
-   comme le montre l’\ **[uri]** ;
-
-On peut avoir la curiosité de voir ce que reçoit le serveur lors d’une
-requête POST. Pour cela, nous lançons notre serveur générique
-**[RawTcpServer]** sur le port 100 de la machine locale à partir d’un
-terminal Laragon (cf paragraphe `lien <#_Utilitaires_TCP>`__) :
-
-|image55|
-
-Vérifiez qu’en **[4]**, vous êtes bien dans le dossier des utilitaires.
-
-Nous modifions le fichier jSON **[config-parameters-client.json]** qui
-configure le client POST :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url-get": "http://localhost:100/php7/scripts-web/05/parameters-server.php",
-       "url-post": "http://localhost:100/php7/scripts-web/05/parameters-server.php"
-   }
-
--  ligne 3 : nous avons changé le port du serveur web. Ce sera donc
-   **[RawTcpServer]** qui sera contacté ;
-
-Nous exécutons le client. Dans la fenêtre de **[RawTcpServer]** nous
-obtenons les informations suivantes :
-
-|image56|
-
--  en **[6]**, la commande POST ;
-
--  en **[7]** : l’entête HTTP **[Content-Length]** donne le nombre
-   d’octets du document que va envoyer le client au serveur. L’entête
-   HTTP **[Content-Type]** donne la nature de ce document. Le type
-   **[application/x-www-form-urlencoded]** désigne un texte url-encodé ;
-
--  en **[8]**, la ligne vide qui annonce la fin des entêtes HTTP et le
-   début du document de 44 octets. Ce que ne montre pas la copie d’écran
-   c’est le document lui-même. C’est la chaîne url-encodée des
-   paramètres : **[prenom=jean-paul&nom=de+la+h%C3%BBche&age=45]**. Le
-   lecteur pourra vérifier qu’elle a bien 44 caractères ;
-
-Un client POST mixte
-~~~~~~~~~~~~~~~~~~~~
-
-Dans un POST, on peut mixer les paramètres encodés dans l’URL et ceux
-encodés dans le document envoyé par le client après les entêtes HTTP.
-Voici un exemple **[parameters-mixte-postclient.php]** :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client POST d'un serveur web
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-parameters-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-   try {
-     // on prépare les paramètres
-     list($prenom, $nom, $age) = array("jean-paul", "de la hûche", 45);
-     // on fait la requête au serveur
-     $response = $httpClient->request('POST', $config['url-post'],
-       [
-         // paramètres du document (body)
-         "body" => [
-           "prenom" => $prenom,
-           "nom" => $nom,
-           "age" => $age
-         ],
-         // paramètres de l'URL (query)
-         "query" => [
-           "prenom2" => $prenom,
-           "nom2" => $nom,
-           "age2" => $age
-     ]]);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur [" . $response->getContent() . "]\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  ligne 32 : une requête POST ;
-
--  lignes 40-45 : les paramètres url-encodés dans l’URL ;
-
--  lignes 35-39 : les paramètres url-encodés dans le corps (body,
-   document) de la requête ;
-
-A l’exécution, on obtient les résultats console suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Mon, 03 Jun 2019 12:34:23 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 270
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur [{"method":"POST","uri":"\/php7\/scripts-web\/05\/parameters-server.php?prenom2=jean-paul&nom2=de%20la%20h%C3%BBche&age2=45","getParameters":{"prenom2":"jean-paul","nom2":"de la hûche","age2":"45"},"bodyParameters":{"prenom":"jean-paul","nom":"de la hûche","age":"45"}}]
-
--  ligne 10 : on voit que le serveur a été capable de récupérer les deux
-   types de paramètres ;
-
-Un client GET mixte
-~~~~~~~~~~~~~~~~~~~
-
-On essaie de faire la même chose que précédemment avec une requête GET.
-Le script **[parameters-mixte-get-client.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // client POST d'un serveur web
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-parameters-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-   try {
-     // on prépare les paramètres
-     list($prenom, $nom, $age) = array("jean-paul", "de la hûche", 45);
-     // on fait la requête au serveur
-     $response = $httpClient->request('GET', $config['url-post'],
-       [
-         // paramètres du document (body)
-         "body" => [
-           "prenom" => $prenom,
-           "nom" => $nom,
-           "age" => $age
-         ],
-         // paramètres de l'URL (query)
-         "query" => [
-           "prenom2" => $prenom,
-           "nom2" => $nom,
-           "age2" => $age
-     ]]);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse du serveur
-     print "---Réponse du serveur [" . $response->getContent() . "]\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  ligne 32 : une requête POST ;
-
--  lignes 40-45 : les paramètres url-encodés dans l’URL ;
-
--  lignes 35-39 : les paramètres url-encodés dans le corps (body,
-   document) de la requête ;
-
-A l’exécution, on obtient les résultats console suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Mon, 03 Jun 2019 12:41:19 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 217
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur [{"method":"GET","uri":"\/php7\/scripts-web\/05\/parameters-server.php?prenom2=jean-paul&nom2=de%20la%20h%C3%BBche&age2=45","getParameters":{"prenom2":"jean-paul","nom2":"de la hûche","age2":"45"},"bodyParameters":[]}]
-
--  ligne 10 : on constate que le serveur n’a pas reçu de paramètres
-   url-encodés dans le document envoyé par le client. Lorsqu’on regarde
-   les entêtes HTTP envoyés par celui-ci, on s’aperçoit qu’il a bien
-   envoyé un document de 44 caractères mais le serveur ne l’a pas
-   exploité ;
-
-Finalement quelle méthode choisir pour envoyer de l’information au
-serveur ?
-
--  la méthode **[GET URL?param1=val1&param2=val2&…]** utilise une URL
-   paramétrée qui peut servir de lien. C’est son principal avantage :
-   l’utilisateur peut mettre dans son marque-pages de tels liens ;
-
--  dans d’autres applications, on peut ne pas souhaiter afficher dans
-   une URL les paramètres envoyés au serveur. Pour des raisons de
-   sécurité par exemple. Alors on utilisera une méthode **[POST]** et on
-   mettra les paramètres url-encodés dans un document envoyé au
-   serveur ;
-
-Gestion des sessions web
-------------------------
-
-Dans les exemples client / serveur précédents on avait le fonctionnement
-suivant :
-
--  le client ouvre une connexion vers le port 80 de la machine du
-   service web ;
-
--  il envoie la séquence de texte : en-têtes HTTP, ligne vide,
-   **[document] ;**
-
--  en réponse, le serveur envoie une séquence du même type ;
-
--  le serveur clôt la connexion vers le client ;
-
--  le client clôt la connexion vers le serveur ;
-
-Si le même client fait peu après une nouvelle demande au serveur web,
-une nouvelle connexion est créée entre le client et le serveur. Celui-ci
-ne peut pas savoir si le client qui se connecte est déjà venu ou si
-c'est une première demande. Entre deux connexions, le serveur "oublie"
-son client. Pour cette raison, on dit que le protocole HTTP est un
-protocole sans état. Il est pourtant utile que le serveur se souvienne
-de ses clients. Ainsi si une application est sécurisée, le client va
-envoyer au serveur un login et un mot de passe pour s'identifier. Si le
-serveur "oublie" son client entre deux connexions, celui-ci devra
-s'identifier à chaque nouvelle connexion, ce qui n'est pas envisageable.
-
-Pour faire le suivi d'un client, le serveur procède de la façon
-suivante : lors d'une première demande d'un client, il inclut dans sa
-réponse un identifiant que le client doit ensuite lui renvoyer à chaque
-nouvelle demande. Grâce à cet identifiant, différent pour chaque client,
-le serveur peut reconnaître un client. Il peut alors gérer une mémoire
-pour ce client sous la forme d'une mémoire associée de façon unique à
-l'identifiant du client.
-
-Techniquement cela se passe ainsi :
-
--  dans la réponse à un nouveau client, le serveur inclut l'en-tête HTTP
-   *Set-Cookie : MotClé=Identifiant*. Il ne fait cela qu'à la première
-   demande ;
-
--  dans ses demandes suivantes, le client va renvoyer son identifiant
-   via l'en-tête HTTP *Cookie : MotClé=Identifiant* afin que le serveur
-   le reconnaisse ;
-
-On peut se demander comment le serveur fait pour savoir qu'il a affaire
-à un nouveau client plutôt qu'à un client déjà venu. C'est la présence
-de l'en-tête HTTP *Cookie* dans les en-têtes HTTP du client qui le lui
-indique. Pour un nouveau client, cet en-tête est absent.
-
-L'ensemble des connexions d'un client donné est appelé une session.
-
-Le fichier de configuration [php.ini]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Pour que la gestion des sessions fonctionne correctement avec PHP, il
-faut vérifier que celui-ci est correctement configuré. Sous windows, son
-fichier de configuration est *php.ini*. Selon le contexte d'exécution
-(console, web), le fichier de configuration **[php.ini]** doit être
-recherché dans des dossiers différents. Pour découvrir ceux-ci, on
-utilisera le script suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // infos PHP
-   phpinfo();
-
-Ligne 4, la fonction *phpinfo* donne des informations sur l'interpréteur
-PHP qui exécute le script. Elle donne notamment le chemin du fichier de
-configuration **[php.ini]** utilisé.
-
-Nous avons déjà utilisé ce script dans un environnement console (cf
-paragraphe `lien <#_Configuration_de_PHP>`__). Dans un environnement
-web, on obtient le résultat suivant :
-
-|image57|
-
--  en **[1-2]**, le fichier **[php.ini]** qui configure l’interpréteur
-   des scripts web. On trouve dans ce fichier une section **session** :
-
-.. code-block:: php 
-   :linenos:
-
-   [Session]
-   session.save_handler = files
-   session.save_path = "C:/myprograms/laragon-lite/tmp"
-   session.use_strict_mode = 0
-   session.use_cookies = 1
-   session.use_only_cookies = 1
-   session.name = PHPSESSID
-   session.auto_start = 0
-   session.cookie_lifetime = 0
-   session.cookie_path = /
-   session.cookie_domain =
-   session.cookie_httponly =
-   session.serialize_handler = php
-   session.gc_probability = 1
-   session.gc_divisor = 1000
-   session.gc_maxlifetime = 36000
-   session.referer_check =
-   session.cache_limiter = nocache
-   session.cache_expire = 180
-   session.use_trans_sid = 0
-   session.trans_sid_tags = "a=href,area=href,frame=src,form="
-   session.sid_bits_per_character = 5
-
--  ligne 2 : les données d'une session client sont sauvegardées dans un
-   fichier ;
-
--  ligne 3 : le dossier de sauvegarde des données de session. Si ce
-   dossier n'existe pas, aucune erreur n'est signalée et la gestion des
-   sessions ne fonctionne pas ;
-
--  lignes 4-6 : indiquent que l'identifiant de session est géré par les
-   en-têtes HTTP *Set-Cookie* et *Cookie ;*
-
--  ligne 7 : l'entête *Set-Cookie* sera de la forme *Set-Cookie :
-   PHPSESSID=identifiant_de_session ;*
-
--  ligne 8 : une session client n'est pas démarrée automatiquement. Le
-   script serveur doit la demander explicitement par une instruction
-   *session_start()* ;
-
--  ligne 9 : le cookie de session est valable tant que le navigateur
-   client n’a pas été fermé ;
-
--  ligne 10 : le chemin pour lequel le cookie de session doit être
-   renvoyé. Si **[session.cookie_path = /xxx]**, alors à chaque fois que
-   le navigateur demande une URL de type **[/xxx/yyy/zzz]** alors il
-   doit renvoyer le cookie. Ici le chemin **[/]** indique que le cookie
-   doit être renvoyé pour toute URL du site ;
-
--  ligne 13 : certains objets mis en session doivent être sérialisés
-   pour pouvoir être stockés dans un fichier. C’est PHP qui assure cette
-   sérialisation / désérialisation avec les fonctions **[serialize /
-   unserialize]** ;
-
--  ligne 16 : durée de vie au-delà de laquelle les objets de session
-   stockés dans le fichier de sauvegarde sont considérés comme
-   obsolètes ;
-
--  ligne 19 : durée de vie d’une session. Au-delà de cette durée, une
-   nouvelle session est créée et les objets sauvegardés dans la
-   précédente session sont perdus ;
-
-Exemple 1
-~~~~~~~~~
-
-Le serveur
-^^^^^^^^^^
-
-|image58|
-
-La gestion de l'identifiant de session est transparent pour un service
-web. Cet identifiant est géré par le serveur web. Un service web a accès
-à la session du client via l'instruction *session_start()*. A partir de
-ce moment, le service web peut lire / écrire des données dans la session
-du client via le dictionnaire $_SESSION. Si on utilise la bibliothèque
-**[HttpFoundation]**, la session est disponible via l’expression
-**[Request→getSession]**.
-
-Le code suivant **[session-server.php]** montre la gestion en session de
-trois compteurs. A chaque nouvelle requête, le script web incrémente ces
-compteurs et les met en session pour qu’ils puissent être récupérés lors
-de la requête suivante.
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use \Symfony\Component\HttpFoundation\Response;
-   use Symfony\Component\HttpFoundation\Request;
-   use Symfony\Component\HttpFoundation\Session\Session;
-
-   //
-   // on récupère la requête
-   $request = Request::createFromGlobals();
-   // session
-   $session = new Session();
-   $session->start();
-   // on récupère trois compteurs dans la session
-   if ($session->has("N1")) {
-     // incrémentation du compteur N1
-     $session->set("N1", (int) $session->get("N1") + 1);
-   } else {
-     // le compteur N1 n'est pas en session - on le crée
-     $session->set("N1", 0);
-   }
-   if ($session->has("N2")) {
-     // incrémentation du compteur N2
-     $session->set("N2", (int) $session->get("N2") + 1);
-   } else {
-     // le compteur N2 n'est pas en session - on le crée
-     $session->set("N2", 10);
-   }
-   if ($session->has("N3")) {
-     // incrémentation du compteur N3
-     $session->set("N3", (int) $session->get("N3") + 1);
-   } else {
-     // le compteur N3 n'est pas en session - on le crée
-     $session->set("N3", 100);
-   }
-   // on élabore la réponse
-   $response = new Response();
-   // le contenu de la réponse est du texte utf-8
-   $response->headers->set("content-type", "application/json");
-   $response->setCharset("utf-8");
-   // la réponse sera le jSON d'un tableau contenant les trois compteurs
-   $response->setContent(json_encode([
-     "N1" => $session->get("N1"),
-     "N2" => $session->get("N2"),
-     "N3" => $session->get("N3")]));
-
-   // envoi de la réponse
-   $response->send();
-
--  ligne 10 : l’objet **[$request]** encapsule la totalité des
-   informations sur la requête reçue par le script web ;
-
--  lignes 12-13 : on crée une session et on l’active. L’objet
-   **[Session]** encapsule les données de la session correspondant au
-   cookie de session envoyé par le client. Si celui-ci n’a pas envoyé un
-   tel cookie, alors il n’y aucune donnée mémorisée dans **[Session]**.
-   Le script web va inclure dans sa 1\ :sup:`re` réponse l’entête HTTP
-   **[Set-Cookie : PHPSESSID=xxx]**. Dans ses requêtes ultérieures, le
-   client enverra l’entête HTTP **[Cookie : PHPSESSID=xxx]** pour
-   indiquer la session dont il veut utiliser le contenu. Une session est
-   la mémoire d’un client ;
-
--  ligne 15 : on regarde si la session a une clé nommée **[N1]**. Ce
-   sera le nom de notre 1\ :sup:`er` compteur. Si ce n’est pas le cas
-   (ligne 20), on lui donne la valeur 0 et on le met en session. Si
-   c’est le cas (ligne 23), on :
-
-   -  le récupère dans la session ;
-
-   -  incrémente de 1 sa valeur ;
-
-   -  le remet dans la session ;
-
--  lignes 22-35 : on fait la même chose pour les deux autres compteurs
-   N2 et N3 ;
-
--  lignes 36-40 : on prépare une réponse de type
-   **[application/json]** ;
-
--  lignes 42-45 : la réponse sera la chaîne jSON d’un tableau contenant
-   les trois compteurs ;
-
--  ligne 48 : on envoie la réponse au client ;
-
-Dans la relation client / serveur, la gestion de la session client sur
-le serveur dépend des deux acteurs, le client et le serveur :
-
--  le serveur a la charge d'envoyer un identifiant à son client lors de
-   sa première demande
-
--  le client a la charge de renvoyer cet identifiant à chaque nouvelle
-   demande. S'il ne le fait pas, le serveur croira que c'est un nouveau
-   client et génèrera un nouvel identifiant pour une nouvelle session.
-
-**Résultats**
-
-Nous utilisons comme client, un navigateur web. Par défaut (par
-configuration en fait), celui-ci renvoie bien au serveur les
-identifiants de session que celui-ci lui envoie. Au fil des requêtes, le
-navigateur va recevoir les trois compteurs envoyés par le serveur et va
-voir leurs valeurs s'incrémenter.
-
-|image59|
-
--  En **[2]**, la 1\ :sup:`re` demande au service web ;
-
--  en **[4]**, la 4\ :sup:`e` demande montre que les compteurs sont bien
-   incrémentés. Il y a bien mémorisation des valeurs des compteurs au
-   fil des demandes ;
-
-Utilisons le mode développement pour voir les en-têtes HTTP échangés
-entre le serveur et le client. Nous fermons Firefox pour terminer la
-session courante avec le serveur, le rouvrons et activons le mode
-développement (F12). Ceci va supprimer la session courante du navigateur
-qui va donc en recommencer une nouvelle. Nous demandons le service
-**[session-server.php]** :
-
-|image60|
-
-En **[5]**, on voit l'identifiant de session envoyé par le serveur dans
-sa réponse à la 1\ :sup:`re` demande du client. Il utilise l'en-tête
-HTTP *Set-Cookie*.
-
-Faisons une nouvelle demande en rafraîchissant (F5) la page dans le
-navigateur web :
-
-|image61|
-
-Ci-dessus on remarquera deux choses :
-
--  en **[11]**, le navigateur web renvoie l'identifiant de session avec
-   l'en-tête HTTP *Cookie*.
-
--  En **[12]**, dans sa réponse, le service web n'inclut plus cet
-   identifiant. C'est désormais le client qui a la charge de l'envoyer à
-   chacune de ses demandes.
-
-.. _le-client-1:
-
-Le client
-^^^^^^^^^
-
-Nous écrivons maintenant un script client du script serveur précédent.
-Dans sa gestion de la session, il doit se comporter comme le navigateur
-web :
-
--  dans la réponse du serveur à sa première demande, il doit trouver
-   l'identifiant de session que le serveur lui envoie. Il sait qu'il le
-   trouvera dans l'en-tête HTTP *Set-Cookie*.
-
--  il doit, à chacune de ses demandes ultérieures, renvoyer au serveur
-   l'identifiant qu'il a reçu. Il le fera avec l'en-tête HTTP *Cookie*.
-
-|image62|
-
-Le client **[session-client]** est configuré par le fichier jSON
-**[config-session-client.json]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost/php7/scripts-web/06/session-server.php"
-   }
-
-Le code du client **[session-client]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // gestion d'une session
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-session-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create();
-   try {
-     // on va faire 10 requêtes
-     for ($i = 0; $i < 10; $i++) {
-       // on fait la requête au serveur
-       if (!isset($sessionCookie)) {
-         // sans session
-         $response = $httpClient->request('GET', $config['url']);
-       } else {
-         // avec session
-         $response = $httpClient->request('GET', $config['url'],
-           ["headers" => ["Cookie" => $sessionCookie]]);
-       }
-       // statut de la réponse
-       $statusCode = $response->getStatusCode();
-       print "---Réponse avec statut : $statusCode\n";
-       // on récupère les entêtes
-       print "---Entêtes de la réponse\n";
-       $headers = $response->getHeaders();
-       foreach ($headers as $type => $value) {
-         print "$type: " . $value[0] . "\n";
-       }
-       // on récupère le cookie de session s'il existe
-       if (isset($headers["set-cookie"])) {
-         // cookie de session ?
-         foreach ($headers["set-cookie"] as $cookie) {
-           $match = [];
-           $match = preg_match("/^PHPSESSID=(.+?);/", $cookie, $champs);
-           if ($match) {
-             $sessionCookie = "PHPSESSID=" . $champs[1];
-           }
-         }
-       }
-     }
-     // on affiche la réponse jSON du serveur
-     print "---Réponse du serveur : {$response->getContent()}\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  ligne 27 : création du client HTTP ;
-
--  ligne 30 : on va faire 10 fois la même requête au server
-   **[session-server.php]** ;
-
--  ligne 32 : la variable **[$sessionCookie]** aura pour valeur la
-   valeur de l’entête HTTP **[Set-Cookie]** reçue par le client ;
-
--  lignes 32-34 : si cette variable n’existe pas c’est que la session
-   n’a pas encore démarré. On envoie la commande **[GET]** sans l’entête
-   **[Cookie]** ;
-
--  lignes 35-38 : sinon la session a démarré et on envoie la commande
-   **[GET]** avec l’entête **[Cookie]**. La valeur de cet entête sera
-   **[$sessionCookie]** ;
-
--  ligne 50 : si l’entête **[Set-Cookie]** fait partie des entêtes HTTP
-   reçus, alors on cherche le cookie de session ;
-
--  ligne 52 : le serveur web peut envoyer plusieurs entêtes
-   **[Set-Cookie]**. Le cookie de session n’est que l’un d’entre-eux.
-   Dans notre exemple, il a la particularité d’être de la forme
-   **[PHPSESSID=xxx;]** ;
-
--  lignes 53-57 : on utilise une expression régulière pour trouver le
-   cookie de session ;
-
--  ligne 62 : une fois les 10 requêtes faites, on affiche la dernière
-   réponse jSON du serveur ;
-
-**Résultats**
-
-L'exécution du script client provoque l'affichage suivant dans la
-console Netbeans :
-
-.. code-block:: php 
-   :linenos:
-
-   "C:\myprograms\laragon-lite\bin\php\php-7.2.11-Win32-VC15-x64\php.exe" "C:\Data\st-2019\dev\php7\poly\scripts-console\clients web\06\session-client.php"
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Tue, 04 Jun 2019 13:41:34 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: max-age=0, private, must-revalidate
-   set-cookie: PHPSESSID=1cerjgsgdlc35e1mkenvtltmh8; path=/
-   content-length: 25
-   connection: close
-   content-type: application/json
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Tue, 04 Jun 2019 13:41:34 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: max-age=0, private, must-revalidate
-   content-length: 25
-   connection: close
-   content-type: application/json
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Tue, 04 Jun 2019 13:41:34 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: max-age=0, private, must-revalidate
-   content-length: 25
-   connection: close
-   content-type: application/json
-   ---Réponse avec statut : 200
-   …………………………………………………………
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Tue, 04 Jun 2019 13:41:34 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: max-age=0, private, must-revalidate
-   content-length: 25
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur : {"N1":9,"N2":19,"N3":109}
-
--  ligne 8 : dans sa première réponse, le serveur envoie l'identifiant
-   de session. Dans les réponses suivantes, il ne l'envoie plus ;
-
--  ligne 41 : les trois compteurs **[N1, N2, N3]** ont bien été
-   incrémentés 9 fois. Lors de la requête n° 1, ils ont été mis à zéro ;
-
-L’exemple suivant montre qu'on peut aussi sauvegarder les valeurs d'un
-tableau ou d'un objet dans la session.
-
-Exemple 2
-~~~~~~~~~
-
-.. _le-serveur-1:
-
-Le serveur
-^^^^^^^^^^
-
-|image63|
-
-Nous allons mettre un objet **[Personne]** dans la session. La
-définition de cette classe est la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   namespace Modèles;
-
-   class Personne implements \JsonSerializable {
-     // attributs
-     private $nom;
-     private $prénom;
-     private $âge;
-
-     // conversion d'un tableau associatif vers un objet [Personne]
-     public function setFromArray(array $assoc): Personne {
-       // on initialise l'objet courant avec le tableau associatif
-       foreach ($assoc as $attribute => $value) {
-         $this->$attribute = $value;
-       }
-       // résultat
-       return $this;
-     }
-
-     // getters et setters
-     public function getNom() {
-       return $this->nom;
-     }
-
-     public function getPrénom() {
-       return $this->prénom;
-     }
-
-     public function setNom($nom) {
-       $this->nom = $nom;
-       return $this;
-     }
-
-     public function setPrénom($prénom) {
-       $this->prénom = $prénom;
-       return $this;
-     }
-
-     public function getÂge() {
-       return $this->âge;
-     }
-
-     public function setÂge($âge) {
-       $this->âge = $âge;
-       return $this;
-     }
-
-     // toString
-     public function __toString(): string {
-       return "Personne [$this->prénom, $this->nom, $this->âge]";
-     }
-
-     // implémente l'interface JsonSerializable
-     public function jsonSerialize(): array {
-       // on rend un tableau associatif avec pour clés les attributs de l'objet
-       // ce tableau pourra ensuite être encodé en jSON
-       return get_object_vars($this);
-     }
-
-     // conversion d'un jSON vers un objet [Personne]
-     public static function jsonUnserialize(string $json): Personne {
-       // on crée une personne à partir de la chaîne jSON
-       return (new Personne())->setFromArray(json_decode($json, true));
-     }
-
-   }
-
-Le script serveur sera le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use \Symfony\Component\HttpFoundation\Response;
-   use \Symfony\Component\HttpFoundation\Request;
-   use \Symfony\Component\HttpFoundation\Session\Session;
-   require_once __DIR__ . "/Personne.php";
-   use \Modèles\Personne;
-
-   //
-   // on récupère la requête courante
-   $request = Request::createFromGlobals();
-
-   // session
-   $session = new Session();
-   $session->start();
-
-   // on récupère diverses données dans la session
-   // tableau
-   if ($session->has("tableau")) {
-     // le tableau est dans la session - on incrémente toutes ses valeurs
-     $tableau = $session->get("tableau");
-     for ($i = 0; $i < count($tableau); $i++) {
-       $tableau[$i] += 1;
-     }
-     // on remet le tableau dans la session
-     $session->set("tableau", $tableau);
-   } else {
-     // le tableau n'est pas dans la session - on le crée
-     $tableau = [0, 10, 100];
-     // on le met dans la session
-     $session->set("tableau", $tableau);
-   }
-   // dictionnaire
-   if ($session->has("assoc")) {
-     // [assoc] est dans la session - on incrémente tous ses éléments
-     $assoc = $session->get("assoc");
-     foreach ($assoc as $key => $value) {
-       $assoc[$key] = $value + 1;
-     }
-     // on met $assoc dans la session
-     $session->set("assoc", $assoc);
-   } else {
-     // [assoc] n'est pas dans la session - on le crée
-     $assoc = ["un" => 0, "deux" => 10, "trois" => 100];
-     // on met $assoc dans la session
-     $session->set("assoc", $assoc);
-   }
-   // objet Personne
-   if ($session->has("personne")) {
-     // [personne] est dans la session - on incrémente son âge
-     $personne = $session->get("personne");
-     $personne->setÂge($personne->getÂge() + 1);
-   } else {
-     // [personne] n'est pas dans la session - on le crée
-     $personne = (new Personne())->setFromArray(
-       ["prénom" => "Léonard", "nom" => "Hûche", "âge" => 0]);
-     // on met $personne dans la session
-     $session->set("personne", $personne);
-   }
-   // on élabore la réponse
-   $response = new Response();
-   // le contenu de la réponse est du jSON utf-8
-   $response->headers->set("content-type", "application/json");
-   $response->setCharset("utf-8");
-   $response->setContent(json_encode([
-     "tableau" => $tableau,
-     "assoc" => $assoc,
-     "personne" => $personne], JSON_UNESCAPED_UNICODE));
-
-   // envoi de la réponse
-   $response->send();
-
-**Commentaires**
-
--  lignes 16-17 : on récupère la session en cours et on l’active ;
-
--  lignes 21-34 : on gère un tableau **[tableau]** mis en session. A
-   chaque nouvelle requête, ses éléments sont incrémentés de 1 ;
-
--  lignes 36-49 : on gère un tableau associatif **[assoc]** mis en
-   session. A chaque nouvelle requête, ses éléments sont incrémentés de
-   1 ;
-
--  lignes 51-61 : on gère un objet **[Personne]** mis en session. A
-   chaque nouvelle requête, l’âge de cette personne est incrémentée de
-   1 ;
-
--  lignes 62-73 : on envoie une réponse jSON au client : la chaîne jSON
-   d’un tableau associatif ;
-
-Exécutons ce script à partir de Netbeans. Les deux premières requêtes
-donnent les résultats suivants (F5 dans le navigateur pour la
-deuxième) :
-
-|image64|
-
--  on voit qu’en **[6-8]**, tous les compteurs ont été incrémentés ;
-
-.. _le-client-2:
-
-Le client
-^^^^^^^^^
-
-|image65|
-
-Le client est le même que dans l’exemple 1 (paragraphe
-`lien <#le-client-1>`__). On ne modifie que son fichier de configuration
-**[config-session-client]** :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost/php7/scripts-web/07/session-server.php"
-   }
-
-L’exécution produit les résultats suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Tue, 04 Jun 2019 14:25:24 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: max-age=0, private, must-revalidate
-   set-cookie: PHPSESSID=qbfrj8clr20mod3eriur71mao6; path=/
-   content-length: 119
-   connection: close
-   content-type: application/json
-   ---Réponse avec statut : 200
-   ………….……………………………………………………….
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Tue, 04 Jun 2019 14:25:24 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: max-age=0, private, must-revalidate
-   content-length: 119
-   connection: close
-   content-type: application/json
-   ---Réponse du serveur : {"tableau":[9,19,109],"assoc":{"un":9,"deux":19,"trois":109},"personne":{"nom":"Hûche","prénom":"Léonard","âge":9}}
-
--  en ligne **[22]**, on voit que tous les compteurs ont été
-   incrémentés ;
-
-Authentification
-----------------
-
-Nous nous intéressons maintenant aux services web destinés à certains
-utilisateurs seulement. Le client doit alors s’identifier auprès du
-service web avant d’avoir sa réponse.
-
-.. _le-client-3:
-
-Le client
-~~~~~~~~~
-
-|image66|
-
-Le code du client **[auth-client.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // gestion d'une session
-   //
-   // gestion des erreurs
-   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
-   //ini_set("display_errors", "off");
-   //
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use Symfony\Component\HttpClient\HttpClient;
-
-   // la configuration du client
-   const CONFIG_FILE_NAME = "config-auth-client.json";
-
-   // on récupère la configuration
-   if (!file_exists(CONFIG_FILE_NAME)) {
-     print "Le fichier de configuration [" . CONFIG_FILE_NAME . "] n'existe pas\n";
-     exit;
-   }
-   if (!$config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true)) {
-     print "Erreur lors de l'exploitation du fichier de configuration jSON [" . CONFIG_FILE_NAME . "]\n";
-     exit;
-   }
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create([
-       'auth_basic' => ['admin', 'admin'],
-       // "verify_peer" => false,
-       // "verify_host" => false
-     ]);
-
-
-   try {
-     // on fait la requête au serveur
-     $response = $httpClient->request('GET', $config['url']);
-     // statut de la réponse
-     $statusCode = $response->getStatusCode();
-     print "---Réponse avec statut : $statusCode\n";
-     // on récupère les entêtes
-     print "---Entêtes de la réponse\n";
-     $headers = $response->getHeaders();
-     foreach ($headers as $type => $value) {
-       print "$type: " . $value[0] . "\n";
-     }
-     // on affiche la réponse jSON du serveur
-     print "---Réponse du serveur : {$response->getContent()}\n";
-   } catch (TypeError | RuntimeException $ex) {
-     // on affiche l'erreur
-     print "Erreur de communication avec le serveur : " . $ex->getMessage() . "\n";
-   }
-
-**Commentaires**
-
--  lignes 27-31 : on a passé un paramètre à la méthode statique
-   **[HttpClient::create]**, un tableau associatif ;
-
--  ligne 28 : la clé **[auth_basic]** a pour valeur un tableau à deux
-   éléments **[user, password]**. C’est avec ces éléments que le client
-   va s’authentifier auprès du service web. La clé **[auth_basic]**
-   désigne un type d’authentification appelé **[Autorization Basic]** du
-   nom de l’entête HTTP que va émettre le client. Il existe d’autres
-   types d’authentification ;
-
--  en-dehors de ce code, le client est identique aux précédents ;
-
-Pour voir les entêtes HTTP envoyés par le client, nous allons le
-connecter au serveur TCP générique **[RawTcpServer]** comme nous l’avons
-fait déjà de nombreuses fois :
-
-|image67|
-
-Nous lançons le client avec la configuration
-**[config-auth-client.json]** suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "http://localhost:100/php7/scripts-web/08/auth-server.php"
-   }
-
-Le serveur **[RawTcpServer]** reçoit alors les lignes suivantes :
-
-|image68|
-
--  en **[5]**, on voit l’entête **[Autorization : Basic XXX]** envoyé
-   par le client. La chaîne XXX est la chaîne **[user:password]** codé
-   en Base64 ;
-
-Pour vous en assurer, vous pouvez décoder la chaîne reçue sur le site
-**[https://www.base64decode.org/]** :
-
-|image69|
-
-.. _le-serveur-2:
-
-Le serveur
-~~~~~~~~~~
-
-|image70|
-
-Le serveur **[auth-server.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // dépendances
-   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
-   use \Symfony\Component\HttpFoundation\Response;
-   use \Symfony\Component\HttpFoundation\Request;
-
-   // utilisateurs autorisés
-   $users = ["admin" => "admin"];
-   //
-   // on récupère la requête courante
-   $request = Request::createFromGlobals();
-   // authentification
-   $requestUser = $request->headers->get('php-auth-user');
-   $requestPassword = $request->headers->get('php-auth-pw');
-   // l'utilisateur existe-t-il ?
-   $trouvé = array_key_exists($requestUser, $users) && $users[$requestUser] === $requestPassword;
-   // préparation de la réponse
-   $response = new Response();
-   // on fixe le code de statut de la réponse
-   if (!$trouvé) {
-     // pas trouvé - code 401
-     $response->setStatusCode(Response::HTTP_UNAUTHORIZED);
-     $response->headers->add(["WWW-Authenticate"=> "Basic realm=".utf8_decode("\"PHP7 par l'exemple\"")]);
-   } else {
-     // trouvé - code 200
-     $response->setStatusCode(Response::HTTP_OK);
-   }
-   // la réponse n'a pas de contenu, seulement des entêtes HTTP
-   $response->send();
-
-**Commentaires**
-
--  ligne 9 : les utilisateurs autorisés, ici un seul de login
-   **[admin]** avec le mot de passe **[admin]** ;
-
--  ligne 14 : l’identifiant de l’utilisateur est récupéré dans l’entête
-   **[PHP-AUTH-USER]**. Ce n’est pas un entête que le client a envoyé,
-   mais un entête que le PHP du serveur a construit ;
-
--  ligne 15 : le mot de passe de l’utilisateur est récupéré dans
-   l’entête **[PHP-AUTH-PW]**, un entête construit par PHP ;
-
--  ligne 17 : on cherche l’utilisateur qui veut se connecter dans la
-   liste des utilisateurs autorisés ;
-
--  lignes 23-24 : si l’utilisateur n’a pas été reconnu, on envoie au
-   client
-
-   -  ligne 23 : le code **[401 Unauthorized]** ;
-
-   -  ligne 24 : un entête **[WWW-Authenticate: Basic realm=”quelque
-      chose”]**. La plupart des navigateurs reconnaissent cet entête et
-      vont faire apparaître une fenêtre d’authentification invitant
-      l’utilisateur à s’authentifier. Les entêtes HTTP doivent être
-      codés en ISO 8859-1. Les textes Netbeans sont eux codés en UTF-8.
-      La fonction **[utf8_decode]** assure la conversion UTF-8 vers ISO
-      8859-1. Ici, elle n’était pas nécessaire car les caractères de la
-      chaîne **[PHP7 par l’exemple]** sont les mêmes en UTF-8 et ISO
-      8859-1. La fonction n’est là que pour un rappel du codage utilisé
-      par les entêtes HTTP ;
-
--  ligne 25 : si l’utilisateur a été reconnu, on envoie au client le
-   code **[200 OK]** ;
-
-Demandons l’URL **[auth-server.php]** avec un navigateur :
-
-|image71|
-
-On voit que le navigateur fait afficher une fenêtre d’authentification.
-En **[2]**, on voit la valeur de l’entête **[WWW-Authenticate]** envoyé
-par le serveur. Si on regarde les entêtes HTTP reçus par le navigateur,
-on trouve la chose suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   HTTP/1.0 401 Unauthorized
-   Date: Fri, 07 Jun 2019 09:11:23 GMT
-   Server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   X-Powered-By: PHP/7.2.11
-   Cache-Control: no-cache, private
-   WWW-Authenticate: Basic realm="PHP7 par l'exemple"
-   Content-Length: 0
-   Connection: close
-   Content-Type: text/html; charset=UTF-8
-
--  ligne 1 : le code **[401 Unauthorized]** de la réponse ;
-
--  ligne 6 : l’entête HTTP **[WWW-Authenticate]** ;
-
--  ligne 7 : le corps de la réponse est vide ;
-
-Si en **[3-4]**, on tape **[admin]** deux fois, la réponse du serveur
-est alors la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   HTTP/1.0 200 OK
-   Date: Fri, 07 Jun 2019 09:21:00 GMT
-   Server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   X-Powered-By: PHP/7.2.11
-   Cache-Control: no-cache, private
-   Content-Length: 0
-   Connection: close
-   Content-Type: text/html; charset=UTF-8
-
--  ligne 1 : le code 200 OK de la réponse ;
-
--  ligne 6 : le corps de la réponse est vide ;
-
-Si en **[3-4]**, on tape des identifiants erronés, le navigateur
-**[Firefox]** utilisé pour les tests, représente indéfiniment le fenêtre
-d’authentification jusqu’à ce que les identifiants corrects soient
-tapés. A chaque fois un aller-retour avec le serveur a lieu avec
-toujours la même réponse qui déclenche la fenêtre d’authentification du
-navigateur.
-
-Exécutons le client **[auth-client.php]** avec un utilisateur non
-autorisé. La réponse du serveur est la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 401
-   ---Entêtes de la réponse
-   Erreur de communication avec le serveur : HTTP/1.0 401 Unauthorized returned for "https://localhost/php7/scripts-web/08/auth-server.php".
-
--  En **[1]**, le client a bien reçu un code 401 ;
-
--  en **[3]**, une exception a été lancée dans le client. C’est le
-   client Symfony **[HttpClient]** qui l’a lancée : il lance une
-   exception lorsque que le code de statut de la réponse HTTP indique
-   qu’il y a eu erreur côté serveur, et que le client essaie de lire les
-   entêtes ou le contenu de la réponse du serveur. Le message de la
-   ligne 3 nous permet de voir que le serveur a répondu par **[HTTP/1.0
-   401 Unauthorized]** pour indiquer que l’utilisateur n’avait pas été
-   reconnu ;
-
-Exécutons maintenant le client **[auth-client.php]** avec l’utilisateur
-autorisé **[‘admin’,’admin’]**. La réponse du serveur est alors la
-suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Wed, 05 Jun 2019 10:11:02 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 0
-   connection: close
-   content-type: text/html; charset=UTF-8
-   ---Réponse du serveur :
-
--  ligne 1 : le serveur a répondu **[HTTP/1. 200 OK]** ;
-
--  ligne 7 : la réponse n’a pas de contenu (0 octet) ;
-
-Sécuriser la connexion client / serveur
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Nous avons vu que pour s’authentifier auprès du serveur, le client
-envoyait l’entête :
-
-.. code-block:: php 
-   :linenos:
-
-   authorization: Basic YWRtaW46YWRtaW4=
-
-Si cette ligne est interceptée par un programme espion, celui-ci pourra
-aisément retrouver les identifiants **[login, mot de passe]** encodés en
-base 64 dans la chaîne **[YWRtaW46YWRtaW4=]**. Pour cette raison, il
-faut que l’authentification ait lieu dans une connexion sécurisée entre
-le client et le serveur. Les URL sécurisées utilisent le protocole
-**[HTTPS]** au lieu du protocole HTTP. Le protocole **[HTTPS]** est le
-protocole HTTP au sein d’une connexion client / serveur sécurisée. Les
-URL sécurisées sont de la forme **[https://chemin_document]**.
-
-Tous les serveurs web n’acceptent pas les URL de cette forme. Il faut
-les modifier pour qu’ils soient sécurisés. Le serveur Apache de Laragon
-est un serveur sécurisé mais le protocole HTTPS n’est pas actif par
-défaut. Il faut l’activer dans le menu de Laragon :
-
-|image72|
-
--  en **[4]**, il faut activer le chiffrement SSL du serveur Apache ;
-
-Ceci fait, le serveur Apache est automatiquement redémarré :
-
-|image73|
-
--  en **[1]**, un cadenas vert apparaît : c’est le signe que le
-   protocole HTTPS a été activé ;
-
--  en **[2]**, un nouveau port de service apparaît, le port 443 ici.
-   C’est le port de service du protocole sécurisé HTTPS ;
-
-Maintenant que nous avons un serveur sécurisé, modifions le fichier de
-configuration **[config-auth-client.json]** du client de la façon
-suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   {
-       "url": "https://localhost:443/php7/scripts-web/08/auth-server.php"
-   }
-
-En **[2]**, le protocole est devenu **[https]** et le port **[443]**.
-
-Maintenant exécutons le client **[auth-client.php]** avec l’utilisateur
-autorisé **[admin, admin]**. Les résultats console sont les suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   Erreur de communication avec le serveur : Peer certificate cannot be authenticated with given CA certificates for"https://localhost/php7/scripts-web/08/auth-server.php".
-
-Le client Symfony **[HttpClient]** a lancé une exception car le serveur
-lui a envoyé un certificat de confiance que **[HttpClient]** n’a pas
-accepté. La communication SSL se fait avec des certificats de confiance
-certifiés par des organismes officiels. Lorsqu’on a activé le protocole
-HTTPS sur le serveur Apache de Laragon, un certificat autosigné a été
-généré pour le serveur Apache. Un certificat autosigné est un certificat
-non validé par un organisme officiel. Le client Symfony **[HttpClient]**
-a refusé ce certificat autosigné.
-
-Il est possible de demander à **[HttpClient]** de ne pas vérifier la
-validité du certificat envoyé par le serveur. Cela se fait avec des
-options dans la méthode **[HttpClient::create]** :
-
-.. code-block:: php 
-   :linenos:
-
-   // on crée un client HTTP
-   $httpClient = HttpClient::create([
-       'auth_basic' => ['admin', 'admin'],
-       "verify_peer" => false
-     ]);
-
-La ligne 4 demande à ce que le certificat du serveur ne soit pas
-vérifié. Nous avions déjà rencontré ce problème dans le script
-**[http-02.php]** du paragraphe `lien <#_Exemple_6>`__. Ce script
-utilisait la bibliothèque **[libcurl]** pour se connecter à des sites
-HTTP et HTTPS. On avait alors utilisé la configuration suivante pour
-cette bibliothèque :
-
-.. code-block:: php 
-   :linenos:
-
-   // Initialisation d'une session cURL
+   $config = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+
+   // obtenir le texte HTML des URL du fichier de configuration
+   foreach ($config as $site => $infos) {
+     // lecture URL du site $ite
+     $résultat = getUrl($site, $infos["url"], $infos["timeout"]);
+     // affichage résultat
+     print "$résultat\n";
+   }//for
+   // fin
+   exit;
+
+   //-----------------------------------------------------------------------
+   function getUrl(string $site, string $url, int $timeout, $suivi = TRUE): string {
+     // lit l'URL $url et la stocke dans le fichier output/$site.HTML
+     //
+     // suivi
+     print "Client : début de la communication avec le serveur [$site] ----------------------------\n";
+
+     // Initialisation d'une session cURL
      $curl = curl_init($url);
      if ($curl === FALSE) {
        // il y a eu une erreur
@@ -3665,294 +1697,4742 @@ cette bibliothèque :
      ];
 
      // paramétrage de curl
-   curl_setopt_array($curl, $options);
+     curl_setopt_array($curl, $options);
+     // Execution de la requête
+     $page_content = curl_exec($curl);
+     // Fermeture de la session cURL
+     curl_close($curl);
 
-Ligne 17, la constante **[CURLOPT_SSL_VERIFYPEER]** contrôle la
-vérification ou non du certificat envoyé par le serveur. Le client
-**[HttpClient]** est en fait un client **[curl]** lorsque l’extension
-**[curl]** est activée dans la configuration de PHP comme c’est le cas
-ici. La classe instanciée par **[HttpClient::create]** est alors la
-classe **[CurlHttpClient]**. Les constantes de **[curl]** sont
-disponibles dans cette classe mais sous d’autres noms :
+     // exploitation du résultat
+     if ($page_content !== FALSE) {
+       // enregistrement du résultat dans $site.HTML
+       $result = file_put_contents("output/$site.HTML", $page_content);
+       if ($result === FALSE) {
+         // retour erreur
+         return "Erreur lors de la création du fichier [output/$site.HTML]";
+       }
+       // retour avec succès
+       return "Fin de la communication avec le serveur [$site]. Vérifiez le fichier [output/$site.HTML]";
+     } else {
+       // il y a eu une erreur de communication
+       return "Erreur de communication avec le serveur [$site]";
+     }
+   }
+
+**Commentaires**
+
+-  ligne 14 : on exploite le fichier de configuration pour créer le
+   dictionnaire **[$config]** ;
+
+-  lignes 17-22 : on boucle sur la liste de sites trouvés dans la
+   configuration ;
+
+-  ligne 19 : pour chacun des sites, on appelle la fonction **[getUrl]**
+   qui va télécharger l’URL $infos\ **[«url»]** avec un timeout
+   $infos\ **[«timeout»]** ;
+
+-  ligne 34 : on démarre un session **[curl]**. **[curl_init]** ne fait
+   pas encore de connexion au serveur web. Elle rend une ressource
+   **[$curl]** qui va être un paramètre pour toutes les fonctions
+   **[curl]** suivantes ;
+
+-  lignes 35-38 : si l’initialisation de la session **[curl]** échoue,
+   la fonction **[curl_init]** rend le booléen FALSE ;
+
+-  lignes 40-54 : le dictionnaire **[$options]** va paramétrer la
+   connexion **[curl]** au serveur ;
+
+-  ligne 57 : les options de la connexion sont transmises à la ressource
+   **[$curl]** ;
+
+-  ligne 59 : connexion à l’URL demandée avec les options définies. A
+   cause de l’option **[CURLOPT_RETURNTRANSFER => true]**, la fonction
+   **[curl_exec]** rend comme résultat le document envoyé par le serveur
+   comme une chaîne de caractères. La fonction **[curl_exec]** rend le
+   booléen FALSE en cas d’échec de la connexion ;
+
+-  ligne 64 : on analyse le résultat de **[curl_exec]** ;
+
+-  ligne 66 : on enregistre la page reçue dans un fichier local ;
+
+-  lignes 69, 72, 75 : on rend le résultat de la fonction **[getUrl]** ;
+
+Lorsqu’on exécute le script **[http-02.php]** on obtient les résultats
+console suivants :
 
 .. code-block:: php 
    :linenos:
 
-   $curlopts = [
-               CURLOPT_URL => $url,
-               CURLOPT_USERAGENT => 'Symfony HttpClient/Curl',
-               CURLOPT_TCP_NODELAY => true,
-               CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-               CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-               CURLOPT_FOLLOWLOCATION => true,
-               CURLOPT_MAXREDIRS => 0 < $options['max_redirects'] ? $options['max_redirects'] : 0,
-               CURLOPT_COOKIEFILE => '', // Keep track of cookies during redirects
-               CURLOPT_CONNECTTIMEOUT_MS => 1000 * $options['timeout'],
-               CURLOPT_PROXY => $options['proxy'],
-               CURLOPT_NOPROXY => $options['no_proxy'] ?? $_SERVER['no_proxy'] ?? $_SERVER['NO_PROXY'] ?? '',
-               CURLOPT_SSL_VERIFYPEER => $options['verify_peer'],
-               CURLOPT_SSL_VERIFYHOST => $options['verify_host'] ? 2 : 0,
-               CURLOPT_CAINFO => $options['cafile'],
-               CURLOPT_CAPATH => $options['capath'],
-               CURLOPT_SSL_CIPHER_LIST => $options['ciphers'],
-               CURLOPT_SSLCERT => $options['local_cert'],
-               CURLOPT_SSLKEY => $options['local_pk'],
-               CURLOPT_KEYPASSWD => $options['passphrase'],
-               CURLOPT_CERTINFO => $options['capture_peer_cert_chain'],
-           ];
+   * Rebuilt URL to: http://sergetahe.com/
+   Client : début de la communication avec le serveur [sergetahe.com] ----------------------------
+   *   Trying 87.98.154.146…
+   * TCP_NODELAY set
+   * Connected to sergetahe.com (87.98.154.146) port 80 (#0)
+   > GET / HTTP/1.1
+   Host: sergetahe.com
+   Accept: */*
 
-Nous avons surligné en jaune, les constantes utilisées par
-**[CurlHttpClient]**.
+   < HTTP/1.1 302 Found
+   < Date: Sat, 18 May 2019 08:46:38 GMT
+   < Content-Type: text/HTML; charset=UTF-8
+   < Transfer-Encoding: chunked
+   < Server: Apache
+   < X-Powered-By: PHP/7.0
+   < Location: http://sergetahe.com/cours-tutoriels-de-programmation
+   < Set-Cookie: SERVERID68971=2621236|XN/Gc|XN/Gc; path=/
+   < X-IPLB-Instance: 17097
+   <
+   * Ignoring the response-body
+   * Connection #0 to host sergetahe.com left intact
+   * Issue another request to this URL: 'http://sergetahe.com/cours-tutoriels-de-programmation'
+   * Found bundle for host sergetahe.com: 0x1fee4ebe090 [can pipeline]
+   * Re-using existing connection! (#0) with host sergetahe.com
+   * Connected to sergetahe.com (87.98.154.146) port 80 (#0)
+   > GET /cours-tutoriels-de-programmation HTTP/1.1
+   Host: sergetahe.com
+   Accept: */*
 
-Si maintenant, nous exécutons le client **[auth-client]** avec
-l’utilisateur **[admin, admin]** nous obtenons le résultat suivant :
+   < HTTP/1.1 301 Moved Permanently
+   < Date: Sat, 18 May 2019 08:46:38 GMT
+   < Content-Type: text/HTML; charset=iso-8859-1
+   < Content-Length: 262
+   < Server: Apache
+   < Location: http://sergetahe.com/cours-tutoriels-de-programmation/
+   < Set-Cookie: SERVERID68971=2621236|XN/Gc|XN/Gc; path=/
+   < Cache-control: private
+   < X-IPLB-Instance: 17097
+   <
+   * Ignoring the response-body
+   * Connection #0 to host sergetahe.com left intact
+   * Issue another request to this URL: 'http://sergetahe.com/cours-tutoriels-de-programmation/'
+   * Found bundle for host sergetahe.com: 0x1fee4ebe090 [can pipeline]
+   * Re-using existing connection! (#0) with host sergetahe.com
+   * Connected to sergetahe.com (87.98.154.146) port 80 (#0)
+   > GET /cours-tutoriels-de-programmation/ HTTP/1.1
+   Host: sergetahe.com
+   Accept: */*
+
+   < HTTP/1.1 200 OK
+   < Date: Sat, 18 May 2019 08:46:39 GMT
+   < Content-Type: text/HTML; charset=UTF-8
+   < Transfer-Encoding: chunked
+   < Server: Apache
+   < X-Powered-By: PHP/7.0
+   < Link: <http://sergetahe.com/cours-tutoriels-de-programmation/wp-json/>; rel="https://api.w.org/"
+   < Link: <http://sergetahe.com/cours-tutoriels-de-programmation/>; rel=shortlink
+   < Vary: Accept-Encoding
+   < Set-Cookie: SERVERID68971=2621236|XN/Gc|XN/Gc; path=/
+   < Cache-control: private
+   < X-IPLB-Instance: 17097
+   <
+   Fin de la communication avec le serveur [sergetahe.com]. Vérifiez le fichier [output/sergetahe.com.HTML]
+   Client : début de la communication avec le serveur [tahe.developpez.com] ----------------------------
+   * Connection #0 to host sergetahe.com left intact
+   * Rebuilt URL to: https://tahe.developpez.com/
+   *   Trying 87.98.130.52…
+   * TCP_NODELAY set
+   * Connected to tahe.developpez.com (87.98.130.52) port 443 (#0)
+   * ALPN, offering http/1.1
+   * successfully set certificate verify locations:
+   *   CAfile: C:\myprograms\laragon-lite\etc\ssl\cacert.pem
+     CApath: none
+   * SSL connection using TLSv1.2 / ECDHE-RSA-AES128-GCM-SHA256
+   * ALPN, server accepted to use http/1.1
+   * Server certificate:
+   *  subject: CN=*.developpez.com
+   *  start date: Apr  4 08:25:09 2019 GMT
+   *  expire date: Jul  3 08:25:09 2019 GMT
+   *  subjectAltName: host "tahe.developpez.com" matched cert's "*.developpez.com"
+   *  issuer: C=US; O=Let's Encrypt; CN=Let's Encrypt Authority X3
+   *  SSL certificate verify ok.
+   > GET / HTTP/1.1
+   Host: tahe.developpez.com
+   Accept: */*
+
+   < HTTP/1.1 200 OK
+   < Date: Sat, 18 May 2019 08:46:42 GMT
+   < Server: Apache/2.4.25 (Debian)
+   < X-Powered-By: PHP/5.3.29
+   < Vary: Accept-Encoding
+   < Transfer-Encoding: chunked
+   < Content-Type: text/HTML
+   <
+   Fin de la communication avec le serveur [tahe.developpez.com]. Vérifiez le fichier [output/tahe.developpez.com.HTML]
+   Client : début de la communication avec le serveur [www.polytech-angers.fr] ----------------------------
+   * Connection #0 to host tahe.developpez.com left intact
+   * Rebuilt URL to: http://www.polytech-angers.fr/
+   *   Trying 193.49.144.41…
+   * TCP_NODELAY set
+   * Connected to www.polytech-angers.fr (193.49.144.41) port 80 (#0)
+   > GET / HTTP/1.1
+   Host: www.polytech-angers.fr
+   Accept: */*
+
+   < HTTP/1.1 301 Moved Permanently
+   < Date: Sat, 18 May 2019 08:46:45 GMT
+   < Server: Apache/2.4.29 (Ubuntu)
+   < Location: http://www.polytech-angers.fr/fr/index.HTML
+   < Cache-Control: max-age=1
+   < Expires: Sat, 18 May 2019 08:46:46 GMT
+   < Content-Length: 339
+   < Content-Type: text/HTML; charset=iso-8859-1
+   <
+   * Ignoring the response-body
+   * Connection #0 to host www.polytech-angers.fr left intact
+   * Issue another request to this URL: 'http://www.polytech-angers.fr/fr/index.HTML'
+   * Found bundle for host www.polytech-angers.fr: 0x1fee4ebe390 [can pipeline]
+   * Re-using existing connection! (#0) with host www.polytech-angers.fr
+   * Connected to www.polytech-angers.fr (193.49.144.41) port 80 (#0)
+   > GET /fr/index.HTML HTTP/1.1
+   Host: www.polytech-angers.fr
+   Accept: */*
+
+   < HTTP/1.1 200
+   < Date: Sat, 18 May 2019 08:46:46 GMT
+   < Server: Apache/2.4.29 (Ubuntu)
+   < X-Cocoon-Version: 2.1.13-dev
+   < Accept-Ranges: bytes
+   < Last-Modified: Sat, 18 May 2019 08:01:36 GMT
+   < Content-Type: text/HTML; charset=UTF-8
+   < Content-Length: 47372
+   < Vary: Accept-Encoding
+   < Cache-Control: max-age=1
+   < Expires: Sat, 18 May 2019 08:46:47 GMT
+   < Content-Language: fr
+   <
+   * Connection #0 to host www.polytech-angers.fr left intact
+   Fin de la communication avec le serveur [www.polytech-angers.fr]. Vérifiez le fichier [output/www.polytech-angers.fr.HTML]
+   Client : début de la communication avec le serveur [localhost] ----------------------------
+   * Rebuilt URL to: http://localhost/
+   *   Trying ::1…
+   * TCP_NODELAY set
+   * Connected to localhost (::1) port 80 (#0)
+   > GET / HTTP/1.1
+   Host: localhost
+   Accept: */*
+
+   < HTTP/1.1 200 OK
+   < Date: Sat, 18 May 2019 08:46:47 GMT
+   < Server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
+   < X-Powered-By: PHP/7.2.11
+   < Content-Length: 1781
+   < Content-Type: text/HTML; charset=UTF-8
+   <
+   * Connection #0 to host localhost left intact
+
+   Fin de la communication avec le serveur [localhost]. Vérifiez le fichier [output/localhost.HTML]
+
+**Commentaires**
+
+-  on obtient les mêmes échanges qu’avec l’outil **[curl]** ;
+
+-  en vert, les logs du script ;
+
+-  en bleu, les commandes envoyées au serveur ;
+
+-  en jaune, les commandes reçues en réponse par le client ;
+
+   1. .. rubric:: Conclusion
+         :name: conclusion
+
+Nous avons, dans ce paragraphe, découvert le protocole HTTP et avons
+écrit un script **[http-02.php]** capable de télécharger une URL du web.
+
+Le protocole SMTP (Simple Mail Transfer Protocol)
+-------------------------------------------------
+
+.. _introduction-1:
+
+Introduction
+~~~~~~~~~~~~
+
+|image32|
+
+Dans ce chapitre :
+
+-  **[Serveur B]** sera un serveur SMTP local que nous installerons ;
+
+-  **[Client A]** sera un client SMTP de diverses formes :
+
+   -  le client **[RawTcpClient]** pour découvrir le protocole SMTP ;
+
+   -  un script PHP rejouant le protocole SMTP du client
+      **[RawTcpClient]** ;
+
+   -  un script PHP utilisant la bibliothèque **[SwiftMailServer]**
+      permettant d’envoyer toutes sortes de mails ;
+
+      1. .. rubric:: Création d’une adresse [gmail]
+            :name: création-dune-adresse-gmail
+
+Pour faire nos tests SMTP, nous aurons besoin d’une adresse mail à qui
+écrire. Nous allons créer pour cela une adresse sur Gmail :
+
+|image33|
+
+-  en **[5]**, nous créons l’utilisateur **[php7parlexemple]**
+   (choisissez autre chose) ;
+
+-  en **[6]**, le mot de passe sera lui **[PHP7parlexemple]**
+   (choisissez autre chose) ;
+
+-  en **[7]**, nous validons ces informations ;
+
+|image34|
+
+-  remplir les cases **[9-10]** puis valider (11) ;
+
+-  accepter les conditions d’utilisation de Google (12-13) puis valider
+   (14) ;
+
+|image35|
+
+-  en **[15]**, la boîte de réception (Inbox) de l’utilisateur
+   **[PHP7]** (16) ;
+
+-  en **[17]**, cet utilisateur a une boîte de réception vide ;
+
+-  en **[18-19]**, connectez-vous au compte Google de l’utilisateur
+   **[php7parlexemple@gmail.com]**. Nous allons configurer la sécurité
+   du compte ;
+
+|image36|
+
+-  en **[21]**, autorisez d’autres applications que celles de Google à
+   exploiter le compte **[php7parlexemple]**. Si on ne fait pas ça,
+   notre serveur local de mails **[hMailServer]** ne pourra pas
+   communiquer avec le serveur SMTP de Gmail ;
+
+|image37|
+
+Installation d’un serveur SMTP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pour nos tests, nous installerons le serveur de mail **[hMailServer]**
+qui est à la fois un serveur SMTP permettant d’envoyer des mails, un
+serveur POP3 (Post Office Protocol) permettant de lire les mails stockés
+sur le serveur, un serveur IMAP (Internet Message Access Protocol) qui
+lui aussi permet de lire les mails stockés sur le serveur mais va
+au-delà. Il permet notamment de gérer le stockage des mails sur le
+serveur.
+
+Le serveur de mail **[hMailServer]** est disponible à l’URL
+**[https://www.hmailserver.com/]** (mai 2019).
+
+|image38|
+
+Au cours de l’installation, certains renseignements vous seront
+demandés :
+
+|image39|
+
+-  en **[1-2]**, sélectionnez à la fois le serveur de mails et les
+   outils pour l’administrer ;
+
+-  durant l’installation le mot de l’administrateur vous sera demandé :
+   **notez l**\ e, car il vous sera nécessaire ;
+
+**[hMailServer]** s’installe comme un service Windows lancé
+automatiquement au démarrage de la machine. Il est préférable de choisir
+un démarrage manuel :
+
+-  en **[3]**, on tape **[services]** dans la zone de saisie de la barre
+   d’état ;
+
+|image40|
+
+-  en **[4-8]**, on met le service en mode **[manuel]** (6), on le lance
+   (7) ;
+
+Une fois démarré, le serveur **[hMailServer]** doit être configuré. Le
+serveur a été installé avec un programme d’administration **[hMailServer
+Administrator]** :
+
+|image41|
+
+-  en **[2]**, dans la zone de saisie de la barre d’état, taper
+   **[hmailserver]** ;
+
+-  en **[3]**, lancer l’administrateur ;
+
+-  en **[4]**, connecter l’administrateur au serveur **[hMailServer]** ;
+
+-  en **[5]**, taper le mot de passe saisi lors de l’installation de
+   **[hMailServer]** ;
+
+|image42|
+
+Nous allons créer un compte utilisateur :
+
+-  cliquer droit sur **[Accounts]** (7) puis (8) pour ajouter un nouvel
+   utilisateur ;
+
+-  dans l’onglet **[General]** (9), nous définissons un utilisateur
+   **[guest]** (10) avec le mot de passe **[guest]** (11). Il aura
+   l’adresse mail **[guest@localhost]** (10) ;
+
+-  en **[12]**, l’utilisateur **[guest]** est activé ;
+
+|image43|
+
+|image44|
+
+-  en **[15]**, on configure le protocole SMTP du serveur de mail ;
+
+-  en **[16]**, on configure la distribution des mails ;
+
+-  en **[17]**, la configuration de la distribution des mails à
+   destination de la machine hôte (localhost) ;
+
+-  en **[18]**, le nom de la machine locale (localhost). Le script du
+   paragraphe
+   `lien <#obtenir-le-nom-ou-ladresse-ip-dune-machine-de-linternet>`__
+   vous permet d’avoir ce nom ;
+
+-  en **[19]**, on configure un serveur SMTP relais : il s’agit ici du
+   serveur qui s’occupera de la distribution des mails non destinés à la
+   machine locale (localhost) ;
+
+-  en **[20]**, le serveur SMTP de Gmail. Nous prenons Gmail car nous y
+   avons créé un compte au paragraphe
+   `lien <#création-dune-adresse-gmail>`__ ;
+
+-  en **[21]**, le port SMTP de Gmail ;
+
+-  en **[22]**, le service SMTP de Gmail est un service sécurisé : il
+   faut un compte Gmail pour y accéder ;
+
+-  en **[23]**, l’utilisateur **[php7parlexemple]** créé au paragraphe
+   `lien <#création-dune-adresse-gmail>`__ ;
+
+-  en **[24]**, le mot de passe de cet utilisateur :
+   **[PHP7parlexemple]** créé au paragraphe
+   `lien <#création-dune-adresse-gmail>`__ ;
+
+-  en **[25]**, on indique le type de protocole de sécurité utilisé par
+   Gmail ;
+
+|image45|
+
+-  en **[27]** le port du service SMTP ;
+
+-  en **[28]**, ce service ne nécessite pas d’authentification ;
+
+-  en **[30]**, mettez le message de bienvenue que le serveur SMTP
+   enverra à ses clients ;
+
+   1. .. rubric:: Le protocole SMTP
+         :name: le-protocole-smtp
+
+|image46|
+
+Nous allons découvrir le protocole SMTP avec l’environnement suivant :
+
+-  le client A sera le client TCP générique **[RawTcpClient]** ;
+
+-  le serveur B sera le serveur de mails **[hMailServer]** ;
+
+-  le client A demandera au serveur B de distribuer un courrier à
+   l’utilisateur **[php7parlexemple@gmail.com]** ;
+
+-  nous vérifierons que cet utilisateur a bien reçu le mail envoyé ;
+
+Nous lançons le client de la façon suivante :
+
+|image47|
+
+-  en **[1]**, on se connecte sur le port 25 de la machine locale, là où
+   opère le service SMTP de **[hMailServer]**. l’argument **[--quit
+   bye]** indique que l’utilisateur quittera le programme en tapant la
+   commande **[bye]**. Sans cet argument, la commande de fin du
+   programme est **[quit]**. Or **[quit]** est également une commande du
+   protocole SMTP. Il nous faut donc éviter cette ambiguïté ;
+
+-  en **[2]**, le client est bien connecté ;
+
+-  en **[3]**, le client attend des commandes tapées au clavier ;
+
+-  en **[4]**, le serveur lui envoie son message de bienvenue ;
+
+|image48|
+
+-  en **[5]**, le client envoie la commande **[EHLO
+   nom-de-la-machine-client]**. Le serveur lui répond par une suite de
+   messages de la forme **[250-xx]** (6). Le code **[250]** indique le
+   succès de la commande envoyée par le client ;
+
+-  en **[7]**, le client indique l’expéditeur du message, ici
+   **[guest@localhost]**. Cet utilisateur doit exister sur le serveur de
+   mails **[hMailServer]**. C’est le cas ici car nous avons créé cet
+   utilisateur précédemment ;
+
+-  en **[8]**, la réponse du serveur ;
+
+-  en **[9]**, on indique le destinataire du message, ici l’utilisateur
+   Gmail **[php7parlexemple@gmail.com]** ;
+
+-  en **[10]**, la réponse du serveur ;
+
+-  en **[11]**, la commande **[DATA]** indique au serveur que le client
+   va envoyer le contenu du message ;
+
+-  en **[12]**, la réponse du serveur ;
+
+-  en **[13-16]**, le client doit envoyer une liste de lignes de texte
+   terminée par une ligne ne contenant qu’un unique point. Le message
+   peut contenir des lignes **[Subject :, From :, To :]** (13) pour
+   définir respectivement le sujet du message, l’expéditeur, le
+   destinataire ;
+
+-  en **[14]**, les entêtes précédents doivent être suivis d’une ligne
+   vide ;
+
+-  en **[15]**, le texte du message ;
+
+-  en **[16]**, la ligne ne contenant qu’un unique point qui indique la
+   fin du message ;
+
+-  en **[17]**, une fois que le serveur a reçu la ligne ne contenant
+   qu’un unique point, il met le message en file d’attente ;
+
+-  en **[18]**, le client indique au serveur qu’il a fini ;
+
+-  en **[19]**, la réponse du serveur ;
+
+-  en **[20]**, on constate que le serveur a fermé la connexion qui le
+   liait au client ;
+
+Maintenant vérifions que l’utilisateur **[php7parlexemple@gmail.com]** a
+bien reçu le message :
+
+|image49|
+
+-  en **[2]**, on voit que l’utilisateur **[php7parlexemple@gmail.com]**
+   a bien reçu le message ;
+
+|image50|
+
+|image51|
+
+|image52|
+
+-  en **[7]**, l’expéditeur du mail. On voit que ce n’est pas
+   **[guest@localhost]**. Cela est dû au fait que c’est le serveur
+   relais défini dans la configuration de **[hmailServer]** qui a
+   délivré le message. Or ce serveur relais est **[smtp.gmail.com]**
+   associé aux identifiants de l’utilisateur Gmail
+   **[php7parlexemple@gmail.com]**. Tout mail provenant de
+   **[hMailServer]** semblera provenir de l’utilisateur
+   **[php7parlexemple@gmail.com]**. Ce n’est pas ce qu’on voulait ici
+   mais si on n’utilise pas ce serveur relais, le service SMTP de Gmail
+   refuse les mails envoyés par **[hMailServer]** car le SMTP de Gmail
+   réclame une authentification que **[hMailServer]** n’envoie pas. Il y
+   a sans doute moyen de contourner ce problème mais je ne l’ai pas
+   trouvé ;
+
+-  en **[8]**, on voit que le mail a été reçu de la machine
+   **[DESKTOP-528I5CU]** qui héberge le serveur de mails
+   **[hMailServer]** ;
+
+-  en **[9]**, l’expéditeur du message. On voit que ce n’est pas
+   **[guest@localhost]** ;
+
+-  en **[10]**, l’expéditeur original du message. Cette fois-ci c’est
+   bien **[guest@localhost]** ;
+
+-  en **[11]**, le sujet ;
+
+-  en **[12]**, le destinataire ;
+
+-  en **[13]**, le message ;
+
+Finalement, notre client **[RawTcpClient]** a réussi à envoyer le
+message même si on a rencontré un problème pour l’expéditeur. Nous avons
+les bases pour créer un client SMTP écrit en PHP.
+
+Un client SMTP basique écrit en PHP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Nous allons reproduire en PHP ce que nous avons appris précédemment du
+protocole SMTP.
+
+|image53|
+
+Le script **[smtp-01.php]** est configuré par le fichier jSON
+**[config-smtp-01.json]** suivant :
 
 .. code-block:: php 
    :linenos:
 
-   ---Réponse avec statut : 200
-   ---Entêtes de la réponse
-   date: Wed, 05 Jun 2019 10:44:37 GMT
-   server: Apache/2.4.35 (Win64) OpenSSL/1.1.0i PHP/7.2.11
-   x-powered-by: PHP/7.2.11
-   cache-control: no-cache, private
-   content-length: 0
-   connection: close
-   content-type: text/html; charset=UTF-8
-   ---Réponse du serveur :
+   {
+       "mail to localhost via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "guest@localhost",
+           "subject": "to localhost via localhost",
+           "message": "ligne 1\nligne 2\nligne 3"
+       },
+       "mail to gmail via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "php7parlexemple@gmail.com",
+           "subject": "to gmail via localhost",
+           "message": "ligne 1\nligne 2\nligne 3"
+       },
+       "mail to gmail via gmail": {
+           "smtp-server": "smtp.gmail.com",
+           "smtp-port": "587",
+           "from": "guest@localhost",
+           "to": "php7parlexemple@gmail.com",
+           "subject": "to gmail via gmail",
+           "message": "ligne 1\nligne 2\nligne 3"
+       }
+   }
 
-L’utilisateur a bien été reconnu. Si nous exécutons le client
-**[auth-client]** avec un utilisateur autre que **[admin, admin]**, nous
-obtenons le résultat suivant :
+**[config-smtp-01.json]** est un tableau où chacun des éléments est un
+dictionnaire de type **[nom=>infos]**. La valeur **[infos]** est
+elle-même un dictionnaire avec les clés et valeurs suivantes :
+
+-  **[smtp-server]** : le nom du serveur SMTP à utiliser ;
+
+-  **[smtp-port]** : le n° du port du service SMTP ;
+
+-  **[from]** : l’expéditeur du message ;
+
+-  **[to]** : le destinataire du message ;
+
+-  **[subject]** : le sujet du message ;
+
+-  **[message]** : le message à envoyer ;
+
+-  Le 1\ :sup:`er` élément utilise le serveur SMTP **[localhost]** pour
+   envoyer un mail à un utilisateur de **[localhost]** ;
+
+-  le 2\ :sup:`d` élément utilise le serveur SMTP **[localhost]** pour
+   envoyer un mail à un utilisateur de **[Gmail]** ;
+
+-  le 3\ :sup:`e` élément utilise le serveur SMTP **[Gmail]** pour
+   envoyer un mail à un utilisateur de **[Gmail]** ;
+
+Le code **[smtp-01.php]** du client SMTP est le suivant :
 
 .. code-block:: php 
    :linenos:
 
-   ---Réponse avec statut : 403
-   ---Entêtes de la réponse
-   Erreur de communication avec le serveur : HTTP/1.0 403 Forbidden returned for "https://localhost/php7/scripts-web/08/auth-server.php".
+   <?php
 
-Désormais, nous savons nous authentifier auprès d’un serveur sécurisé.
+   // client SMTP (SendMail Transfer Protocol) permettant d'envoyer un message
+   // protocole de communication SMTP client-serveur
+   // -> client se connecte sur le port 25 du serveur smtp
+   // <- serveur lui envoie un message de bienvenue
+   // -> client envoie la commande EHLO nom de sa machine
+   // <- serveur répond OK ou non
+   // -> client envoie la commande MAIL FROM: <expéditeur>
+   // <- serveur répond OK ou non
+   // -> client envoie la commande RCPT TO: <destinataire>
+   // <- serveur répond OK ou non
+   // -> client envoie la commande DATA
+   // <- serveur répond OK ou non
+   // -> client envoie ttes les lignes de son message et termine avec une ligne contenant le
+   // seul caractère .
+   // <- serveur répond OK ou non
+   // -> client envoie la commande QUIT
+   // <- serveur répond OK ou non
+   // les réponses du serveur ont la forme xxx texte où xxx est un nombre à 3 chiffres. Tout
+   // nombre xxx >=500 signale une erreur.
+   // La réponse peut comporter plusieurs lignes commençant toutes par xxx sauf la dernière
+   // de la forme xxx(espace)
+   // les lignes de texte échangées doivent se terminer par les caractères RC(#13) et LF(#10)
+   //
+   //  client SMTP (SendMail Transfer Protocol) permettant d'envoyer un message
+   //
+   // gestion des erreurs
+   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
+   //ini_set("display_errors", "off");
+   //
+   // respect strict des types déclarés des paramètres de foctions
+   declare (strict_types=1);
+   //
+   // les paramètres de l'envoi du courrier
+   const CONFIG_FILE_NAME = "config-smtp-01.json";
+
+   // on récupère la configuration
+   $mails = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+
+   // envoi des courriers
+   foreach ($mails as $name => $infos) {
+     // suivi
+     print "Envoi du mail [$name]\n";
+     // envoi du courrier
+     $résultat = sendmail($name, $infos, TRUE);
+     // affichage résultat
+     print "$résultat\n";
+   }//for
+   // fin
+   exit;
+
+   //sendmail
+   //-----------------------------------------------------------------------
+
+   function sendmail(string $name, array $infos, bool $verbose = TRUE): string {
+     // envoie message[$name,$infos]. Si $verbose=TRUE	, fait un suivi des échanges client-serveur
+     // on récupère le nom du client
+     $client = gethostbyaddr(gethostbyname(""));
+     // ouverture d'une connexion avec le serveur SMTP
+     $connexion = fsockopen($infos["smtp-server"], (int) $infos["smtp-port"]);
+     // retour si erreur
+     if ($connexion === FALSE) {
+       return sprintf("Echec de la connexion au site (%s,%s) : %s", $infos["smtp-server"], $infos["smtp-port"]);
+     }
+     // $connexion représente un flux de communication bidirectionnel
+     // entre le client (ce programme) et le serveur smtp contacté
+     // ce canal est utilisé pour les échanges de commandes et d'informations
+     // après la connexion le serveur envoie un message de bienvenue qu'on lit
+     $erreur = sendCommand($connexion, "", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde EHLO
+     $erreur = sendCommand($connexion, "EHLO $client", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde MAIL FROM:
+     $erreur = sendCommand($connexion, sprintf("MAIL FROM: <%s>", $infos["from"]), $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde RCPT TO:
+     $erreur = sendCommand($connexion, sprintf("RCPT TO: <%s>", $infos["to"]), $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde DATA  
+     $erreur = sendCommand($connexion, "DATA", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // préparation message à envoyer
+     // il doit contenir les lignes
+     // From: expéditeur
+     // To: destinataire
+     // Subject:
+     // ligne vide
+     // Message
+     // .
+     $data = sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n.\r\n", $infos["from"], $infos["to"], $infos["subject"], $infos["message"]);
+     $erreur = sendCommand($connexion, $data, $verbose, FALSE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde quit
+     $erreur = sendCommand($connexion, "QUIT", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // fin
+     fclose($connexion);
+     return "Message envoyé";
+   }
+
+   // --------------------------------------------------------------------------
+
+   function sendCommand($connexion, string $commande, bool $verbose, bool $withRCLF): string {
+     // envoie $commande dans le canal $connexion
+     // mode verbeux si $verbose=1
+     // si $withRCLF=1, ajoute la séquence RCLF à échange
+     // données
+     if ($withRCLF) {
+       $RCLF = "\r\n";
+     } else {
+       $RCLF = "";
+     }
+     // envoi cmde si $commande non vide
+     if ($commande!=="") {
+       fputs($connexion, "$commande$RCLF");
+       // écho éventuel
+       if ($verbose) {
+         affiche($commande, 1);
+       }
+     }//if
+     // lecture réponse
+     $réponse = fgets($connexion, 1000);
+     // écho éventuel
+     if ($verbose) {
+       affiche($réponse, 2);
+     }
+     // récupération code erreur
+     $codeErreur = (int) substr($réponse, 0, 3);
+     // dernière ligne de la réponse ?
+     while (substr($réponse, 3, 1) === "-") {
+       // lecture réponse
+       $réponse = fgets($connexion, 1000);
+       // écho éventuel
+       if ($verbose) {
+         affiche($réponse, 2);
+       }
+     }//while
+     // réponse terminée
+     // erreur renvoyée par le serveur ?
+     if ($codeErreur >= 500) {
+       return substr($réponse, 4);
+     }
+   // retour sans erreur
+     return "";
+   }
+
+   // --------------------------------------------------------------------------
+
+   function affiche($échange, $sens) {
+     // affiche $échange à l'écran
+     // si $sens=1 affiche -->$echange
+     // si $sens=2 affiche <-- $échange sans les 2 derniers caractères RCLF
+     switch ($sens) {
+       case 1:
+         print "--> [$échange]\n";
+         break;
+       case 2:
+         $L = strlen($échange);
+         print "<-- [" . substr($échange, 0, $L - 2) . "]\n";
+         break;
+     }//switch
+   }
+
+**Commentaires**
+
+-  ligne 39 : on exploite le fichier de configuration ;
+
+-  ligne 42 : on boucle sur les éléments du tableau **[mails]**. Chaque
+   élément est un dictionnaire **[name=>infos]** où **[name]** est un
+   nom qui peut être quelconque et **[infos]** un dictionnaire contenant
+   les informations nécessaires à l’envoi d’un mail ;
+
+-  ligne 46 : l’envoi du mail est assuré par la fonction **[sendmail]**
+   qui admet trois paramètres :
+
+   -  $name : le nom donné à cet envoi ;
+
+   -  $infos : le dictionnaire contenant les informations nécessaires à
+      l’envoi ;
+
+   -  verbose : un booléen indiquant si les échanges client / serveur
+      doivent être ou non logués sur la console ;
+
+-  ligne 46 : la fonction **[sendmail]** rend un message d’erreur qui
+   est vide s’il n’y a pas eu d’erreur ;
+
+-  ligne 56 : la fonction **[sendmail]** envoie les différentes
+   commandes que doit envoyer un client SMTP :
+
+   -  lignes 77-84 : la commande EHLO ;
+
+   -  lignes 85-92 : la commande MAIL FROM: ;
+
+   -  lignes 93-100 : la commande RCPT TO: ;
+
+   -  lignes 101-108 : la commande DATA ;
+
+   -  lignes 117-124 : envoi du message (From, To, Subject, texte) ;
+
+   -  lignes 125-132 : la commande QUIT ;
+
+-  ligne 140 : la fonction **[sendCommand]** est chargée d’envoyer les
+   commandes du client au serveur SMTP. Elle admet quatre paramètres :
+
+   -  **[$connexion]** : la connexion qui relie le client au serveur ;
+
+   -  **[$commande]** : la commande à envoyer ;
+
+   -  **[$verbose]** : si TRUE alors les échanges client / serveur sont
+      logués sur la console ;
+
+   -  **[$withRCLF]** : si TRUE, envoie la commande terminée par la
+      séquence \\r\n. C’est nécessaire pour toutes les commandes du
+      protocole SMTP, mais **[sendCommand]** sert aussi à envoyer le
+      message. Là on n’ajoute pas la séquence \\r\n ;
+
+-  lignes 150-157 : la commande est envoyée au serveur ;
+
+-  lignes 158-163 : lecture de la 1\ :sup:`re` ligne de la réponse.
+   Celle-ci peut comporter plusieurs lignes. Chaque ligne a la forme
+   XXX-YYY où XXX est un code numérique sauf la dernière ligne de la
+   réponse qui a la forme XXX YYY (absence du caractère -) ;
+
+-  lignes 167-174 : lecture de l’ensemble des lignes de la réponse ;
+
+-  ligne 177 : si le code numérique XXX est supérieur à 500, alors le
+   serveur a renvoyé une erreur ;
+
+**Résultats**
+
+L’exécution du script donne les résultats console suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Envoi du mail [mail to localhost via localhost]
+   <-- [220 Bienvenue sur sergetahe@localhost]
+   --> [EHLO DESKTOP-528I5CU.home]
+   <-- [250-DESKTOP-528I5CU]
+   <-- [250-SIZE 20480000]
+   <-- [250-AUTH LOGIN]
+   <-- [250 HELP]
+   --> [MAIL FROM: <guest@localhost>]
+   <-- [250 OK]
+   --> [RCPT TO: <guest@localhost>]
+   <-- [250 OK]
+   --> [DATA]
+   <-- [354 OK, send.]
+   --> [From: guest@localhost
+   To: guest@localhost
+   Subject: to localhost via localhost
+
+   ligne 1
+   ligne 2
+   ligne 3
+   .
+   ]
+   <-- [250 Queued (0.016 seconds)]
+   --> [QUIT]
+   <-- [221 goodbye]
+   Message envoyé
+   Envoi du mail [mail to gmail via localhost]
+   <-- [220 Bienvenue sur sergetahe@localhost]
+   --> [EHLO DESKTOP-528I5CU.home]
+   <-- [250-DESKTOP-528I5CU]
+   <-- [250-SIZE 20480000]
+   <-- [250-AUTH LOGIN]
+   <-- [250 HELP]
+   --> [MAIL FROM: <guest@localhost>]
+   <-- [250 OK]
+   --> [RCPT TO: <php7parlexemple@gmail.com>]
+   <-- [250 OK]
+   --> [DATA]
+   <-- [354 OK, send.]
+   --> [From: guest@localhost
+   To: php7parlexemple@gmail.com
+   Subject: to gmail via localhost
+
+   ligne 1
+   ligne 2
+   ligne 3
+   .
+   ]
+   <-- [250 Queued (0.000 seconds)]
+   --> [QUIT]
+   <-- [221 goodbye]
+   Message envoyé
+   Envoi du mail [mail to gmail via gmail]
+   <-- [220 smtp.gmail.com ESMTP d9sm21623375wro.26 - gsmtp]
+   --> [EHLO DESKTOP-528I5CU.home]
+   <-- [250-smtp.gmail.com at your service, [90.93.230.110]]
+   <-- [250-SIZE 35882577]
+   <-- [250-8BITMIME]
+   <-- [250-STARTTLS]
+   <-- [250-ENHANCEDSTATUSCODES]
+   <-- [250-PIPELINING]
+   <-- [250-CHUNKING]
+   <-- [250 SMTPUTF8]
+   --> [MAIL FROM: <guest@localhost>]
+   <-- [530 5.7.0 Must issue a STARTTLS command first. d9sm21623375wro.26 - gsmtp]
+   5.7.0 Must issue a STARTTLS command first. d9sm21623375wro.26 - gsmtp
+
+   Done.
+
+-  lignes 1-26 : l’utilisation du serveur SMTP **[hMailServer]** pour
+   envoyer un mail à **[guest@localhost]** se passe bien ;
+
+-  lignes 27-52 : l’utilisation du serveur SMTP **[hMailServer]** pour
+   envoyer un mail à **[php7parlexemple@gmail.com]** se passe bien ;
+
+-  lignes 53-65 : l’utilisation du serveur SMTP **[Gmail]** pour envoyer
+   un mail à **[php7parlexemple@gmail.com]** ne se passe pas bien : en
+   ligne 65, le serveur SMTP envoie un code d’erreur 530 avec le message
+   d’erreur. Celui-ci indique que le client SMTP doit au préalable
+   s’authentifier via une connexion sécurisée. Notre client ne l’a pas
+   fait et est donc refusé ;
+
+   1. .. rubric:: Un second client SMTP écrit avec la bibliothèque
+         [SwiftMailer]
+         :name: un-second-client-smtp-écrit-avec-la-bibliothèque-swiftmailer
+
+Le client précédent offre au moins deux insuffisances :
+
+-  il ne sait pas utiliser une connexion sécurisée si le serveur la
+   réclame ;
+
+-  il ne sait pas joindre des attachements au message ;
+
+Dans notre nouveau script nous allons utiliser la bibliothèque
+**[SwiftMailer]** **[https://swiftmailer.symfony.com/]** (mai 2019). Le
+mode d’installation de **[SwiftMailer]** est décrit à l’URL
+**[https://swiftmailer.symfony.com/docs/introduction.HTML]** (mai 2019).
+
+Lancez tout d’abord Laragon :
+
+|image54|
+
+-  en **[1]**, ouvrez un terminal ;
+
+|image55|
+
+-  en **[3]**, vérifiez que vous êtes dans le dossier
+   **[<laragon>/www]** où <laragon> est le dossier d’installation de
+   Laragon ;
+
+-  en **[3]**, tapez la commande indiquée (mai 2019). Vérifiez à l’URL
+   **[https://swiftmailer.symfony.com/docs/introduction.HTML]** la
+   commande exacte ;
+
+-  en **[4]**, il est indiqué qu’aucune installation ni mise à jour a
+   été faite. C’est parce que la bibliothèque avait déjà été installée
+   sur ce poste ;
+
+-  en **[5]**, le dossier d’installation de **[swiftmailer]** **[6]** ;
+
+-  en **[7]**, un fichier dont on aura besoin dans notre script ;
+
+Ceci fait, vérifiez que le dossier **[<laragon>/www/vendor]** **[5]**
+est bien dans la branche **[Include Path]** de Netbeans (cf paragraphe
+`lien <#_Installation_de_l'IDE>`__).
+
+Enfin la bibliothèque **[SwiftMailer]** nécessite que l’extension PHP
+**[mbstring]** soit active. Pour cela, on vérifie le fichier
+**[php.ini]** (cf paragraphe `lien <#_Configuration_de_PHP>`__) :
+
+|image56|
+
+Le script **[smtp-02.php]** utilisera le fichier de configuration jSON
+**[config-smtp-02.json]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "mail to localhost via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "guest@localhost",
+           "subject": "test-localhost",
+           "message": "ligne 1\nligne 2\nligne 3",
+           "tls": "FALSE",
+           "attachments": ["/attachments/Hello from SwiftMailer.docx",
+               "/attachments/Hello from SwiftMailer.pdf",
+               "/attachments/Hello from SwiftMailer.odt",
+               "/attachments/Cours-Tutoriels-Serge-Tahé-1568x268.png",
+               "/attachments/test-localhost.eml"
+           ]
+       },
+       "mail to gmail via gmail": {
+           "smtp-server": "smtp.gmail.com",
+           "smtp-port": "587",
+           "from": "php7parlexemple@gmail.com",
+           "to": "php7parlexemple@gmail.com",
+           "subject": "test-gmail-via-gmail",
+           "message": "ligne 1\nligne 2\nligne 3",
+           "tls": "TRUE",
+           "user": "php7parlexemple@gmail.com",
+           "password": "PHP7parlexemple",
+           "attachments": ["/attachments/Hello from SwiftMailer.docx",
+               "/attachments/Hello from SwiftMailer.pdf",
+               "/attachments/Hello from SwiftMailer.odt",
+               "/attachments/Cours-Tutoriels-Serge-Tahé-1568x268.png",
+               "/attachments/test-localhost.eml"
+           ]
+       },
+       "mail to gmail via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "php7parlexemple@gmail.com",
+           "subject": "test-gmail-via-localhost",
+           "message": "ligne 1\nligne 2\nligne 3",
+           "tls": "FALSE",
+           "attachments": ["/attachments/Hello from SwiftMailer.docx",
+               "/attachments/Hello from SwiftMailer.pdf",
+               "/attachments/Hello from SwiftMailer.odt",
+               "/attachments/Cours-Tutoriels-Serge-Tahé-1568x268.png",
+               "/attachments/test-localhost.eml"
+           ]
+       }
+   }
+
+On retrouve les mêmes rubriques que dans le fichier
+**[config-smtp-01.json]** avec deux rubriques supplémentaires :
+
+-  **[tls]** : à TRUE indique qu’il faut utiliser une connexion
+   sécurisée avec le serveur SMTP. Dans le cas où **[tls]** vaut TRUE,
+   il faut ajouter deux rubriques :
+
+   -  **[user]** : le nom de l’utilisateur qui authentifie la
+      connexion ;
+
+   -  **[password]** : son mot de passe ;
+
+..
+
+   Dans notre exemple, nous avons utilisé les identifiants de
+   l’utilisateur **[php7parlexemple@gmail.com]** pour nous connecter au
+   serveur de Gmail. Utilisez les vôtres ;
+
+-  **[attachments]** : donne les noms des fichiers à attacher au mail ;
+
+Le code du script **[smtp-02.php]** est le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // client SMTP (SendMail Transfer Protocol) permettant d'envoyer un message
+   //
+   // gestion des erreurs
+   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
+   //ini_set("display_errors", "off");
+   //
+   // dépendances
+   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
+   //
+   // les paramètres de l'envoi du courrier
+   const CONFIG_FILE_NAME = "config-smtp-02.json";
+
+   // on récupère la configuration
+   $mails = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+
+   // envoi des courriers
+   foreach ($mails as $name => $infos) {
+     // suivi
+     print "Envoi du mail [$name]\n";
+     // envoi du courrier
+     $résultat = sendmail($name, $infos);
+     // affichage résultat
+     print "$résultat\n";
+   }//for
+   // fin
+   exit;
+
+   //-----------------------------------------------------------------------
+
+   function sendmail($name, $infos) {
+
+     // envoie $infos[message] au serveur smtp $infos[smtp-server] sur le port $infos[smt-port]
+     // si $infos[tls] est vrai, le support TLS sera utilisé
+     // le mail est envoyé de la part de $infos[from]
+     // pour le destinataire $infos['to']
+     // Le document $info[attachment] est joint au message
+     // le message a le sujet $infos[subject]
+     //
+     // message au format HTML
+     $messageHTML = str_replace("\n", "<br/>", $infos["message"]);
+     try {
+       // création du message
+       $message = (new \Swift_Message())
+         // sujet du message
+         ->setSubject($infos["subject"])
+         // expéditeur
+         ->setFrom($infos["from"])
+         // destinataires avec un dictionnaire (setTo/setCc/setBcc)
+         ->setTo($infos["to"])
+         // texte du message
+         ->setBody($infos["message"])
+         // variante html
+         ->addPart("<b>$messageHTML</b>", 'text/html')
+       ;
+       // attachements
+       foreach ($infos["attachments"] as $attachment) {
+         // chemin de l'attachement
+         $fileName = __DIR__ . $attachment;
+         // on vérifie que le fichier existe
+         if (file_exists($fileName)) {
+           // on attache le document au message
+           $message->attach(\Swift_Attachment::fromPath($fileName));
+         } else {
+           // erreur
+           print "L'attachement [$fileName] n'existe pas\n";
+         }
+       }
+       // protocole TLS ?
+       if ($infos["tls"] === "TRUE") {
+         // TLS
+         $transport = (new \Swift_SmtpTransport($infos["smtp-server"], $infos["smtp-port"], 'tls'))
+           ->setUsername($infos["user"])
+           ->setPassword($infos["password"]);
+       } else {
+         // pas de TLS
+         $transport = (new \Swift_SmtpTransport($infos["smtp-server"], $infos["smtp-port"]));
+       }
+       // le gestionnaire de l'envoi
+       $mailer = new \Swift_Mailer($transport);
+       // envoi du message
+       $result = $mailer->send($message);
+       // fin
+       return "Message [$name] envoyé";
+     } catch (\Throwable $ex) {
+       // erreur
+       return "Erreur lors de l'envoi du message [$name] : " . $ex->getMessage();
+     }
+   }
+
+**Commentaires**
+
+-  ligne 10 : nous chargeons le fichier **[autoload.php]** trouvé dans
+   le dossier **[<lagagon>/www/vendor]** où <laragon> est le dossier
+   d’installation de Laragon. Ce fichier va permettre de charger les
+   fichiers de définition des classes de **[SwiftMailer]** dès le
+   1\ :sup:`er` usage de ces classes. Il nous évite de mettre autant de
+   **[require]** que de classes et interfaces de SwiftMailer que nous
+   allons utiliser ;
+
+-  ligne 32 : la nouvelle fonction **[sendmail]** qui a deux
+   paramètres :
+
+   -  **[$name]** qui sert à différentier les messages entre-eux ;
+
+   -  **[$infos]** : les informations nécessaires pour envoyer le
+      message à son destinataire ;
+
+-  ligne 42 : nous aurons deux versions du message : l’une en *plain
+   text* l’autre en HTML. Ici, nous changeons les marques de fin de
+   ligne en code HTML <br/> ;
+
+-  lignes 45-69 : nous définissons le message à l’aide de la classe
+   **[\SwiftMessage]** ;
+
+-  ligne 47 : la méthode **[SwiftMessage→setSubject]** sert à fixer le
+   sujet du message ;
+
+-  ligne 49 : la méthode **[SwiftMessage→setFrom]** sert à fixer
+   l’expéditeur du message ;
+
+-  ligne 51 : la méthode **[SwiftMessage→setTo]** sert à fixer le
+   destinataire du message ;
+
+-  ligne 53 : la méthode **[SwiftMessage→setBody]** sert à fixer le
+   corps du message ;
+
+-  ligne 55 : la méthode **[SwiftMessage→addPart]** sert à fixer
+   différentes versions du message, ici le message au format HTML.
+   Lorsque le message a des variantes, les lecteurs de courrier
+   affichent la variante préférée de l’utilisateur ;
+
+-  lignes 58-69 : la méthode **[SwiftMessage→addAttachment]** (64)
+   permet d’attacher un fichier au message ;
+
+-  lignes 70-79 : une fois le message à envoyer défini, il faut définir
+   comment l’envoyer. Le mode de transport du message est défini par la
+   classe **[\Swift_SmtpTransport]**. Il y a au moins deux informations
+   à fournir : le *nom* et le *port* du serveur SMTP. Il y en a
+   également une troisième : le serveur SMTP impose-t-il une
+   authentification sécurisée ?
+
+-  lignes 73-75 : l’instance **[\Swift_SmtpTransport]** pour une
+   connexion sécurisée au serveur SMTP ;
+
+-  ligne 78 : l’instance **[\Swift_SmtpTransport]** pour une connexion
+   non sécurisée au serveur SMTP ;
+
+-  ligne 81 : c’est la classe **[\SwiftMailer]** qui envoie les
+   messages. On doit lui passer le mode de transport choisi ;
+
+-  ligne 83 : le message **[\SwiftMessage]** est envoyé par le biais du
+   transport **[\Swift_SmtpTransport]** choisi. La méthode
+   **[SwiftMailer→send]** rend le booléen FALSE si le message n’a pu
+   être envoyé ;
+
+-  lignes 86-89 : la bibliothèque **[SwiftMailer]** lance une exception
+   dès que quelque chose ne se passe pas bien ;
+
+**Note** : on notera que l’espace de noms des classes de la bibliothèque
+**[SwiftMailer]** est la **racine \\**. On a explicitement noté les
+classes **[\SwiftMessage, \\Swift_SmtpTransport, \\SwiftMailer]** pour
+le rappeler ;
+
+**Résultats**
+
+Lorsqu’on exécute le script **[smtp-02.php]** on obtient les résultats
+console suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Envoi du mail [mail to localhost via localhost]
+   Message [mail to localhost via localhost] envoyé
+   Envoi du mail [mail to gmail via gmail]
+   Message [mail to gmail via gmail] envoyé
+   Envoi du mail [mail to gmail via localhost]
+   Message [mail to gmail via localhost] envoyé
+
+Si on consulte le compte Gmail de l’utilisateur **[php7parlexemple]** on
+a la chose suivante :
+
+|image57|
+
+-  en **[1]**, le sujet ;
+
+-  en **[2]**, l’expéditeur ;
+
+-  en **[3]**, le destinataire ;
+
+-  en **[4]**, le message ;
+
+-  en **[5-10]**, les pièces attachées ;
+
+Si on demande à voir le message original, on obtient le document
+suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   Return-Path: <php7parlexemple@gmail.com>
+   Received: from [127.0.0.1] (lfbn-1-11924-110.w90-93.abo.wanadoo.fr. [90.93.230.110])
+           by smtp.gmail.com with ESMTPSA id e14sm7773816wma.41.2019.05.26.03.11.53
+           for <php7parlexemple@gmail.com>
+           (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+           Sun, 26 May 2019 03:11:54 -0700 (PDT)
+   Message-ID: <e613c47a421a66e2cf7f8e319616ec49@swift.generated>
+   Date: Sun, 26 May 2019 10:11:53 +0000
+   Subject: test-gmail-via-gmail
+   From: php7parlexemple@gmail.com
+   To: php7parlexemple@gmail.com
+   MIME-Version: 1.0
+   Content-Type: multipart/mixed; boundary="_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_"
+
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_
+   Content-Type: multipart/alternative; boundary="_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=_"
+
+   --_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=_
+   Content-Type: text/plain; charset=utf-8
+   Content-Transfer-Encoding: quoted-printable
+
+   ligne 1
+   ligne 2
+   ligne 3
+
+   --_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=_
+   Content-Type: text/HTML; charset=utf-8
+   Content-Transfer-Encoding: quoted-printable
+
+   <b>ligne 1<br/>ligne 2<br/>ligne 3</b>
+
+   --_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=_--
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_
+   Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name="Hello from SwiftMailer.docx"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Hello from SwiftMailer.docx"
+
+
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_
+   Content-Type: application/pdf; name="Hello from SwiftMailer.pdf"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Hello from SwiftMailer.pdf"
+
+
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_
+   Content-Type: application/vnd.oasis.opendocument.text; name="Hello from SwiftMailer.odt"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Hello from SwiftMailer.odt"
+
+
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_
+   Content-Type: image/png; name="Cours-Tutoriels-Serge-Tahé-1568x268.png"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Cours-Tutoriels-Serge-Tahé-1568x268.png"
+
+
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_
+   Content-Type: message/rfc822; name=test-localhost.eml
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename=test-localhost.eml
+
+   Return-Path: guest@localhost
+   Received: from [127.0.0.1] (localhost [127.0.0.1]) by DESKTOP-528I5CU with ESMTP ; Sat, 25 May 2019 09:48:23 +0200
+   Message-ID: <620f4628882b011feebe4faa30b45092@swift.generated>
+   Date: Sat, 25 May 2019 07:48:22 +0000
+   Subject: test-localhost
+   From: guest@localhost
+   To: guest@localhost
+   MIME-Version: 1.0
+   Content-Type: multipart/mixed; boundary="_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_"
+
+   --_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_
+   Content-Type: multipart/alternative; boundary="_=_swift_1558770503_3561ca315f33bd15ef6556e98db4a5b8_=_"
+
+   --_=_swift_1558770503_3561ca315f33bd15ef6556e98db4a5b8_=_
+   Content-Type: text/plain; charset=utf-8
+   Content-Transfer-Encoding: quoted-printable
+
+   j'ai =C3=A9t=C3=A9 invit=C3=A9 =C3=A0 d=C3=A9je=C3=BBner
+
+   --_=_swift_1558770503_3561ca315f33bd15ef6556e98db4a5b8_=_
+   Content-Type: text/HTML; charset=utf-8
+   Content-Transfer-Encoding: quoted-printable
+
+   <b>j'ai =C3=A9t=C3=A9 invit=C3=A9 =C3=A0 d=C3=A9je=C3=BBner</b>
+
+   --_=_swift_1558770503_3561ca315f33bd15ef6556e98db4a5b8_=_--
+   --_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_
+   Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name="Hello from SwiftMailer.docx"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Hello from SwiftMailer.docx"
+
+
+   --_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_
+   Content-Type: application/pdf; name="Hello from SwiftMailer.pdf"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Hello from SwiftMailer.pdf"
+
+
+   --_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_
+   Content-Type: application/vnd.oasis.opendocument.text; name="Hello from SwiftMailer.odt"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Hello from SwiftMailer.odt"
+
+
+   --_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_
+   Content-Type: image/png; name="Cours-Tutoriels-Serge-Tahé-1568x268.png"
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename="Cours-Tutoriels-Serge-Tahé-1568x268.png"
+
+
+   --_=_swift_1558770502_c4b808c99c27ded04595bd11f4bad11b_=_--
+
+   --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_--
+
+-  ligne 9 : le sujet ;
+
+-  ligne 10 : l’expéditeur ;
+
+-  ligne 11 : le destinataire ;
+
+-  ligne 13 : le message contient plusieurs parties délimitées par des
+   balises **[--_=_swift_xx]** ;
+
+-  lignes 19-24 : le message en *plain text* ;
+
+-  lignes 27-30 : le message en HTML ;
+
+-  lignes 34-36 : le fichier attaché **[Hello from SwiftMailer.docx]** ;
+
+-  lignes 40-42 : le fichier attaché **[Hello from SwiftMailer.pdf]** ;
+
+-  lignes 46-48 : le fichier attaché **[Hello from SwiftMailer.odt]** ;
+
+-  lignes 58-60 : le fichier attaché
+   **[Cours-Tutoriels-Serge-Tahé-1568x268.png]** ;
+
+-  lignes 58-60 : le fichier attaché **[test-localhost.eml]** ;
+
+-  lignes 62-114 : le fichier attaché **[test-localhost.eml]** est
+   lui-même un message dont le contenu est affiché aux lignes 62-114. On
+   peut constater que ce message contient lui-même des attachements ;
+
+Les protocoles POP3 (Post Office Protocol) et IMAP (Internet Message Access Protocol)
+-------------------------------------------------------------------------------------
+
+.. _introduction-2:
+
+Introduction
+~~~~~~~~~~~~
+
+Pour lire les mails entreposés dans un serveur de mails, deux protocles
+existent :
+
+-  le protocole POP3 (Post Office Protocol) historiquement le
+   1\ :sup:`er` protocole mais peu utilisé maintenant ;
+
+-  le protocole IMAP (Internet Message Access Protocol) protocole plus
+   récent que POP3 et le plus utilisé actuellement ;
+
+Pour découvrir le protocole POP3, nous allons utiliser l’architecture
+suivante :
+
+|image58|
+
+-  **[Serveur B]** sera un serveur POP3 / IMAP local, implémenté par le
+   serveur de mail **[hMailServer]** ;
+
+-  **[Client A]** sera un client POP3 / IMAP de diverses formes :
+
+   -  le client **[RawTcpClient]** pour découvrir le protocole POP3 ;
+
+   -  un script PHP rejouant le protocole POP3 du client
+      **[RawTcpClient]** ;
+
+   -  un script PHP utilisant la bibliothèque IMAP de PHP qui permet
+      d’implémenter aussi bien des clients IMAP que POP3 ;
+
+      1. .. rubric:: Découverte du protocole POP3
+            :name: découverte-du-protocole-pop3
+
+Tout d’abord, nous utilisons le script **[smtp-01.php]** pour envoyer un
+mail à l’utilisateur **[guest@localhost]**. Si vous avez fait les tests
+associés au script, cet utilisateur a normalement reçu des mails mais on
+n’a pas pu le vérifier. Pour lui envoyer un nouveau mail, utilisez par
+exemple le fichier de configuration **[config-smtp-01.json]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "mail to localhost via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "guest@localhost",
+           "subject": "to localhost via localhost",
+           "message": "ligne 1\nligne 2\nligne 3"
+       }
+   }
+
+Maintenant voyons avec le client **[RawTcpClient]** comment on peut lire
+la boîte mail de l’utilisateur **[guest@localhost]** :
+
+.. code-block:: php 
+   :linenos:
+
+   C:\Data\st-2019\dev\php7\php5-exemples\exemples\inet\utilitaires>RawTcpClient --quit bye localhost 110
+   Client [DESKTOP-528I5CU:55593] connecté au serveur [localhost-110]
+   Tapez vos commandes (bye pour arrêter) :
+   <-- [+OK Bienvenue sur sergetahe@localhost]
+   USER guest@localhost
+   <-- [+OK Send your password]
+   PASS guest
+   <-- [+OK Mailbox locked and ready]
+   LIST
+   <-- [+OK 2 messages (610 octets)]
+   <-- [1 305]
+   <-- [2 305]
+   <-- [.]
+   RETR 1
+   <-- [+OK 305 octets]
+   <-- [Return-Path: guest@localhost]
+   <-- [Received: from DESKTOP-528I5CU.home (localhost [127.0.0.1])]
+   <-- [   by DESKTOP-528I5CU with ESMTP]
+   <-- [   ; Tue, 21 May 2019 12:59:11 +0200]
+   <-- [Message-ID: <1356373A-33C9-4F31-BA43-2B119E128CE3@DESKTOP-528I5CU>]
+   <-- [From: guest@localhost]
+   <-- [To: guest@localhost]
+   <-- [Subject: to localhost via localhost]
+   <-- []
+   <-- [ligne 1]
+   <-- [ligne 2]
+   <-- [ligne 3]
+   <-- [.]
+   DELE 1
+   <-- [+OK msg deleted]
+   LIST
+   <-- [+OK 1 messages (305 octets)]
+   <-- [2 305]
+   <-- [.]
+   DELE 2
+   <-- [+OK msg deleted]
+   LIST
+   <-- [+OK 0 messages (0 octets)]
+   <-- [.]
+   QUIT
+   <-- [+OK POP3 server saying goodbye…]
+   Perte de la connexion avec le serveur…
+
+-  ligne 1 : le serveur POP3 travaille généralement avec le port 110.
+   C’est le cas ici ;
+
+-  ligne 5 : la commande **[USER]** sert à définir l’utilisateur dont on
+   veut lire la boîte mail ;
+
+-  ligne 7 : la commande **[PASS]** sert à définir son mot de passe ;
+
+-  ligne 9 : la commande **[LIST]** demande la liste des messages
+   présents dans la boîte à lettres de l’utilisateur ;
+
+-  ligne 14 : la commande **[RETR]** demande à voir le message dont on
+   passe le n° ;
+
+-  ligne 29 : la commande **[DELE]** demande la suppression du message
+   dont on passe le n° ;
+
+-  ligne 40 : la commande **[QUIT]** indique au serveur qu’on a
+   terminé ;
+
+La réponse du serveur peut prendre plusieurs formes :
+
+-  une ligne unique commençant par **[+OK]** pour indiquer que la
+   commande précédente du client a réussi ;
+
+-  une ligne unique commençant par **[-ERR]** pour indiquer que la
+   commande précédente du client a échoué ;
+
+-  plusieurs lignes où :
+
+   -  la 1\ :sup:`re` ligne commence par **[+OK]** ;
+
+   -  la dernière ligne est constituée d’un unique point ;
+
+      1. .. rubric:: Un script basique implémentant le protocole POP3
+            :name: un-script-basique-implémentant-le-protocole-pop3
+
+|image59|
+
+Comme le procole POP3 a la même structure que le protocole SMTP, le
+script **[pop3-01.php]** est un portage du script **[smtp-01.php]**. Il
+aura le fichier de configuration **[config-pop3-01.json]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "localhost:110": {
+           "server": "localhost",
+           "port": "110",
+           "user": "guest@localhost",
+           "password": "guest",
+           "maxmails":5
+       }
+   }
+
+-  lignes 3-4 : le serveur POP3 interrogé est le serveur local
+   **[hMailServer]** ;
+
+-  lignes 5-6 : on veut lire la boîte à lettres de l’utilisateur
+   **[guest@localhost]** ;
+
+-  ligne 7 : on lira au plus 5 mails ;
+
+Le script **[pop3-01.php]** est le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // client POP3 (Post Office Protocol) permettant de lire des messages d'une boîte à lettres
+   // protocole de co	mmunication POP3 client-serveur
+   // -> client se connecte sur le port 110 du serveur smtp
+   // <- serveur lui envoie un message de bienvenue
+   // -> client envoie la commande USER utilisateur
+   // <- serveur répond OK ou non
+   // -> client envoie la commande PASS mot_de_passe
+   // <- serveur répond OK ou non
+   // -> client envoie la commande LIST
+   // <- serveur répond OK ou non
+   // -> client envoie la commande RETR n° pour chacun des mails
+   // <- serveur répond OK ou non. Si OK envoie le contenu du mail demandé
+   // -> serveur envoie ttes les lignes du mail et termine avec une ligne contenant le
+   // seul caractère .
+   // -> client envoie la commande DELE n° pour supprimer un mail
+   // <- serveur répond OK ou non
+   // // -> client envoie la commande QUIT pour terminer le dialogue avec le serveur
+   // <- serveur répond OK ou non
+   // les réponses du serveur ont la forme +OK texte où -ERR texte
+   // La réponse peut comporter plusieurs lignes. Alors la dernière est constitué d'un unique point
+   // les lignes de texte échangées doivent se terminer par les caractères RC(#13) et LF(#10)
+   //
+   //  client POP3 (SendMail Transfer Protocol) permettant de lire des mails
+   //
+   // gestion des erreurs
+   //ini_set("error_reporting", E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
+   //ini_set("display_errors", "off");
+   //
+   // respect strict des types déclarés des paramètres de foctions
+   declare (strict_types=1);
+   //
+   // les paramètres de l'envoi du courrier
+   const CONFIG_FILE_NAME = "config-pop3-01.json";
+
+   // on récupère la configuration
+   $mailboxes = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+
+   // lecture des boîtes à lettres
+   foreach ($mailboxes as $name => $infos) {
+     // suivi
+     print "Lecture de la boîte à lettres [$name]\n";
+     // lecture de la boîte à lettre
+     $résultat = readmail($name, $infos, TRUE);
+     // affichage résultat
+     print "$résultat\n";
+   }//for
+   // fin
+   exit;
+
+   //readmail
+   //-----------------------------------------------------------------------
+
+   function readmail(string $name, array $infos, bool $verbose = TRUE): string {
+     // lit le contenu de la boîte à lettres [$name]
+     // importe tous les messages
+     // chaque message est supprimé aprèsb sa lecture
+     // Si $verbose=1, fait un suivi des échanges client-serveur
+     //
+     // ouverture d'une connexion avec le serveur SMTP
+     $connexion = fsockopen($infos["server"], (int) $infos["port"]);
+     // retour si erreur
+     if ($connexion === FALSE) {
+       return sprintf("Echec de la connexion au site (%s,%s) : %s", $infos["smtp-server"], $infos["smtp-port"]);
+     }
+     // $connexion représente un flux de communication bidirectionnel
+     // entre le client (ce programme) et le serveur pop3 contacté
+     // ce canal est utilisé pour les échanges de commandes et d'informations
+     // après la connexion le serveur envoie un message de bienvenue qu'on lit
+     $erreur = sendCommand($connexion, "", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde USER
+     $erreur = sendCommand($connexion, "USER {$infos["user"]}", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde PASS
+     $erreur = sendCommand($connexion, "PASS {$infos["password"]}", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // cmde LIST
+     $premièreLigne = "";
+     $erreur = sendCommand($connexion, "LIST", $verbose, TRUE, $premièreLigne);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // analyse de la 1re ligne pour connaître le nbre de messages
+     $champs = [];
+     preg_match("/^\+OK (\d+)/", $premièreLigne, $champs);
+     $nbMessages = (int) $champs[1];
+     // on boucle sur les messages
+     $iMessage = 0;
+     while ($iMessage < $nbMessages && $iMessage < $infos["maxmails"]) {
+       // cmde RETR  
+       $erreur = sendCommand($connexion, "RETR " . ($iMessage + 1), $verbose, TRUE);
+       if ($erreur !== "") {
+         // fermeture de la connexion
+         fclose($connexion);
+         // retour
+         return $erreur;
+       }
+       // cmde DELE
+       $erreur = sendCommand($connexion, "DELE " . ($iMessage + 1), $verbose, TRUE);
+       if ($erreur !== "") {
+         // fermeture de la connexion
+         fclose($connexion);
+         // retour
+         return $erreur;
+       }
+       // msg suivant
+       $iMessage++;
+     }
+     // cmde QUIT
+     $erreur = sendCommand($connexion, "QUIT", $verbose, TRUE);
+     if ($erreur !== "") {
+       // fermeture de la connexion
+       fclose($connexion);
+       // retour
+       return $erreur;
+     }
+     // fin
+     fclose($connexion);
+     return "Terminé";
+   }
+
+   // --------------------------------------------------------------------------
+
+   function sendCommand($connexion, string $commande, bool $verbose, bool $withRCLF, string &$premièreLigne = ""): string {
+     // envoie $commande dans le canal $connexion
+     // mode verbeux si $verbose=1
+     // si $withRCLF=1, ajoute la séquence RCLF à échange
+     // met la 1re ligne de la réponse dans [$premièreLigne
+     // ]
+     // données
+     if ($withRCLF) {
+       $RCLF = "\r\n";
+     } else {
+       $RCLF = "";
+     }
+     // envoi cmde si $commande non vide
+     if ($commande !== "") {
+       fputs($connexion, "$commande$RCLF");
+       // écho éventuel
+       if ($verbose) {
+         affiche($commande, 1);
+       }
+     }//if
+     // lecture réponse
+     $réponse = fgets($connexion, 1000);
+     // on mémorise la 1re ligne
+     $premièreLigne = $réponse;
+     // écho éventuel
+     if ($verbose) {
+       affiche($réponse, 2);
+     }
+     // récupération code erreur
+     $codeErreur = substr($réponse, 0, 1);
+     if ($codeErreur === "-") {
+       // il y a eu une erreur
+       return substr($réponse, 5);
+     }
+     // cas particuliers des cmdes RETR et LIST qui ont des réponses à plusieurs lignes
+     $commande = substr(strtolower($commande), 0, 4);
+     if ($commande === "list" || $commande === "retr") {
+       // dernière ligne de la réponse ?
+       $champs = [];
+       $match = preg_match("/^\.\s+$/", $réponse, $champs);
+       while (!$match) {
+         // lecture réponse
+         $réponse = fgets($connexion, 1000);
+         // écho éventuel
+         if ($verbose) {
+           affiche($réponse, 2);
+         }
+         // analyse réponse
+         $champs = [];
+         $match = preg_match("/^\.\s+$/", $réponse, $champs);
+       }//while
+     }
+     // retour sans erreur
+     return "";
+   }
+
+   // --------------------------------------------------------------------------
+
+   function affiche($échange, $sens) {
+     // affiche $échange à l'écran
+     // si $sens=1 affiche -->$echange
+     // si $sens=2 affiche <-- $échange sans les 2 derniers caractères RCLF
+     switch ($sens) {
+       case 1:
+         print "--> [$échange]\n";
+         break;
+       case 2:
+         $L = strlen($échange);
+         print "<-- [" . substr($échange, 0, $L - 2) . "]\n";
+         break;
+     }//switch
+   }
+
+**Commentaires**
+
+Comme nous l’avons dit, **[pop3-01.php]** est un portage du script
+**[smtp-01.php]** que nous avons déjà commenté. Nous ne commenterons que
+les principales différences :
+
+-  ligne 55 : la fonction **[readmail]** est chargée de lire les mails
+   de la boîte aux lettres. Les informations pour se connecter à cette
+   boîte à lettres sont dans le dictionnaire **[$infos]** ;
+
+-  lignes 61-66 : ouverture d’une connexion avec le serveur POP3 ;
+
+-  lignes 71-77 : lecture du message de bienvenue envoyé par le
+   serveur ;
+
+-  lignes 78-85 : on envoie la commande **[USER]** pour identifier
+   l’utilisateur dont on veut les mails ;
+
+-  lignes 86-93 : on envoie la commande **[PASS]** pour donner le mot de
+   passe de cet utilisateur ;
+
+-  lignes 94-102 : on envoie la commande **[LIST]** pour savoir combien
+   il y a de mails dans la boîte à lettres de cet utilisateur.
+
+-  ligne 96 : on ajoute le paramètre **[$premièreLigne]** dans les
+   paramètres de la fonction **[readmail]**. Dans la 1\ :sup:`re` ligne
+   de sa réponse à la commande LIST, le serveur indique combien il y a
+   de messages dans la boîte à lettres ;
+
+-  lignes 104-106 : on récupère le nombre de messages dans la
+   1\ :sup:`re` ligne de la réponse ;
+
+-  lignes 109-128 : on boucle sur chacun des messages. Pour chacun d’eux
+   on émet deux commandes :
+
+   -  RETR i : pour récupérer le message n° i (lignes 111-117) ;
+
+   -  DELE i : pour le supprimer une fois qu’il a été lu (lignes
+      118-125) ;
+
+-  lignes 129-136 : on envoie la commande **[QUIT]** pour dire au
+   serveur qu’on a terminé ;
+
+-  lignes 178-194 : pour les commandes **[LIST]** et **[RETR]**, la
+   réponse du serveur a plusieurs lignes, la dernière étant constituée
+   d’un unique point ;
+
+**Résultats**
+
+A l’exécution, on obtient les résultats suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   Lecture de la boîte à lettres [localhost:110]
+   <-- [+OK Bienvenue sur sergetahe@localhost]
+   --> [USER guest@localhost]
+   <-- [+OK Send your password]
+   --> [PASS guest]
+   <-- [+OK Mailbox locked and ready]
+   --> [LIST]
+   <-- [+OK 1 messages (305 octets)]
+   <-- [1 305]
+   <-- [.]
+   --> [RETR 1]
+   <-- [+OK 305 octets]
+   <-- [Return-Path: guest@localhost]
+   <-- [Received: from DESKTOP-528I5CU.home (localhost [127.0.0.1])]
+   <-- [	by DESKTOP-528I5CU with ESMTP]
+   <-- [	; Tue, 21 May 2019 14:25:39 +0200]
+   <-- [Message-ID: <5F912826-F9C4-41B6-BDA7-4A29537781C9@DESKTOP-528I5CU>]
+   <-- [From: guest@localhost]
+   <-- [To: guest@localhost]
+   <-- [Subject: to localhost via localhost]
+   <-- []
+   <-- [ligne ]
+   <-- [ligne ]
+   <-- [ligne 3]
+   <-- [.]
+   --> [DELE 1]
+   <-- [+OK msg deleted]
+   --> [QUIT]
+   <-- [+OK POP3 server saying goodbye…]
+   Terminé
+   Done.
+
+Nous avons là un client POP3 basique auquel il manque certaines
+capacités :
+
+1. la possibilité de dialoguer avec un serveur POP3 sécurisé ;
+
+2. la possibilité de lire les pièces attachées à un message ;
+
+Nous allons implémenter la 1\ :sup:`re` possibilité avec les fonctions
+**[imap]** de PHP.
+
+Client POP3 / IMAP implémenté avec les fonctions [imap] de PHP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Il nous faut tout d’abord vérifier que les fonctions **[imap]** sont
+disponibles dans la version de PHP que nous utilisons. Nous ouvrons le
+fichier **[php.ini]** décrit au paragraphe
+`lien <#_Configuration_de_PHP>`__ et nous cherchons les lignes qui
+parlent de **[imap]** :
+
+|image60|
+
+Ligne 895, vérifiez que l’extension **[imap]** est bien activée.
+
+Le script **[imap-01.php]** exploitera le fichier jSON
+**[config-imap-01.json]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+
+       "{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX": {
+           "imap-server": "imap.gmail.com",
+           "imap-port": "993",
+           "user": "php7parlexemple@gmail.com",
+           "password": "PHP7parlexemple",
+           "output-dir": "output/gmail-imap",
+           "prefix": "message-"
+       },
+       "{localhost:110/pop3}": {
+           "imap-server": "localhost",
+           "imap-port": "110",
+           "user": "guest@localhost",
+           "password": "guest",
+           "pop3": "TRUE",
+           "output-dir": "output/localhost-pop3",
+           "prefix": "message-"
+       }
+   }
+
+Le fichier **[config-imap-01.json]** définit un tableau de serveurs IMAP
+/ POP3 à contacter. Chaque élément est une structure **[clé:valeur]**,
+où :
+
+-  **[clé]** : est le serveur à contacter. Nous en avons deux ici :
+
+   -  **[{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]** : désigne
+      le serveur **[imap.gmail.com]** qui écoute sur le port 993. Le
+      protocole client / serveur est IMAP. Le paramètre /ssl indique que
+      la communication client / serveur est sécurisée. La paramètre
+      /novalidate-cert demande au client de ne pas vérifier le
+      certificat de sécurité que le serveur va lui envoyer. Enfin un
+      serveur IMAP gère un ensemble de boîtes à lettres pour un même
+      utilisateur. En précisant INBOX dans l’URL du serveur IMAP, nous
+      indiquons que nous nous intéressons à la boîte à lettres nommée
+      INBOX qui est normalement celle où arrivent les nouveaux
+      messages ;
+
+   -  **[{localhost:110/pop3}INBOX]** : désigne le serveur
+      **[localhost]** qui écoute sur le port 110. Le protocole client /
+      serveur est ici POP3 ;
+
+-  **[valeur]** : est un dictionnaire précisant les points suivants :
+
+   -  **[imap-server]** : le nom du serveur IMAP ou POP3 ;
+
+   -  **[imap-port]** : le port du serveur IMAP ou POP3 ;
+
+   -  **[user]** : le propriétaire dont on veut lire la boîte à
+      lettres ;
+
+   -  **[password]** : son mot de passe ;
+
+   -  **[output-dir]** : le dossier dans lequel on doit enregistrer les
+      messages ;
+
+   -  **[prefix]** : le nom des fichiers où seront enregistrés les
+      messages seront de la forme **prefixN** où N est un n° de
+      message ;
+
+   -  **[pop3]** : un booléen à TRUE pour dire que le protocole utilisé
+      est POP3. Dans ce cas après avoir lu un message, on le supprimera.
+      C’est le fonctionnement habituel des serveurs POP3 : un message lu
+      n’est pas conservé sur le serveur ;
+
+Le script **[imap-01.php]** est le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // client IMAP (Internet Message Access Protocol) permettant de lire des mails
+   //
+   // respect strict des types déclarés des paramètres de foctions
+   declare (strict_types=1);
+   // gestion des erreurs
+   error_reporting(E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
+   //ini_set("display_errors", "off");
+   //
+   //
+   // les paramètres de lecture du courrier
+   const CONFIG_FILE_NAME = "config-imap-01.json";
+
+   // on récupère la configuration
+   $mailboxes = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+
+   // lecture des boîtes à lettres
+   foreach ($mailboxes as $name => $infos) {
+     // suivi
+     print "------------Lecture de la boîte à lettres [$name]\n";
+     // lecture de la boîte à lettres
+     readmailbox($name, $infos);
+   }
+   // fin
+   exit;
+
+   //-----------------------------------------------------------------------
+
+   function readmailbox(string $name, array $infos): void {
+     // Tentative de connexion
+     $imapResource = imap_open($name, $infos["user"], $infos["password"]);
+     // Test sur le retour de la fonction imap_open()
+     if (!$imapResource) {
+       // Échec
+       print "La connexion au serveur [$name] a échoué : " . imap_last_error() . "\n";
+     } else {
+       // Connexion établie
+       print "Connexion établie avec le serveur [$name].\n";
+       // total des messages dans la boîte à lettres
+       $nbmsg = imap_num_msg($imapResource);
+       print "Il y a [$nbmsg] messages dans la boîte à lettres [$name]\n";
+       // messages non lus dans la boîte aux lettres courante
+       if ($nbmsg > 0) {
+         print "Récupération de la liste des messages non lus de la boîte à lettres [$name]\n";
+         $msgNumbers = imap_search($imapResource, 'UNSEEN');
+         if ($msgNumbers === FALSE) {
+           print "Il n'y a pas de nouveaux messages dans la boîte à lettres [$name]\n";
+         } else {
+           foreach ($msgNumbers as $msgNumber) {
+             // on récupère des informations sur le message n° $msgNumber
+             $infosMail = imap_headerinfo($imapResource, $msgNumber);
+             if ($infosMail === FALSE) {
+               print "Statut du message n° [$msgNumber] de la boîte à lettres [$name] non récupéré : " . imap_last_error() . "\n";
+             } else {
+               print "Statut du message n° [$msgNumber] de la boîte à lettres [$name]\n";
+               print_r($infosMail);
+             }
+             // on récupère le corps du message n° $msgNumber
+             getMailBody($imapResource, $msgNumber, $infos);
+
+             // si le protocole est POP3, on supprime le message
+             $pop3 = $infos["pop3"];
+             if ($pop3 !== NULL) {
+               // on supprime le message en deux temps
+               imap_delete($imapResource, $msgNumber);
+               imap_expunge($imapResource);
+             }
+           }
+         }
+       }
+     }
+     // fermeture de la connexion
+     $imapClose = imap_close($imapResource);
+     if (!$imapClose) {
+       // Échec
+       print "La fermeture de la connexion a échoué : " . imap_last_error() . "\n";
+     } else {
+       // réussite
+       print "Fermeture de la connexion réussie.\n";
+     }
+   }
+
+   function getMailBody($imapResource, int $msgNumber, array $infos): void {
+     // on récupère le corps du message n° $msgNumber
+     $corpsMail = imap_body($imapResource, $msgNumber);
+
+     print "Enregistrement du message dans le fichier {$infos["output-dir"]}/{$infos["prefix"]}$msgNumber\n";
+     // on crée le dossier si besoin est
+     if (!file_exists($infos["output-dir"])) {
+       mkdir($infos["output-dir"]);
+     }
+     // on enregistre le message
+     if (!file_put_contents($infos["output-dir"] . "/" . $infos["prefix"] . $msgNumber, $corpsMail)) {
+       print "Echec de l'enregistrement\n";
+     }
+   }
+
+**Commentaires**
+
+-  lignes 19-24 : on boucle sur l’ensemble des serveurs trouvés dans le
+   fichier de configuration ;
+
+-  ligne 32 : la fonction **[raedmailbox]** lit la boîte à lettres
+   indiqué dans **[$name]** ;
+
+-  ligne 32 : ouverture d’une connexion IMAP ;
+
+   -  le 1\ :sup:`er` paramètre est l’URL IMAP de la boîte à lettre à
+      lire ;
+
+   -  le second paramètre est le nom de l’utilisateur propriétaire de
+      cette boîte à lettres ;
+
+   -  le troisième paramètre est son mot de passe ;
+
+..
+
+   La fonction **[imap_open]** organise la sécurisation de la connexion
+   si l’URL IMAP de la boîte à lettres a le paramètre /ssl ;
+
+-  ligne 41 : la fonction **[imap_num_msg]** permet d’avoir le nombre
+   total de messages de la boîte à lettres ;
+
+-  ligne 46 : la fonction **[imap_search]** permet de chercher certains
+   messages. Ici, nous cherchons les messages qui n’ont pas encore été
+   lus (UNSEEN). Le 2\ :sup:`e` paramètre est un critère de sélection.
+   Il en existe une bonne vingtaine. La fonction **[imap_search]** rend
+   un tableau de n°s de messages. Ceux-ci peuvent avoir deux formes : n°
+   de séquence ou identifiant UID de message. Par défaut, La fonction
+   **[imap_search]** rend un tableau de n°s de séquence. Si on ajoute un
+   troisième paramètre **[SE_UID]** on aura les identifiants UID des
+   messages ;
+
+-  ligne 47 : la fonction **[imap_search]** rend le booléen FALSE si
+   elle n’a trouvé aucun message ;
+
+-  ligne 50 : on boucle sur tous les messages non lus ;
+
+-  ligne 52 : un message a des entêtes qu’on peut obtenir avec la
+   fonction **[imap_headerinfo]**. Son 2\ :sup:`e` paramètre est
+   normalement un n° de séquence de message. Si on veut mettre un
+   identifiant UID de message, il faut mettre le 3\ :sup:`e` paramètre à
+   **[FT_UID]** ;
+
+-  ligne 53 : la fonction **[imap_headerinfo]** rend le booléen FALSE si
+   elle n’a pas pu faire son travail. Sinon elle rend un objet complexe
+   qu’on affiche avec la fonction **[print_r]**, ligne 57 ;
+
+-  ligne 60 : après ses entêtes, on demande maintenant le corps du
+   message avec la fonction **[imap_body]**. Cette fonction rend NULL si
+   elle n’a pas pu faire son travail ;
+
+-  lignes 84-87 : on enregistre le corps du message dans un fichier
+   local ;
+
+-  lignes 63-68 : si le protocole utilisé était POP3, on supprime le
+   message qui vient d’être lu :
+
+   -  la fonction **[imap_delete]** marque le message comme « à
+      supprimer » mais ne le supprime pas ;
+
+   -  la fonction **[imap_expunge]** supprime physiquement tous les
+      messages qui ont été marqués « à supprimer » ;
+
+-  ligne 74 : on ferme la connexion avec le serveur IMAP. On utilise
+   pour cela la fonction **[imap_close]** ;
+
+-  ligne 86 : la fonction **[imap_body]** permet d’avoir le corps d’un
+   message repéré par son n° ;
+
+Exécutons le script **[smtp-02.json]** pour que l’utilisateur
+**[php7parlexemple]** de Gmail et l’utilisateur **[guest]** de
+**[localhost]** aient de nouveaux messages. Ceci fait, exécutons le
+script **[imap-01.php]** pour lire leurs boîtes à lettres.
+
+Les résultats console sont les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   ------------Lecture de la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Connexion établie avec le serveur [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX].
+   Il y a [27] messages dans la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Récupération de la liste des messages non lus de la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Statut du message n° [26] de la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   stdClass Object
+   (
+       [date] => Wed, 22 May 2019 10:08:24 +0000
+       [Date] => Wed, 22 May 2019 10:08:24 +0000
+       [subject] => test-gmail-via-gmail
+       [Subject] => test-gmail-via-gmail
+       [message_id] => <d8405cac62d57bd9c531ea79c146c72d@swift.generated>
+       [toaddress] => php7parlexemple@gmail.com
+       [to] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [mailbox] => php7parlexemple
+                       [host] => gmail.com
+                   )
+
+           )
+
+       [fromaddress] => php7parlexemple@gmail.com
+       [from] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [mailbox] => php7parlexemple
+                       [host] => gmail.com
+                   )
+
+           )
+
+       [reply_toaddress] => php7parlexemple@gmail.com
+       [reply_to] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [mailbox] => php7parlexemple
+                       [host] => gmail.com
+                   )
+
+           )
+
+       [senderaddress] => php7parlexemple@gmail.com
+       [sender] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [mailbox] => php7parlexemple
+                       [host] => gmail.com
+                   )
+
+           )
+
+       [Recent] =>  
+       [Unseen] => U
+       [Flagged] =>  
+       [Answered] =>  
+       [Deleted] =>  
+       [Draft] =>  
+       [Msgno] =>   26
+       [MailDate] => 22-May-2019 10:08:29 +0000
+       [Size] => 19086
+       [udate] => 1558519709
+   )
+   Enregistrement du message dans le fichier output/gmail-imap/message-26
+   Statut du message n° [27] de la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   stdClass Object
+   (
+       …
+   )
+   Enregistrement du message dans le fichier output/gmail-imap/message-27
+   Fermeture de la connexion réussie.
+   ------------Lecture de la boîte à lettres [{localhost:110/pop3}]
+   Connexion établie avec le serveur [{localhost:110/pop3}].
+   Il y a [1] messages dans la boîte à lettres [{localhost:110/pop3}]
+   Récupération de la liste des messages non lus de la boîte à lettres [{localhost:110/pop3}]
+   Statut du message n° [1] de la boîte à lettres [{localhost:110/pop3}]
+   stdClass Object
+   (
+       …
+   )
+   Enregistrement du message dans le fichier output/localhost-pop3/message-1
+   Fermeture de la connexion réussie.
+   Done.
+
+Si aussitôt après ces résultats, nous réexécutons le script
+**[imap-01.php]**, les résultats sont alors les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   ------------Lecture de la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Connexion établie avec le serveur [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX].
+   Il y a [27] messages dans la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Récupération de la liste des messages non lus de la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Il n'y a pas de nouveaux messages dans la boîte à lettres [{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX]
+   Fermeture de la connexion réussie.
+   ------------Lecture de la boîte à lettres [{localhost:110/pop3}]
+   Connexion établie avec le serveur [{localhost:110/pop3}].
+   Il y a [0] messages dans la boîte à lettres [{localhost:110/pop3}]
+   Fermeture de la connexion réussie.
+
+-  ligne 3 : il y a toujours le même nombre de messages dans la boîte à
+   lettres Gmail mais il n’y a plus de nouveaux messages non lus (ligne
+   5). Ceci montre que l’exécution précédente a passé les messages lus
+   du statut « non lu » au statut « lu » ;
+
+-  ligne 9 : il n’y a plus de messages dans la boîte à lettres de
+   l’utilisateur **[guest@localhost]**. Cela vient du fait que dans
+   l’exécution précédente, les messages lus sur **[localhost]** étaient
+   ensuite supprimés ;
+
+Les messages ont été enregistrés localement :
+
+|image61|
+
+Si on regarde par-exemple le contenu du message n° 26 de Gmail, on a la
+chose suivante :
+
+.. code-block:: php 
+   :linenos:
+
+
+   --_=_swift_1558519704_f31b373d6e416dc88eb4db0e45fb3a95_=_
+   Content-Type: multipart/alternative;
+    boundary="_=_swift_1558519706_9bffb48891232e50ab645383ca62242d_=_"
+
+
+   --_=_swift_1558519706_9bffb48891232e50ab645383ca62242d_=_
+   Content-Type: text/plain; charset=utf-8
+   Content-Transfer-Encoding: quoted-printable
+
+   ligne 1
+   ligne 2
+   ligne 3
+
+   --_=_swift_1558519706_9bffb48891232e50ab645383ca62242d_=_
+   Content-Type: text/HTML; charset=utf-8
+   Content-Transfer-Encoding: quoted-printable
+
+   <b>ligne 1<br/>ligne 2<br/>ligne 3</b>
+
+   --_=_swift_1558519706_9bffb48891232e50ab645383ca62242d_=_--
+
+
+   --_=_swift_1558519704_f31b373d6e416dc88eb4db0e45fb3a95_=_
+   Content-Type: application/pdf; name=Hello.pdf
+   Content-Transfer-Encoding: base64
+   Content-Disposition: attachment; filename=Hello.pdf
+
+   JVBERi0xLjUKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDMgMCBSL0ZpbHRlci9GbGF0ZURl
+   Y29kZT4+CnN0cmVhbQp4nHWPuQoCQQyG+3mK1MKMyThHFoaAq7uF3cKAhdh5gIXgNr6+swcWshII
+   ……………………………….…
+   OTQwODU4RDUzRDVENjU0QzJCNTM3Mjc+IF0KL0RvY0NoZWNrc3VtIC9DMjU3MUY1MUNDRjgwQ0Ex
+   ODU0OUI0RTQ4NDkwMDM3OAo+PgpzdGFydHhyZWYKMTIzMjYKJSVFT0YK
+
+   --_=_swift_1558519704_f31b373d6e416dc88eb4db0e45fb3a95_=_--
+
+-  lignes 11-13 : le message en *plain text* ;
+
+-  ligne 19 : le message HTML ;
+
+-  ligne 25 : la pièce attachée ;
+
+Essayons d’améliorer ce script pour avoir dans des fichiers séparés, les
+différents types de messages ainsi que les pièce attachées.
+
+Client POP3 / IMAP amélioré
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Dans le script **[imap-01.php]**, on affiche le corps du message n° i
+comme un fichier texte contenant à la fois les différents types de
+messages ainsi que le contenu codé des différentes pièce attachées. Il
+est possible d’obtenir la structure du message pour en connaître ces
+différentes parties. Dans le script **[imap-02.php]**, nous modifions la
+fonction **[getMailBody]** de la façon suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   function getMailBody($imapResource, int $msgNumber, array $infos): void {
+     // on récupère la structure du message
+     $structure=imap_fetchstructure($imapResource, $msgNumber);
+     // on l'affiche
+     print_r($structure);
+   }
+
+-  ligne 3 : nous demandons la structure du message ;
+
+-  ligne 5 : nous l’affichons ;
+
+Le but est de connaître les informations contenues dans la structure
+d’un message pour voir comment on peut en obtenir les différentes
+parties. Dans notre exemple, le message est envoyé par le script
+**[smtp-02.php]** avec la configuration **[config-smtp-02.json]**
+suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "mail to localhost via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "guest@localhost",
+           "subject": "test-localhost",
+           "message": "ligne 1\nligne 2\nligne 3",
+           "tls": "FALSE",
+           "attachments": [
+               "/attachments/Hello from SwiftMailer.docx",
+               "/attachments/Hello from SwiftMailer.pdf",
+               "/attachments/Hello from SwiftMailer.odt",
+               "/attachments/Cours-Tutoriels-Serge-Tahé-1568x268.png",
+               "/attachments/test-localhost.eml"
+           ]
+       }
+   }
+
+C’est donc un message avec cinq attachements qui est envoyé à
+**[guest@localhost]** (lignes 11-15). Le script **[imap-02.php]** est
+exécuté avec la configuration **[config-imap-01.json]** suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "{localhost:110/pop3}": {
+           "imap-server": "localhost",
+           "imap-port": "110",
+           "user": "guest@localhost",
+           "password": "guest",
+           "pop3": "TRUE",
+           "output-dir": "output/localhost-pop3"
+       }
+   }
+
+C’est donc la boîte à lettres de **[guest@localhost]** qui est exploitée
+(ligne 5). Le script **[imap-02.php]** affiche alors la structure du
+message envoyé par **[smtp-02.php]**. Cette structure, affichée à la
+console, est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   stdClass Object
+   (
+       [type] => 1
+       [encoding] => 0
+       [ifsubtype] => 1
+       [subtype] => MIXED
+       [ifdescription] => 0
+       [ifid] => 0
+       [bytes] => 253599
+       [ifdisposition] => 0
+       [ifdparameters] => 0
+       [ifparameters] => 1
+       [parameters] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [attribute] => BOUNDARY
+                       [value] => _=_swift_1558872295_5bc8ee2ca8b3723c0b39ca8bbfbebdeb_=_
+                   )
+
+           )
+
+       [parts] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [type] => 1
+                       [encoding] => 0
+                       [ifsubtype] => 1
+                       [subtype] => ALTERNATIVE
+                       [ifdescription] => 0
+                       [ifid] => 0
+                       [bytes] => 429
+                       [ifdisposition] => 0
+                       [ifdparameters] => 0
+                       [ifparameters] => 1
+                       [parameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => BOUNDARY
+                                       [value] => _=_swift_1558872296_1e51aae79dfca4e7e0af112489fe8734_=_
+                                   )
+
+                           )
+
+                       [parts] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [type] => 0
+                                       [encoding] => 4
+                                       [ifsubtype] => 1
+                                       [subtype] => PLAIN
+                                       [ifdescription] => 0
+                                       [ifid] => 0
+                                       [lines] => 3
+                                       [bytes] => 27
+                                       [ifdisposition] => 0
+                                       [ifdparameters] => 0
+                                       [ifparameters] => 1
+                                       [parameters] => Array
+                                           (
+                                               [0] => stdClass Object
+                                                   (
+                                                       [attribute] => CHARSET
+                                                       [value] => utf-8
+                                                   )
+
+                                           )
+
+                                   )
+
+                               [1] => stdClass Object
+                                   (
+                                       [type] => 0
+                                       [encoding] => 4
+                                       [ifsubtype] => 1
+                                       [subtype] => HTML
+                                       [ifdescription] => 0
+                                       [ifid] => 0
+                                       [lines] => 1
+                                       [bytes] => 40
+                                       [ifdisposition] => 0
+                                       [ifdparameters] => 0
+                                       [ifparameters] => 1
+                                       [parameters] => Array
+                                           (
+                                               [0] => stdClass Object
+                                                   (
+                                                       [attribute] => CHARSET
+                                                       [value] => utf-8
+                                                   )
+
+                                           )
+
+                                   )
+
+                           )
+
+                   )
+
+               [1] => stdClass Object
+                   (
+                       [type] => 3
+                       [encoding] => 3
+                       [ifsubtype] => 1
+                       [subtype] => VND.OPENXMLFORMATS-OFFICEDOCUMENT.WORDPROCESSINGML.DOCUMENT
+                       [ifdescription] => 0
+                       [ifid] => 0
+                       [bytes] => 16302
+                       [ifdisposition] => 1
+                       [disposition] => ATTACHMENT
+                       [ifdparameters] => 1
+                       [dparameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => FILENAME
+                                       [value] => Hello from SwiftMailer.docx
+                                   )
+
+                           )
+
+                       [ifparameters] => 1
+                       [parameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => NAME
+                                       [value] => Hello from SwiftMailer.docx
+                                   )
+
+                           )
+
+                   )
+
+               [2] => stdClass Object
+                   (
+                       [type] => 3
+                       [encoding] => 3
+                       [ifsubtype] => 1
+                       [subtype] => PDF
+                       [ifdescription] => 0
+                       [ifid] => 0
+                       [bytes] => 17514
+                       [ifdisposition] => 1
+                       [disposition] => ATTACHMENT
+                       [ifdparameters] => 1
+                       [dparameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => FILENAME
+                                       [value] => Hello from SwiftMailer.pdf
+                                   )
+
+                           )
+
+                       [ifparameters] => 1
+                       [parameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => NAME
+                                       [value] => Hello from SwiftMailer.pdf
+                                   )
+
+                           )
+
+                   )
+
+               [3] => stdClass Object
+                   (
+                       …
+                   )
+
+               [4] => stdClass Object
+                   (
+                       …
+
+                   )
+
+               [5] => stdClass Object
+                   (
+                       [type] => 2
+                       [encoding] => 3
+                       [ifsubtype] => 1
+                       [subtype] => RFC822
+                       [ifdescription] => 0
+                       [ifid] => 0
+                       [lines] => 1881
+                       [bytes] => 146682
+                       [ifdisposition] => 1
+                       [disposition] => ATTACHMENT
+                       [ifdparameters] => 1
+                       [dparameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => FILENAME
+                                       [value] => test-localhost.eml
+                                   )
+
+                           )
+
+                       [ifparameters] => 1
+                       [parameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => NAME
+                                       [value] => test-localhost.eml
+                                   )
+
+                           )
+
+                       [parts] => Array
+                           (
+                           …
+                           )
+
+                   )
+
+           )
+
+   )
+
+**Commentaires**
+
+-  la documentation PHP de la fonction **[imap_fetchstructure]** donne
+   la signification des différents champs de l’objet retourné par la
+   fonction :
+
+|image62|
+
+Les valeurs numériques du champ **[type]** ont la signification
+suivante :
+
+|image63|
+
+Les valeurs numériques du champ **[encoding]** ont la signification
+suivante :
+
+|image64|
+
+Le message enregistré par **[imap-01.php]** commençait par le texte
+suivant :
+
+a) Return-Path: <php7parlexemple@gmail.com>
+
+b) Received: from **[127.0.0.1]**
+   (lfbn-1-11924-110.w90-93.abo.wanadoo.fr. **[90.93.230.110]**)
+
+c) by smtp.gmail.com with ESMTPSA id
+   e14sm7773816wma.41.2019.05.26.03.11.53
+
+d) for <php7parlexemple@gmail.com>
+
+e) (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+
+f) Sun, 26 May 2019 03:11:54 -0700 (PDT)
+
+g) Message-ID: <e613c47a421a66e2cf7f8e319616ec49@swift.generated>
+
+h) Date: Sun, 26 May 2019 10:11:53 +0000
+
+i) Subject: test-gmail-via-gmail
+
+j) From: php7parlexemple@gmail.com
+
+k) To: php7parlexemple@gmail.com
+
+l) MIME-Version: 1.0
+
+m) Content-Type: multipart/mixed;
+   boundary="_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=_"
+
+n) 
+
+o) --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=\_
+
+p) Content-Type: multipart/alternative;
+   boundary="_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=_"
+
+q) 
+
+r) --_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=\_
+
+s) Content-Type: text/plain; charset=utf-8
+
+t) Content-Transfer-Encoding: quoted-printable
+
+u) 
+
+v) ligne 1
+
+w) ligne 2
+
+x) ligne 3
+
+y) 
+
+z) --_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=\_
+
+a) Content-Type: text/HTML; charset=utf-8
+
+b) Content-Transfer-Encoding: quoted-printable
+
+c) 
+
+d) <b>ligne 1<br/>ligne 2<br/>ligne 3</b>
+
+e) 
+
+f) --_=_swift_1558865513_43c6d2a54065e4917fb06e3327f8d927_=_--
+
+g) --_=_swift_1558865513_a3a939017128a4cfb867e968bce5df49_=\_
+
+-  lignes o) et ag) délimitent le message de type **[multipart/mixed]**
+   (ligne m) ;
+
+-  lignes r) et z) délimitent la 1\ :sup:`re` partie du message : le
+   message en *plain text* ;
+
+-  lignes z) et af) délimitent la seconde partie du message : le message
+   HTML ;
+
+Nous retrouvons les différentes informations du message ci-dessus dans
+l’objet retourné par **[imap_fetchstructure]** :
+
+.. code-block:: php 
+   :linenos:
+
+   stdClass Object
+   (
+       [type] => 1
+       [encoding] => 0
+       [ifsubtype] => 1
+       [subtype] => MIXED
+       [ifdescription] => 0
+       [ifid] => 0
+       [bytes] => 253599
+       [ifdisposition] => 0
+       [ifdparameters] => 0
+       [ifparameters] => 1
+       [parameters] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [attribute] => BOUNDARY
+                       [value] => _=_swift_1558872295_5bc8ee2ca8b3723c0b39ca8bbfbebdeb_=_
+                   )
+
+           )
+
+       [parts] => Array
+           (
+               [0] => stdClass Object
+                   (
+                       [type] => 1
+                       [encoding] => 0
+                       [ifsubtype] => 1
+                       [subtype] => ALTERNATIVE
+                       [ifdescription] => 0
+                       [ifid] => 0
+                       [bytes] => 429
+                       [ifdisposition] => 0
+                       [ifdparameters] => 0
+                       [ifparameters] => 1
+                       [parameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => BOUNDARY
+                                       [value] => _=_swift_1558872296_1e51aae79dfca4e7e0af112489fe8734_=_
+                                   )
+
+                           )
+
+                       [parts] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [type] => 0
+                                       [encoding] => 4
+                                       [ifsubtype] => 1
+                                       [subtype] => PLAIN
+                                       [ifdescription] => 0
+                                       [ifid] => 0
+                                       [lines] => 3
+                                       [bytes] => 27
+                                       [ifdisposition] => 0
+                                       [ifdparameters] => 0
+                                       [ifparameters] => 1
+                                       [parameters] => Array
+                                           (
+                                               [0] => stdClass Object
+                                                   (
+                                                       [attribute] => CHARSET
+                                                       [value] => utf-8
+                                                   )
+
+                                           )
+
+                                   )
+
+                               [1] => stdClass Object
+                                   (
+                                       [type] => 0
+                                       [encoding] => 4
+                                       [ifsubtype] => 1
+                                       [subtype] => HTML
+                                       [ifdescription] => 0
+                                       [ifid] => 0
+                                       [lines] => 1
+                                       [bytes] => 40
+                                       [ifdisposition] => 0
+                                       [ifdparameters] => 0
+                                       [ifparameters] => 1
+                                       [parameters] => Array
+                                           (
+                                               [0] => stdClass Object
+                                                   (
+                                                       [attribute] => CHARSET
+                                                       [value] => utf-8
+                                                   )
+
+                                           )
+
+                                   )
+
+                           )
+
+                   )
+
+-  ligne 3 : le message est de type MIME (Multipurpose Internet Mail
+   Extensions) **[multipart]** ;
+
+-  ligne 4 : le message est encodé en 7 bits ;
+
+-  ligne 5 : **[ifsubtype]**\ =1 indique qu’il y a un champ
+   **[subtype]** dans la structure ;
+
+-  ligne 6 : le champ **[subtype]** désigne un sous-type MIME, ici le
+   type **[mixed]**. Au total le type MIME du document est
+   **[multipart/mixed]** ;
+
+-  ligne 7 : **[ifdescription]**\ =0 indique qu’il n’y a pas de champ
+   **[description]** dans la structure ;
+
+-  ligne 8 : **[ifid]**\ =0 indique qu’il n’y a pas de champ **[id]**
+   dans la structure ;
+
+-  ligne 10 : **[ifdisposition]**\ =0 indique qu’il n’y a pas de champ
+   **[disposition]** dans la structure ;
+
+-  ligne 11 : **[ifdparameters]**\ =0 indique qu’il n’y a pas de champ
+   **[dparameters]** dans la structure ;
+
+-  ligne 12 : **[ifparameters]**\ =1 indique qu’il y a un champ
+   **[parameters]** dans la structure ;
+
+-  ligne 13 : le champ **[parameters]** décrit les paramètres du
+   message. Ici il n’y en a qu’un ;
+
+-  lignes 15-19 : cet objet décrit la ligne suivante du message texte :
+
+.. code-block:: php 
+   :linenos:
+
+   boundary="_=_swift_1558872295_5bc8ee2ca8b3723c0b39ca8bbfbebdeb_=_"
+
+..
+
+   Ces lignes servent à délimiter le message. Dans le message récupéré
+   par **[imap-01.php]**, la partie du message qui vient d’être décrite
+   correspond à la ligne m). L’attribut **[boundary]** n’est pas le même
+   car les copies d’écran correspondent au même message mais envoyé à
+   des moments différents ;
+
+-  ligne 23 : commencent ici la structure des différentes parties du
+   message ;
+
+-  lignes 25-45 : cette 1\ :sup:`re` partie est de type
+   **[multipart/alternative]**. Elle correspond à la ligne p) du texte
+   du message ;
+
+-  ligne 47 : cette 1\ :sup:`re` partie a elle-même des sous-parties ;
+
+-  lignes 47-70 : cette **1\ re sous-partie** est de type
+   **[text/plain]** (lignes 51, 54), est encodée en type
+   **[ENCQUOTEDPRINTABLE]** (ligne 52) et a un paramètre
+   **[charset=utf-8]** (lignes 66-67) ;
+
+-  les lignes 49-72 décrivent les lignes s-x du message texte ;
+
+-  lignes 74-99 : décrivent la **seconde sous-partie** de la partie
+   **[multipart/alternative]** ;
+
+-  lignes 74-99 : cette seconde sous-partie est de type **[text/HTML]**
+   (lignes 76, 79), est encodée en type **[ENCQUOTEDPRINTABLE]** (ligne
+   77) et a un paramètre **[charset=utf-8]** (lignes 89-93) ;
+
+-  les lignes 74-99 décrivent les lignes aa-ad du message texte ;
+
+La partie **[multipart/alternative]** est désormais terminée. Commence
+la partie
+**[application/vnd.openxmlformats-officedocument.wordprocessingml.document]**
+décrite par le texte suivant :
+
+1. Content-Type:
+   application/vnd.openxmlformats-officedocument.wordprocessingml.document;
+   name="Hello from SwiftMailer.docx"
+
+2. Content-Transfer-Encoding: base64
+
+3. Content-Disposition: attachment; filename="Hello from
+   SwiftMailer.docx"
+
+Là encore, ces informations se retrouvent dans l’objet rapporté par la
+fonction **[imap_fetchstructure]** :
+
+.. code-block:: php 
+   :linenos:
+
+   [1] => stdClass Object
+                   (
+                       [type] => 3
+                       [encoding] => 3
+                       [ifsubtype] => 1
+                       [subtype] => VND.OPENXMLFORMATS-OFFICEDOCUMENT.WORDPROCESSINGML.DOCUMENT
+                       [ifdescription] => 0
+                       [ifid] => 0
+                       [bytes] => 16302
+                       [ifdisposition] => 1
+                       [disposition] => ATTACHMENT
+                       [ifdparameters] => 1
+                       [dparameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => FILENAME
+                                       [value] => Hello from SwiftMailer.docx
+                                   )
+
+                           )
+
+                       [ifparameters] => 1
+                       [parameters] => Array
+                           (
+                               [0] => stdClass Object
+                                   (
+                                       [attribute] => NAME
+                                       [value] => Hello from SwiftMailer.docx
+                                   )
+
+                           )
+
+                   )
+
+               
+
+-  ligne 1 : c’est la seconde partie du message global. On rappelle que
+   la 1\ :sup:`re` partie était de type **[multipart/alternative]** ;
+
+-  lignes 3-6 : cette seconde partie est de type
+   **[application/vnd.openxmlformats-officedocument.wordprocessingml.document]**
+   (lignes 3 et 6), est encodée en Base 64 (ligne 4) ;
+
+-  ligne 11 : cette seconde partie est une pièce attachée (ligne 11) et
+   a deux paramètres : **[filename=Hello from SwiftMailer.docx]**
+   (lignes 15-21) et **[name=Hello from SwiftMailer.docx]** (lignes
+   26-32). On remarquera que ce dernier paramètre n’existe pas dans le
+   message texte. Il a donc été rajouté dans la fonction
+   **[imap_fetchstructure]** ;
+
+Les lignes 1-36 sont reproduites pour chacun des cinq attachements du
+message.
+
+La fonction **[imap_fetch_structure]** nous permet donc d’avoir la
+structure d’un message. Celle-ci définit des parties qui elles-mêmes
+peuvent avoir des sous-parties. Pour avoir le texte d’une partie ou
+sous-partie on utilise la fonction **[imap_fetchbody]**.
+
+Nous modifions la fonction **[getMailBody]** qui nous permet d’avoir le
+corps d’un message de la façon suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   function getMailBody($imapResource, int $msgNumber, array $infos, object $infosMail): void {
+     // on récupère la structure du message
+     $structure = imap_fetchstructure($imapResource, $msgNumber);
+     if ($structure !== FALSE) {
+       // on récupère ces différentes parties
+       getParts($imapResource, $msgNumber, $infos, $infosMail, $structure);
+     }
+   }
+
+   function getParts($imapResource, int $msgNumber, array $infos, object $infosMail, stdclass $part, string $sectionNumber = "0"): void {
+     // calcul du n° de section
+     if (substr($sectionNumber, 0, 2) === "0.") {
+       $sectionNumber = substr($sectionNumber, 2);
+     }
+     print "-----contenu de la partie n° [$sectionNumber]\n";
+     // type de contenu
+     print "Content-Type: ";
+     switch ($part->type) {
+       case TYPETEXT:
+         print "TEXT/{$part->subtype}\n";
+         break;
+       case TYPEMULTIPART:
+         print "MULTIPART/{$part->subtype}\n";
+         break;
+       case TYPEAPPLICATION:
+         print "APPLICATION/{$part->subtype}\n";
+         break;
+       case TYPEMESSAGE:
+         print "MESSAGE/{$part->subtype}\n";
+         break;
+       default:
+         print "UNKNOWN/{$part->subtype}\n";
+         break;
+     }
+     // type de codage
+     $encodings=["7 bits", "8 bits", "binaire", "base 64", "quoted-printable", "autre"];
+     print "Transfer-Encoding : ".$encodings[$part->encoding]."\n";
+      
+     // on passe aux sous-parties éventuelles
+     if (isset($part->parts)) {
+       for ($i = 1; $i <= count($part->parts); $i++) {
+         // une nouvelle partie du message
+         $subpart = $part->parts[$i - 1];
+         // appel récursif - on demande le corps de la partie [$subpart]
+         getParts($imapResource, $msgNumber, $infos, $infosMail, $subpart, "$sectionNumber.$i");
+       }
+     }
+   }
+
+**Commentaires**
+
+-  ligne 3 : nous récupérons la structure du message ;
+
+-  ligne 6 : nous demandons à voir ses différentes parties qui sont dans
+   le tableau **[parts]** de la structure ;
+
+-  ligne 10 : la fonction **[getParts]** reçoit les paramètres
+   suivants :
+
+   -  **[$imapResource]** : la connexion au serveur IMAP ;
+
+   -  **[$msgNumber]** : le n° de séquence du message dont on veut les
+      parties ;
+
+   -  **[$infos]** : des informations pour savoir où stocker les parties
+      qu’on va trouver, dans le système de fichiers local ;
+
+   -  **[$infosMail]** : des informations générales sur le mail
+      (expéditeur, destinataire(s), sujet… ;
+
+   -  **[$part]** : un objet qui représente une partie du message ;
+
+   -  **[$sectionNumber]** : un n° de section (ou de partie) du
+      message ;
+
+-  lignes 17-34 : on affiche le type de contenu de la partie n°
+   **[$section]** du message. Pour cela on s’aide des champs
+   **[$part→type]** et **[$part→subtype]** de la partie **[$part]** ;
+
+-  lignes 36-37 : on affiche le type de codage de la partie
+   **[$sectionNumber]** ;
+
+-  lignes 40-47 : peut-être que la partie dont on vient d’afficher les
+   informations a elle-même des sous-parties ;
+
+-  lignes 41-46 : si c’est le cas, on demande à voir le type de contenu
+   des différentes sous-parties de la partie que l’on vient d’afficher.
+   On fait ici, un appel récursif à la fonction **[getParts]** ;
+
+De nouveau nous envoyons un mail à l’utilisateur Gmail
+**[php7parlexemple@gmail.com]** avec le script **[smtp-02.php]** et nous
+le lisons avec le script précédent **[imap-02.php]**. Cela donne les
+résultats console suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   ------------Lecture de la boîte à lettres [{localhost:110/pop3}]
+   Connexion établie avec le serveur [{localhost:110/pop3}].
+   Il y a [1] messages dans la boîte à lettres [{localhost:110/pop3}]
+   Récupération de la liste des messages non lus de la boîte à lettres [{localhost:110/pop3}]
+   -----contenu de la partie n° [0]
+   Content-Type: MULTIPART/MIXED
+   Transfer-Encoding : 7 bits
+   -----contenu de la partie n° [1]
+   Content-Type: MULTIPART/ALTERNATIVE
+   Transfer-Encoding : 7 bits
+   -----contenu de la partie n° [1.1]
+   Content-Type: TEXT/PLAIN
+   Transfer-Encoding : quoted-printable
+   -----contenu de la partie n° [1.2]
+   Content-Type: TEXT/HTML
+   Transfer-Encoding : quoted-printable
+   -----contenu de la partie n° [2]
+   Content-Type: APPLICATION/VND.OPENXMLFORMATS-OFFICEDOCUMENT.WORDPROCESSINGML.DOCUMENT
+   Transfer-Encoding : base 64
+   -----contenu de la partie n° [3]
+   Content-Type: APPLICATION/PDF
+   Transfer-Encoding : base 64
+   -----contenu de la partie n° [4]
+   Content-Type: APPLICATION/VND.OASIS.OPENDOCUMENT.TEXT
+   Transfer-Encoding : base 64
+   -----contenu de la partie n° [5]
+   Content-Type: UNKNOWN/PNG
+   Transfer-Encoding : base 64
+   -----contenu de la partie n° [6]
+   Content-Type: MESSAGE/RFC822
+   Transfer-Encoding : base 64
+   -----contenu de la partie n° [6.1]
+   Content-Type: TEXT/PLAIN
+   Transfer-Encoding : 7 bits
+   Fermeture de la connexion réussie.
+
+On arrive bien à récupérer les différents types de contenu du message
+ainsi que leur type de codage. La numérotation des parties suit la règle
+suivante :
+
+-  lignes 6-7 : la partie **[multipart/mixed]** qui représente la
+   totalité du message porte le n° 0. Les différentes parties de cet
+   objet vont alors porter les n°s 1, 2…
+
+Le message a au total cinq parties :
+
+-  lignes 9-10 : la partie **[multipart/alternative]** qui porte le n°
+   1 ;
+
+-  lignes 17-18 : la partie
+   **[APPLICATION/VND.OPENXMLFORMATS-OFFICEDOCUMENT.WORDPROCESSINGML.DOCUMENT]**
+   qui porte le n° 2. C’est l’attachement d’un fichier Word ;
+
+-  lignes 20-21 : la partie **[APPLICATION/PDF]** qui porte le n° 3.
+   C’est l’attachement d’un fichier PDF ;
+
+-  lignes 23-24 : la partie
+   **[APPLICATION/VND.OASIS.OPENDOCUMENT.TEXT]** qui porte le n° 4.
+   C’est l’attachement d’un fichier OpenOffice ;
+
+-  lignes 26-27 : la partie **[UNKNOWN/PNG]** qui porte le n° 5. C’est
+   l’attachement d’un fichier image ;
+
+-  lignes 30-31 : la partie **[MESSAGE/RFC822]** qui porte le n° 6.
+   C’est l’attachement d’un mail ;
+
+Lorsqu’une partie a des sous-parties, celles-ci sont numérotées x.1,
+x.2… où x est le n° de la partie englobante. Ainsi :
+
+-  lignes 11-12 : la 1\ :sup:`re` partie de la partie
+   **[multipart/alternative]** porte le n° 1.1. C’est un contenu de type
+   **[text/plain]** : le message du mail ;
+
+-  lignes 14-15 : la 2\ :sup:`e` partie de la partie
+   **[multipart/alternative]** porte le n° 1.2. C’est un contenu de type
+   **[text/HTML]** : le message du mail en HTML ;
+
+-  lignes 32-33 : la 1\ :sup:`re` partie de l’attachement
+   **[MESSAGE/RFC822]** porte le n° 6.1. C’est un contenu de type
+   **[text/plain]**. En fait selon le standard MIME, la numérotation des
+   parties d’un attachement de mail **[MESSAGE/RFC822]** diffère de la
+   règle décrite précédemment. Ainsi la 1\ :sup:`re` partie de
+   l’attachement **[MESSAGE/RFC822]** ne porte pas le n° 6.1 mais un
+   autre n° ;
+
+Maintenant que nous savons comment repérer les différentes parties et
+sous-parties d’un mail, il nous reste à récupérer leur contenu.
+
+Le code du script évolue de la façon suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   function getParts($imapResource, int $msgNumber, array $infos, object $infosMail, stdclass $part, string $sectionNumber = "0"): void {
+     // calcul du n° de section
+     if (substr($sectionNumber, 0, 2) === "0.") {
+       $sectionNumber = substr($sectionNumber, 2);
+     }
+     print "-----contenu de la partie n° [$sectionNumber]\n";
+     // type de contenu
+     print "Content-Type: ";
+     switch ($part->type) {
+       case TYPETEXT:
+         print "TEXT/{$part->subtype}\n";
+         break;
+       case TYPEMULTIPART:
+         print "MULTIPART/{$part->subtype}\n";
+         break;
+       case TYPEAPPLICATION:
+         print "APPLICATION/{$part->subtype}\n";
+         break;
+       case TYPEMESSAGE:
+         print "MESSAGE/{$part->subtype}\n";
+         break;
+       default:
+         print "UNKNOWN/{$part->subtype}\n";
+         break;
+     }
+     // type de codage
+     $encodings = ["7 bits", "8 bits", "binaire", "base 64", "quoted-printable", "autre"];
+     print "Transfer-Encoding : " . $encodings[$part->encoding] . "\n";
+
+     // est-ce un message ?
+     if ($part->type === TYPEMESSAGE) {
+       // on ne va pas gérer les sous-parties de ce message (mail attaché)
+       // on affiche le corps du mail attaché
+       print imap_fetchbody($imapResource, $msgNumber, $sectionNumber);
+     } else {
+       // on passe aux sous-parties éventuelles
+       if (isset($part->parts)) {
+         for ($i = 1; $i <= count($part->parts); $i++) {
+           // une nouvelle partie du message
+           $subpart = $part->parts[$i - 1];
+           // appel récursif - on demande le corps de la partie [$subpart]
+           getParts($imapResource, $msgNumber, $infos, $infosMail, $subpart, "$sectionNumber.$i");
+         }
+       } else {
+         // il n'y a pas de sous-parties - on affiche alors le corps du message
+         print imap_fetchbody($imapResource, $msgNumber, $sectionNumber);
+       }
+     }
+   }
+
+**Commentaires**
+
+-  ligne 46 : la fonction **[imap_fetchbody]** récupère le corps de la
+   partie n° **[$sectionNumber]** du message. La numérotation des
+   parties d’un message suit la règle expliquée précédemment ;
+
+-  ligne 1 : on commence avec la section “0”;
+
+-  ligne 41 : les sous-parties de cette section vont alors être
+   numérotées “0.1”, “0.2”, alors qu’elles devraient être numérotées
+   “1”, “2”…
+
+-  lignes 3-5 : on corrige cette anomalie;
+
+-  lignes 37-43 : si la partie courante a des sous-parties, alors on
+   boucle sur chacune d’elles (lignes 38-43). Leur n° de section est
+   **[$sectionNumber.$i]** ;
+
+-  lignes 44-47 : lorsqu’il n’y a plus de sous-parties, on affiche le
+   corps de la partie courante avec la fonction **[imap_fetchbody]**.
+   Dans notre exemple, il s’agit des parties **[text/plain]**,
+   **[text/HTML]** et les attachements ;
+
+L’exécution de ce script donne les résultats suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   ------------Lecture de la boîte à lettres [{localhost:110/pop3}]
+   Connexion établie avec le serveur [{localhost:110/pop3}].
+   Il y a [1] messages dans la boîte à lettres [{localhost:110/pop3}]
+   Récupération de la liste des messages non lus de la boîte à lettres [{localhost:110/pop3}]
+   -----contenu de la partie n° [0]
+   Content-Type: MULTIPART/MIXED
+   Transfer-Encoding : 7 bits
+   -----contenu de la partie n° [1]
+   Content-Type: MULTIPART/ALTERNATIVE
+   Transfer-Encoding : 7 bits
+   -----contenu de la partie n° [1.1]
+   Content-Type: TEXT/PLAIN
+   Transfer-Encoding : quoted-printable
+   ligne 1
+   ligne 2
+   ligne 3
+   -----contenu de la partie n° [1.2]
+   Content-Type: TEXT/HTML
+   Transfer-Encoding : quoted-printable
+   <b>ligne 1<br/>ligne 2<br/>ligne 3</b>
+   -----contenu de la partie n° [2]
+   Content-Type: APPLICATION/VND.OPENXMLFORMATS-OFFICEDOCUMENT.WORDPROCESSINGML.DOCUMENT
+   Transfer-Encoding : base 64
+   UEsDBBQABgAIAAAAIQDfpNJsWgEAACAFAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC
+   AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+   …
+   AAAAAAAAAF0mAABkb2NQcm9wcy9jb3JlLnhtbFBLAQItABQABgAIAAAAIQCdxkmwcgEAAMcCAAAQ
+   AAAAAAAAAAAAAAAAAAgpAABkb2NQcm9wcy9hcHAueG1sUEsFBgAAAAALAAsAwQIAALArAAAAAA==
+   -----contenu de la partie n° [3]
+   Content-Type: APPLICATION/PDF
+   Transfer-Encoding : base 64
+   JVBERi0xLjUKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDMgMCBSL0ZpbHRlci9GbGF0ZURl
+   Y29kZT4+CnN0cmVhbQp4nHWNvQoCMRCE+zzF1sLF2WSTSyAEPD0Lu4OAhdj5AxaC1/j6Rk4s5GSa
+   …
+   PDcxQUJGQ0JGQURGODYxM0NBNUJDODNFMDNDNjI1QkQwPgo8NzFBQkZDQkZBREY4NjEzQ0E1QkM4
+   M0UwM0M2MjVCRDA+IF0KL0RvY0NoZWNrc3VtIC9DMTRCN0Q5N0YwNUU1OTYxQzhDODg0NEI3NkNF
+   OEIwRQo+PgpzdGFydHhyZWYKMTIzMTQKJSVFT0YK
+   -----contenu de la partie n° [4]
+   Content-Type: APPLICATION/VND.OASIS.OPENDOCUMENT.TEXT
+   Transfer-Encoding : base 64
+   UEsDBBQAAAgAAAs9uU5exjIMJwAAACcAAAAIAAAAbWltZXR5cGVhcHBsaWNhdGlvbi92bmQub2Fz
+   aXMub3BlbmRvY3VtZW50LnRleHRQSwMEFAAACAAACz25TgAAAAAAAAAAAAAAABwAAABDb25maWd1
+   …
+   AQIUABQACAgIAAs9uU42l0SORAQAABIRAAALAAAAAAAAAAAAAAAAAI8bAABjb250ZW50LnhtbFBL
+   AQIUABQACAgIAAs9uU4Uf52+LgEAACUEAAAVAAAAAAAAAAAAAAAAAAwgAABNRVRBLUlORi9tYW5p
+   ZmVzdC54bWxQSwUGAAAAABEAEQBlBAAAfSEAAAAA
+   -----contenu de la partie n° [5]
+   Content-Type: UNKNOWN/PNG
+   Transfer-Encoding : base 64
+   iVBORw0KGgoAAAANSUhEUgAABiAAAAEMCAYAAABN1n5OAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAg
+   AElEQVR4nOy9e5TdV3Xn+Zm7aqprlBq1Rq1Wq7XU6opGrXaMMI6jAcfj9ihu4hAehkAghBASICF0
+   …
+   AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+   AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+   AAAA2Mb8f9Q5r2ohJn6/AAAAAElFTkSuQmCC
+   -----contenu de la partie n° [6]
+   Content-Type: MESSAGE/RFC822
+   Transfer-Encoding : base 64
+   UmV0dXJuLVBhdGg6IGd1ZXN0QGxvY2FsaG9zdA0KUmVjZWl2ZWQ6IGZyb20gWzEyNy4wLjAuMV0g
+   KGxvY2FsaG9zdCBbMTI3LjAuMC4xXSkNCglieSBERVNLVE9QLTUyOEk1Q1Ugd2l0aCBFU01UUA0K
+   …
+   cjJvaEpuNi9BQUFBQUVsRlRrU3VRbUNDDQotLV89X3N3aWZ0XzE1NTg3NzA1MDJfYzRiODA4Yzk5
+   YzI3ZGVkMDQ1OTViZDExZjRiYWQxMWJfPV8tLQ0K
+   Fermeture de la connexion réussie.
+
+**Commentaires**
+
+-  lignes 14-16 : le contenu du message texte codé en
+   **[quoted-printable] (ligne 13)** ;
+
+-  ligne 20 : le contenu du message HTML codé en **[quoted-printable]
+   (ligne 19)** ;
+
+-  lignes 24-28 : le contenu du fichier Word codé en **[base64] (ligne
+   23)** ;
+
+-  lignes 32-37 : le contenu du fichier PDF codé en **[base64] (ligne
+   31)** ;
+
+-  lignes 41-45 : le contenu du fichier OpenOffice codé en **[base64]
+   (ligne 40)** ;
+
+-  lignes 50-55 ; le contenu du fichier image codé en **[base64] (ligne
+   49)** ;
+
+-  lignes 59-63 : le contenu du mail attaché codé en **[base64] ligne
+   58)** ;
+
+Maintenant que :
+
+-  nous savons retrouver les textes des différentes parties d’un mail ;
+
+-  nous connaissons l’encodage de ces textes ;
+
+nous pouvons sauvegarder ces textes dans des fichiers.
+
+Le code évolue de la façon suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   function getParts($imapResource, int $msgNumber, array $infos, object $infosMail, stdclass $part, string $sectionNumber = "0"): void {
+     // calcul du n° de section
+     if (substr($sectionNumber, 0, 2) === "0.") {
+       $sectionNumber = substr($sectionNumber, 2);
+     }
+     print "-----contenu de la partie n° [$sectionNumber]\n";
+     // type de contenu
+     print "Content-Type: ";
+     switch ($part->type) {
+       case TYPETEXT:
+         print "TEXT/{$part->subtype}\n";
+         break;
+       case TYPEMULTIPART:
+         print "MULTIPART/{$part->subtype}\n";
+         break;
+       case TYPEAPPLICATION:
+         print "APPLICATION/{$part->subtype}\n";
+         break;
+       case TYPEMESSAGE:
+         print "MESSAGE/{$part->subtype}\n";
+         break;
+       default:
+         print "UNKNOWN/{$part->subtype}\n";
+         break;
+     }
+     // type de codage
+     $encodings = ["7 bits", "8 bits", "binaire", "base 64", "quoted-printable", "autre"];
+     print "Transfer-Encoding : " . $encodings[$part->encoding] . "\n";
+
+     // est-ce un message ?
+     if ($part->type === TYPEMESSAGE) {
+       // on ne va pas gérer les sous-parties de ce message
+       savePart($imapResource, $msgNumber, $sectionNumber, $infos, $infosMail);
+     } else {
+       // on passe aux sous-parties éventuelles
+       if (isset($part->parts)) {
+         for ($i = 1; $i <= count($part->parts); $i++) {
+           // une nouvelle partie du message
+           $subpart = $part->parts[$i - 1];
+           // appel récursif - on demande le corps de la partie [$subpart]
+           getParts($imapResource, $msgNumber, $infos, $infosMail, $subpart, "$sectionNumber.$i");
+         }
+       } else {
+         // il n'y a pas de sous-parties - on sauvegarde alors le corps du message
+         savePart($imapResource, $msgNumber, $sectionNumber, $infos, $infosMail);
+       }
+     }
+   }
+
+-  lignes 33 et 45 : l’affichage du texte d’une partie **[$imapResource,
+   $msgNumber, $sectionNumber]** du mail est désormais remplacée par sa
+   sauvegarde dans un fichier ;
+
+La fonction **[savePart]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // sauvegarde d'une partie de message
+   function savePart($imapResource, int $msgNumber, string $sectionNumber, array $infos, object $infosMail): void {
+     // dossier de sauvegarde
+     $outputDir = $infos["output-dir"] . "/message-$msgNumber";
+     // si le dossier n'existe pas, on le crée
+     if (!file_exists($outputDir)) {
+       mkdir($outputDir);
+     }
+     // structure de la partie à sauvegarder
+     $struct = imap_bodystruct($imapResource, $msgNumber, $sectionNumber);
+     // type de document
+     $type = $struct->type;
+     // sous-type de document
+     $subtype = "";
+     if (isset($struct->subtype)) {
+       $subtype = strtolower($struct->subtype);
+     }
+     // on analyse le type de la partie
+     switch ($type) {
+       case TYPETEXT:
+         // cas du message texte : text/xxx
+         switch ($subtype) {
+           case plain:
+             saveText("$outputDir/message.txt", 0, imap_fetchBody($imapResource, $msgNumber, $sectionNumber), $infosMail, $struct);
+             break;
+           case HTML:
+             saveText("$outputDir/message.HTML", 1, imap_fetchBody($imapResource, $msgNumber, $sectionNumber), $infosMail, $struct);
+             break;
+         }
+         break;
+       default:
+         // autres cas - on ne s'intéresse qu'aux attachements
+         if (isset($struct->disposition)) {
+           $disposition = strtolower($struct->disposition);
+           if ($disposition === "attachment") {
+             // on a affaire à un attachement - on le sauvegarde
+             saveAttachment($imapResource, $msgNumber, $sectionNumber, $outputDir, $struct);
+           }
+         } else {
+           // on ne traitera pas cette partie
+           print "Partie [$sectionNumber] ignorée\n";
+         }
+         break;
+     }
+   }
+
+-  lignes 3-8 : création du dossier de sauvegarde. Celui-ci porte le n°
+   du message dont on analyse les parties ;
+
+-  ligne 10 : la partie de message à sauvegarder est définie de façon
+   unique par les trois paramètres **[$imapResource, $msgNumber,
+   $sectionNumber]**. On demande la structure de cette partie avec la
+   fonction **[imap_bodystruct]** ;
+
+-  ligne 12 : on récupère le type principal de la partie de message ;
+
+-  lignes 13-17 : on récupère son sous-type ;
+
+-  lignes 20-30 : on traite les deux types de contenu : **[text/plain]**
+   (lignes 23-25) et **[text/HTML]** (lignes 26-28). Les autres types
+   **[text/xx]** sont ignorés ;
+
+-  ligne 24 : le texte de la partie **[text/plain]** sera sauvegardé
+   dans un fichier **[message.txt]** ;
+
+-  ligne 27 : le texte de la partie **[text/HTML]** sera sauvegardé dans
+   un fichier **[message.HTML]** ;
+
+-  lignes 31-43 : on traite le cas des parties dont le type principal
+   n’est pas **[text]** ;
+
+-  ligne 35 : on ne s’intéresse qu’aux attachements du message ;
+
+-  ligne 37 : ceux-ci sont sauvegardés dans un fichier à l’aide de la
+   fonction **[saveAttachment]** ;
+
+Si on résume le code précédent :
+
+-  sauvegarde les parties **[text/plain]** et **[text/HTML]** à l’aide
+   de la fonction **[saveText]**. Ces parties représentent le contenu du
+   mail ;
+
+-  sauvegarde les différentes pièces attachées à l’aide de la fonction
+   **[saveAttachment]** ;
+
+La fonction **[saveText]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // sauvegarde du texte [$text] du message
+   function saveText(string $fileName, int $type, string $text, object $infosMail, object $struct) {
+     // préparation du texte à sauvegarder
+     // $text est encodé - on le décode
+     switch ($struct->encoding) {
+       case ENCBASE64:
+         $text = base64_decode($text);
+         break;
+       case ENCQUOTEDPRINTABLE:
+         $text = quoted_printable_decode($text);
+         break;
+     }
+     // entêtes du message
+     // from
+     $from = "From: ";
+     foreach ($infosMail->from as $expéditeur) {
+       $from .= $expéditeur->mailbox . "@" . $expéditeur->host . ";";
+     }
+     // to
+     $to = "To: ";
+     foreach ($infosMail->to as $destinataire) {
+       $to .= $destinataire->mailbox . "@" . $destinataire->host . ";";
+     }
+     // subject
+     $subject = "Subject: " . $infosMail->subject;
+     // création du texte à enregistrer
+     switch ($type) {
+       case 0:
+         // text/plain
+         $contents = "$from\n$to\n$subject\n\n$text";
+         break;
+       case 1:
+         // text/HTML
+         $contents = "$from<br/>\n$to<br/>\n$subject<br/>\n<br/>\n$text";
+         break;
+     }
+     // création du fichier
+     print "sauvegarde d'un message dans [$fileName]\n";
+     // création du fichier
+     if (! file_put_contents($fileName, $contents)) {
+       // échec de la création du fichier
+       print "Impossible de créer le fichier [$fileName]\n";
+     }
+   }
+
+**Commentaires**
+
+-  ligne 1 :
+
+   -  **[$fileName]** est le nom du fichier dans lequel sera sauvegardé
+      le texte **[$text]** ;
+
+   -  **[$type]** : vaut 0 pour un fichier texte, 1 pour un fichier
+      HTML ;
+
+   -  **[$text]** : est le texte à sauvegarder. Mais il faut d’abord le
+      décoder car il est codé ;
+
+   -  **[$infosMail]** : contient des informations générales sur le
+      mail. Nous allons utiliser les champs **[from, to, subject]** ;
+
+   -  **[$struct]** : est la structure qui décrit la partie de mail
+      qu’on est en train de sauvegarder. Cela va nous permettre de
+      connaître le type d’encodage du texte à sauvegarder ;
+
+-  lignes 4-12 : on décode le texte à sauvegarder ;
+
+-  lignes 13-25 : on récupère les informations **[from, to, subject]**
+   du mail ;
+
+-  lignes 27-36 : selon le type, 0 ou 1, du texte à sauvegarder, on
+   construit un texte plain (ligne 30) ou un texte HTML (ligne 34) ;
+
+-  ligne 40 : le texte total est enregistré dans le fichier
+   **[$fileName]** ;
+
+Les attachements sont eux sauvegardés avec la fonction
+**[saveAttachment]** suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // sauvegarde d'un attachement
+   function saveAttachment($imapResource, int $msgNumber, string $sectionNumber, string $outputDir, object $struct) {
+     // on analyse la structure de l'attachement
+     // on cherche à récupérer le nom du fichier dans lequel sauvegarder l'attachement
+     // ce nom se trouve dans les [dparameters] de la structure
+     if (isset($struct->dparameters)) {
+       // on récupère les [dparameters]
+       $dparameters = $struct->dparameters;
+       $fileName = "";
+       // on parcourt le tableau des [dparameters]
+       foreach ($dparameters as $dparameter) {
+         // chaque [dparameter] est un objet avec deux attributs [attribute, value]
+         $attribute = strtolower($dparameter->attribute);
+         // l'attribut [filename] correspond au nom du fichier à créer
+         // dans ce cas le nom du fichier est dans [$dparameter->value]
+         if ($attribute === "filename") {
+           $fileName = $dparameter->value;
+           break;
+         }
+       }
+       // si on n'a pas trouvé de nom de fichier, on regarde dans l'attribut [parameters] de la structure
+       if ($fileName === "" && isset($struct->parameters)) {
+         // on récupère les [parameters]
+         $parameters = $struct->parameters;
+         foreach ($parameters as $parameter) {
+           // chaque paramètre est un dictionnaire à deux clés [attribute, value]
+           $attribute = strtolower($parameter->attribute);
+           // si l'attribut est [name], alors le [value] est le nom du fichier
+           if ($attribute === "name") {
+             $fileName = $parameter->value;
+             // le nom du fichier peut être encodé
+             // par exemple =?utf-8?Q?Cours-Tutoriels-Serge-Tah=C3=A9-1568x268=2Ep
+             // on récupère l'encodage avec une expression régulière
+             $champs = [];
+             $match = preg_match("/=\?(.+?)\?/", $fileName, $champs);
+             // si concordance, alors on décode le nom du fichier
+             if ($match) {
+               $fileName = iconv_mime_decode($fileName, 0, $champs[1]);
+             }
+             break;
+           }
+         }
+       }
+     }
+     // si on a trouvé un nom de fichier, alors on sauvegarde l'attachement
+     if ($fileName !== "") {
+       // sauvegarde de l'attachement
+       $fileName = "$outputDir/$fileName";
+       print "sauvegarde de l'attachement dans [$fileName]\n";
+       // création fichier
+       if ($file = fopen($fileName, "w")) {
+         // on récupère le texte encodé de l'attachement
+         $text = imap_fetchbody($imapResource, $msgNumber, $sectionNumber);
+         // l'attachement est encodé - on le décode
+         switch ($struct->encoding) {
+           // base 64
+           case ENCBASE64:
+             $text = base64_decode($text);
+             break;
+           // quoted printable
+           case ENCQUOTEDPRINTABLE:
+             $text = quoted_printable_decode($text);
+             break;
+           default:
+             // on ignore les autres cas
+             break;
+         }
+         // écriture du texte dans le fichier
+         fputs($file, $text);
+         // fermeture fichier
+         fclose($file);
+       } else {
+         // échec de la création du fichier
+         print "L'attachement n'a pu être sauvegardé dans [$fileName]\n";
+       }
+     }
+   }
+
+**Commentaires**
+
+-  ligne 2 : la fonction **[saveAttachment]** admet les paramètres
+   suivants :
+
+   -  **[$imapResource, int $msgNumber, string $sectionNumber]**
+      définissent de façon unique la partie IMAP à sauvegarder ;
+
+   -  **[string $outputDir]** est le dossier de sauvegarde ;
+
+   -  **[object $struct]** décrit la structure de la partie de message à
+      sauvegarder ;
+
+-  lignes 6-44 : on cherche le nom du fichier associé à l’attachement.
+   On utilisera ce même nom de fichier pour le sauvegarder. Le nom du
+   fichier de l’attachement se trouve dans le tableau
+   **[$struct→dparameters]** ou le tableau **[$struct→parameters]**,
+   voire les deux ;
+
+-  lignes 30-40 : si le nom du fichier contient des caractères non codés
+   sur 7 bits, alors il a été encodé en **[quoted-printable]**. Dans ce
+   cas, dans **[$struct→dparameters]**, l’attribut s’appelle
+   **[fileName*]** au lieu de **[fileName]**. Cela signifie qu’il n’a
+   pas satisfait à la condition de la ligne 16. Le nom du fichier est
+   alors cherché dans le tableau **[$struct→parameters]** ;
+
+-  ligne 32 : un exemple de nom de fichier encodé. Il a la forme
+   suivante =?codage_original?codage_actuel?nom_encodé. Ainsi le nom
+   **[=?utf-8?Q?Cours-Tutoriels-Serge-Tah=C3=A9-1568x268=2Ep]** signifie
+   que le nom du fichier était en UTF-8 et qu’il est actuellement en
+   **[quoted-printable]** (Q) ;
+
+-  ligne 38 : le nom du fichier est décodé avec la fonction
+   **[iconv_mime_decode]** qui admet ici trois paramètres :
+
+   -  la chaîne à décoder ;
+
+   -  laisser à 0 par défaut ;
+
+   -  le jeu de caractères à utiliser pour représenter la chaîne
+      décodée. Ce paramètre est présent dans la chaîne à décoder. On
+      l’obtient avec une expression régulière aux lignes 34-35 ;
+
+-  lignes 45-75 : on sauvegarde l’attachement dans un fichier portant le
+   nom qu’on a trouvé ;
+
+Pour tester le script **[imap-02.php]**, on envoie d’abord un mail à
+**[guest@localhost]** avec la configuration suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "mail to localhost via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "guest@localhost",
+           "subject": "test-localhost",
+           "message": "ligne 1\nligne 2\nligne 3",
+           "tls": "FALSE",
+           "attachments": [
+               "/attachments/Hello from SwiftMailer.docx",
+               "/attachments/Hello from SwiftMailer.pdf",
+               "/attachments/Hello from SwiftMailer.odt",
+               "/attachments/Cours-Tutoriels-Serge-Tahé-1568x268.png",
+               "/attachments/test-localhost.eml"
+           ]
+       }
+   }
+
+Il y a donc cinq attachements.
+
+On lit le mail envoyé avec **[imap-02.php]** et la configuration
+suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "{localhost:110/pop3}": {
+           "imap-server": "localhost",
+           "imap-port": "110",
+           "user": "guest@localhost",
+           "password": "guest",
+           "pop3": "TRUE",
+           "output-dir": "output/localhost-pop3"
+       }
+   }
+
+Les résultats console sont les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   ------------Lecture de la boîte à lettres [{localhost:110/pop3}]
+   Connexion établie avec le serveur [{localhost:110/pop3}].
+   Il y a [1] messages dans la boîte à lettres [{localhost:110/pop3}]
+   Récupération de la liste des messages non lus de la boîte à lettres [{localhost:110/pop3}]
+   -----contenu de la partie n° [0]
+   Content-Type: MULTIPART/MIXED
+   Transfer-Encoding : 7 bits
+   -----contenu de la partie n° [1]
+   Content-Type: MULTIPART/ALTERNATIVE
+   Transfer-Encoding : 7 bits
+   -----contenu de la partie n° [1.1]
+   Content-Type: TEXT/PLAIN
+   Transfer-Encoding : quoted-printable
+   sauvegarde d'un message dans [output/localhost-pop3/message-1/message.txt]
+   -----contenu de la partie n° [1.2]
+   Content-Type: TEXT/HTML
+   Transfer-Encoding : quoted-printable
+   sauvegarde d'un message dans [output/localhost-pop3/message-1/message.HTML]
+   -----contenu de la partie n° [2]
+   Content-Type: APPLICATION/VND.OPENXMLFORMATS-OFFICEDOCUMENT.WORDPROCESSINGML.DOCUMENT
+   Transfer-Encoding : base 64
+   sauvegarde de l'attachement dans [output/localhost-pop3/message-1/Hello from SwiftMailer.docx]
+   -----contenu de la partie n° [3]
+   Content-Type: APPLICATION/PDF
+   Transfer-Encoding : base 64
+   sauvegarde de l'attachement dans [output/localhost-pop3/message-1/Hello from SwiftMailer.pdf]
+   -----contenu de la partie n° [4]
+   Content-Type: APPLICATION/VND.OASIS.OPENDOCUMENT.TEXT
+   Transfer-Encoding : base 64
+   sauvegarde de l'attachement dans [output/localhost-pop3/message-1/Hello from SwiftMailer.odt]
+   -----contenu de la partie n° [5]
+   Content-Type: UNKNOWN/PNG
+   Transfer-Encoding : base 64
+   sauvegarde de l'attachement dans [output/localhost-pop3/message-1/Cours-Tutoriels-Serge-Tahé-1568x268.png]
+   -----contenu de la partie n° [6]
+   Content-Type: MESSAGE/RFC822
+   Transfer-Encoding : base 64
+   sauvegarde de l'attachement dans [output/localhost-pop3/message-1/test-localhost.eml]
+   Fermeture de la connexion réussie.
+   Done.
+
+On retrouve les fichiers sauvegardés dans le dossier
+**[output/localhost-pop3/message-N]** :
+
+|image65|
+
+Client POP3 / IMAP avec la bibliothèque [php-mime-mail-parser]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Dans le script précédent **[imap-02.php]**, nous avons pu sauvegarder :
+
+-  les contenus **[text/plain]** et **[text/HTML]** du mail ;
+
+-  les attachements du mail ;
+
+Pour un attachement de type **[message/rfc822]** nous avons également
+sauvegardé le contenu de l’attachement. Or ce type d’attachement est
+lui-même un mail qui, à son tour, a des contenus **[text/plain]** et
+**[text/HTML]** ainsi que des attachements. On peut alors être dans la
+situation suivante :
+
+-  un **[mail 1]** dont la structure est analogue celle d’un attachement
+   de type **[message/rfc822]** ;
+
+-  un **[mail 2]** attaché au mail 1 ;
+
+-  un **[mail 3]** attaché au mail 2 ;
+
+-  etc…
+
+Le script **[imap-02.php]** sauvegarde le contenu de **[mail 1]**
+(textes et attachements). Il sauvegarde **[mail 2]** comme document
+attaché mais s’arrête là. Il n’essaie pas d’analyser **[mail 2]** pour
+en extraire les textes et attachements. On pourrait penser qu’il suffit
+d’appliquer à **[mail 2]** ce qui a été fait pour **[mail 1]**. Un appel
+récursif à la méthode qui traitait **[mail 1]** pourrait alors suffire
+pour avoir le contenu de tous les mails imbriqués les uns dans les
+autres. Malheureusement les parties de **[mail 2]** sont numérotées avec
+une logique différente de celle utilisée pour **[mail 1]**, ce qui
+empêche d’utiliser le même algorithme dans les deux cas à moins
+d’utiliser une logique assez complexe pour calculer les n°s des parties
+d’un mail, quelque soit la position de celui-ci dans l’ensemble des
+mails imbriqués.
+
+Le script **[imap-02.php]** était déjà complexe. Pour éviter de le
+complexifier encore davantage pour gérer les contenus des mails
+imbriqués, nous allons utiliser la bibliothèque
+**[php-mime-mail-parser]** disponible sur Github (mai 2019) à l’URL
+**[https://github.com/php-mime-mail-parser/php-mime-mail-parser]** et
+écrite par Vincent Dauce.
+
+Installation de la bibliothèque [php-mime-mail-parser]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+La page de présentation de la bibliothèque indique comment l’installer
+sous Windows :
+
+|image66|
+
+Il y a deux étapes pour l’OS Windows :
+
+1. télécharger une DLL ;
+
+2. modifier le fichier **[php.ini]** qui configure PHP ;
+
+LA DLL de la bibliothèque **[mailparse]** est disponible à l’URL
+**[http://pecl.php.net/package/mailparse]** (mai 2019) ;
+
+|image67|
+
+-  en **[2]**, choisir la version la plus récente et stable de la
+   bibliothèque ;
+
+|image68|
+
+-  en **[3]** choisir la version du PHP que vous utilisez (dans ce
+   document c’est PHP 7.2) ;
+
+-  en **[4]**, choisir la version de votre OS Windows (ici c’est un
+   Windows 64 bits). On prend la version **[Thread Safe]** ;
+
+Pour connaître la version de PHP téléchargée avec Laragon, ouvrez un
+**[Terminal]** à partir de la fenêtre de Laragon et tapez la commande
+suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   C:\myprograms\laragon-lite\www                                                     
+   λ php -v                                                                           
+   PHP 7.2.11 (cli) (built: Oct 10 2018 02:04:07) ( ZTS MSVC15 (Visual C++ 2017) x64 )
+   Copyright (c) 1997-2018 The PHP Group                                              
+   Zend Engine v3.2.0, Copyright (c) 1998-2018 Zend Technologies                      
+
+La version de PHP 7.2.11 est donnée ligne 3. La même ligne donne la
+version de Windows utilisée pour la compilation (32 ou 74 bits).
+
+Une fois la DLL obtenue, il faut la copier dans le dossier
+**[<laragon>/bin/php/<version-php>/ext]** **[5]** :
+
+|image69|
+
+Ceci fait, il faut activer cette extension dans le fichier **[php.ini]**
+qui configure PHP (cf paragraphe `lien <#_Configuration_de_PHP>`__) :
+
+|image70|
+
+Il est probable que la ligne **[7]** n’existera pas et qu’il faudra
+l’ajouter par vous-même.
+
+Une fois l’extension activée on peut vérifier sa validité en tapant la
+commande suivante dans un terminal de Laragon :
+
+.. code-block:: php 
+   :linenos:
+
+   C:\myprograms\laragon-lite\www                                                                         
+   λ php --ini                                                                                            
+   Configuration File (php.ini) Path: C:\windows                                                          
+   Loaded Configuration File:         C:\myprograms\laragon-lite\bin\php\php-7.2.11-Win32-VC15-x64\php.ini
+   Scan for additional .ini files in: (none)                                                              
+   Additional .ini files parsed:      (none)                                                              
+
+La commande **[php –-ini]** charge le fichier de configuration de la
+ligne 4. Elle va alors charger les DLL de toutes les extensions activées
+dans **[php.ini]**. Si l’une d’elles est erronée, cela sera signalé.
+Ainsi la validité de la DLL ajoutée **[php_mailparse.dll]** sera-t-elle
+vérifiée. Elle peut être déclarée incorrecte pour diverses raisons dont
+les plus fréquentes sont les suivantes :
+
+-  vous avez téléchargé une DLL ne correspondant pas à la version de PHP
+   utilisée ;
+
+-  vous avez téléchargé une DLL 32 bits alors que vous avez un PHP 64
+   bits ou vice-versa ;
+
+Une fois l’extension activée et vérifiée, on peut passer à
+l’installation de la bibliothèque **[php-mime-mail-parser]** :
+
+|image71|
+
+La commande **[8]** est à taper dans un terminal Laragon (cf paragraphe
+`lien <#_Installation_de_Laragon>`__) :
+
+|image72|
+
+-  en **[1]**, vérifiez que vous êtes positionné sur le dossier
+   **[<laragon>/www]** ;
+
+-  en **[2]**, la commande d’installation de la bibliothèque
+   **[php-mime-mail-parser]** ;
+
+-  en **[3]**, rien n’a été installé ici car la bibliothèque
+   **[php-mime-mail-parser]** était déjà installée ;
+
+L’installation de bibliothèque **[php-mime-mail-parser]** se fait dans
+le dossier **[<laragon>/www/vendor]** :
+
+|image73|
+
+|image74|
+
+-  en **[2-3]**, les sources de la bibliothèque
+   **[php-mime-mail-parser]** ;
+
+Maintenant que l’environnement de travail a été installé, on peut passer
+à l’écriture du script **[imap-03.php]**.
+
+Le script [imap-03.php]
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Le script **[imap-03.php]** utilise le même fichier de configuration
+**[config-imap-01.json]** que les précédents scripts :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "{localhost:110/pop3}": {
+           "imap-server": "localhost",
+           "imap-port": "110",
+           "user": "guest@localhost",
+           "password": "guest",
+           "pop3": "TRUE",
+           "output-dir": "output/localhost-pop3"
+       }
+   }
+
+Le script **[imap-03.php]** est le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // client IMAP (Internet Message Access Protocol) permettant de lire des mails
+   // écrit avec la bibliothèque [php-mime-mail-parser]
+   // disponible à l'URL [https://github.com/php-mime-mail-parser/php-mime-mail-parser] (mai 2019)
+   //
+   // respect strict des types déclarés des paramètres de foctions
+   declare (strict_types=1);
+   // gestion des erreurs
+   error_reporting(E_ALL & ~ E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
+   //ini_set("display_errors", "off");
+   //
+   // dépendances
+   require_once 'C:/myprograms/laragon-lite/www/vendor/autoload.php';
+   // les paramètres de lecture du courrier
+   const CONFIG_FILE_NAME = "config-imap-01.json";
+
+   // on récupère la configuration
+   if (!file_exists(CONFIG_FILE_NAME)) {
+     print "Le fichier de configuration " . CONFIG_FILE_NAME . " n'existe pas";
+     exit;
+   }
+   $mailboxes = \json_decode(\file_get_contents(CONFIG_FILE_NAME), true);
+
+   // lecture des boîtes à lettres
+   foreach ($mailboxes as $name => $infos) {
+     // suivi
+     print "------------Lecture de la boîte à lettres [$name]\n";
+     // lecture de la boîte à lettres
+     readmailbox($name, $infos);
+   }
+   // fin
+   exit;
+
+**Commentaires**
+
+-  lignes 18-23 : le contenu du fichier de configuration est mis dans le
+   dictionnaire **[$mailboxes]** ;
+
+-  lignes 26-31 : chaque boîte à lettres est lue par la fonction
+   **[readmailbox]** (ligne 30). Cette fonction lit en fait les messages
+   non lus de la boîte à lettres. Une boîte à lettres correspond à
+   l’adresse mail d’un utilisateur donné ;
+
+La fonction **[readmailbox]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   function readmailbox(string $name, array $infos): void {
+     // on se connecte
+     $imapResource = imap_open($name, $infos["user"], $infos["password"]);
+     if (!$imapResource) {
+       // échec
+       print "La connexion au serveur [$name] a échoué : " . imap_last_error() . "\n";
+       exit;
+     }
+     // Connexion établie
+     print "Connexion établie avec le serveur [$name].\n";
+     // total des messages dans la boîte à lettres
+     $nbmsg = imap_num_msg($imapResource);
+     print "Il y a [$nbmsg] messages dans la boîte à lettres [$name]\n";
+     // messages non lus dans la boîte aux lettres courante
+     if ($nbmsg > 0) {
+       print "Récupération de la liste des messages non lus de la boîte à lettres [$name]\n";
+       $msgNumbers = imap_search($imapResource, 'UNSEEN');
+       if ($msgNumbers === FALSE) {
+         print "Il n'y a pas de nouveaux messages dans la boîte à lettres [$name]\n";
+       } else {
+         // on parcourt la liste des messages non lus
+         foreach ($msgNumbers as $msgNumber) {
+           print "---message n° [$msgNumber]\n";
+           // on récupère le corps du message n° $msgNumber
+           getMailBody($imapResource, $msgNumber, $infos);
+           // si le protocole est POP3, on supprime le message après l'avoir récupéré
+           $pop3 = $infos["pop3"];
+           if ($pop3 !== NULL) {
+             // on marque le message comme "à supprimer"
+             imap_delete($imapResource, $msgNumber);
+           }
+         }
+         // fin de la lecture des messages non lus
+         if ($pop3 !== NULL) {
+           // on supprime les messages marqués comme "à supprimer"
+           imap_expunge($imapResource);
+         }
+       }
+     }
+     // fermeture de la connexion
+     $imapClose = imap_close($imapResource);
+     if (!$imapClose) {
+       // échec
+       print "La fermeture de la connexion a échoué : " . imap_last_error() . "\n";
+     } else {
+       // réussite
+       print "Fermeture de la connexion réussie.\n";
+     }
+   }
+
+**Commentaires**
+
+Le code de la fonction **[readmailbox]** est le même que dans les
+scripts précédents.
+
+La fonction **[getMailBody]** (ligne 25) qui analyse le corps d’un
+message (contenu + attachements) est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // analyse du corps du message
+   function getMailBody($imapResource, int $msgNumber, array $infos): void {
+     // on récupère le texte entier du message
+     $text = imap_fetchbody($imapResource, $msgNumber, "");
+     if ($text === FALSE) {
+       print "Le corps du message [$msgNumber] n'a pu être récupéré";
+       return;
+     }
+     // on crée un parseur qui va analyser le texte du message
+     $parser = (new PhpMimeMailParser\Parser())->setText($text);
+     // on récupère les différentes parties du message
+     $outputDir = $infos["output-dir"] . "/message-$msgNumber";
+     getParts($parser, $msgNumber, $outputDir);
+   }
+
+**Commentaires**
+
+-  ligne 2 : la fonction **[getMailBody]** accepte trois paramètres :
+
+   -  **[$imapResource]** : la ressource IMAP à laquelle on est
+      connecté ;
+
+   -  **[$msgNumber]** : le n° du message (dans la boîte à lettres) à
+      exploiter ;
+
+   -  **[$infos]** : informations diverses sur la boîte à lettres
+      exploitée ;
+
+-  ligne 4 : on récupère la totalité du message n° **[$msgNumber]** ;
+
+-  lignes 5-8 : cas où le contenu du message n’a pu être récupéré ;
+
+-  ligne 10 : on commence à utiliser la bibliothèque
+   **[php-mime-mail-parser]**. L’objet **[$parser]** va être chargé
+   d’analyser le texte du message ;
+
+-  ligne 12 : **[$outputDir]** va être le dossier dans lequel vont être
+   sauvegardés les contenus texte et les attachements du message n°
+   **[$msgNumber]** ;
+
+-  ligne 13 : on demande à la fonction **[getParts]** de trouver les
+   différentes parties (contenus texte et attachements) du message n°
+   **[$msgNumber]** et de les sauvegarder dans le dossier
+   **[$outputDir]** ;
+
+La fonction **[getParts]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // récupération des différentes parties d'un message
+   function getParts(PhpMimeMailParser\Parser $parser, int $msgNumber, string $outputDir): void {
+     // on crée le dossier de sauvegarde du message si besoin est
+     if (!file_exists($outputDir)) {
+       if (!mkdir($outputDir)) {
+         print "Le dossier [$outputDir] n'a pu être créé\n";
+         return;
+       }
+     }
+     // on récupère les entêtes du message
+     $arrayHeaders = $parser->getHeaders();
+     // on sauvegarde les messages texte
+     $parts = $parser->getInlineParts("text");
+     for ($i = 1; $i <= count($parts); $i++) {
+       print "-- Sauvegarde d'un message de type [text/plain]\n";
+       saveMessage($parts[$i - 1], 0, $arrayHeaders, "$outputDir/message_$i.txt");
+     }
+     // on sauvegarde les messages html
+     $parts = $parser->getInlineParts("html");
+     for ($i = 1; $i <= count($parts); $i++) {
+       print "-- Sauvegarde d'un message de type [text/html]\n";
+       saveMessage($parts[$i - 1], 1, $arrayHeaders, "$outputDir/message_$i.html");
+     }
+     // on récupère les attachements du message
+     $attachments = $parser->getAttachments();
+     // n° de l'attachement
+     $iAttachment = 0;
+     // on parcourt la liste des attachements
+     foreach ($attachments as $attachment) {
+       // type d'attachement
+       $fileType = $attachment->getContentType();
+       print "-- Sauvegarde d'un attachement de type [$fileType] dans le fichier [$outputDir/{$attachment->getFilename()}]\n";
+       // on sauvegarde l'attachement
+       try {
+         $attachment->save($outputDir, PhpMimeMailParser\Parser::ATTACHMENT_DUPLICATE_SUFFIX);
+       } catch (Exception $e) {
+         print "L'attachement n'a pu être sauvegardé : " . $e->getMessage() . "\n";
+       }
+       // cas particulier du type message/rfc822
+       if ($fileType === "message/rfc822") {
+         // l'attachement est lui-même un message - on va le parser lui aussi
+         // on change de répertoire de sauvegarde
+         $iAttachment++;
+         $outputDir = $outputDir . "/rfc822-$iAttachment";
+         // on change le contenu à parser
+         $parser->setText($attachment->getContent());
+         // on analyse le message de façon récursive
+         getParts($parser, $msgNumber, $outputDir);
+       }
+     }
+   }
+
+**Commentaires**
+
+-  ligne 2 : la fonction **[getParts]** admet trois paramètres :
+
+   -  un parseur **[$parser]** à qui on a transmis le texte total du
+      message à analyser ;
+
+   -  **[$msgNumber]** est le n° du message en cours d’analyse ;
+
+   -  **[$outputDir]** est le dossier dans lequel les contenus et
+      attachements du message doivent être sauvegardés ;
+
+-  lignes 4-9 : création du dossier **[$outputDir]** ;
+
+-  ligne 11 : on récupère les entêtes du message en cours d’analyse
+   (from, to, subject…) ;
+
+-  ligne 13 : on récupère les parties du mail ayant le type
+   **[text/plain]**. On récupère un tableau ;
+
+-  lignes 14-17 : on sauvegarde tous les éléments du tableau récupéré,
+   en donnant à chacun un nom de fichier différent ;
+
+-  ligne 19 : on récupère les parties du mail ayant le type
+   **[text/html]**. On récupère un tableau ;
+
+-  lignes 20-23 : on sauvegarde tous les éléments du tableau récupéré,
+   en donnant à chacun un nom de fichier différent ;
+
+-  ligne 25 : on récupère la liste des attachements du message analysé ;
+
+-  ligne 29 : on parcourt cette liste ;
+
+-  ligne 24 : on récupère le type de l’attachement (attribut
+   *Content-Type*) ;
+
+-  lignes 34-38 : sauvegarde de l’attachement dans le dossier
+   **[$outputDir]**. Le second paramètre
+   **[PhpMimeMailParser\Parser::ATTACHMENT_DUPLICATE_SUFFIX]** est une
+   stratégie de nommage des pièces attachées. Si
+   **[$attachment→getFilename()]** vaut X et que le fichier X existe
+   déjà, alors la bibliothèque **[php-mime-mail-parser]** essaie les
+   noms **[X_1]**, **[X_2]**, etc. jusqu’à trouver un nom de fichier qui
+   n’existe pas ;
+
+-  ligne 40 : on regarde si la pièce attachée est un mail ;
+
+-  lignes 41-48 : si c’est le cas, alors ce mail est analysé à son tour
+   pour en extraire contenus et attachements ;
+
+-  ligne 44 : si **[$outputDir]** vaut X et que parmi les attachements
+   du message analysé il y a deux mails, alors le 1\ :sup:`er` sera
+   sauvegardé dans le dossier **[$outputDir/rfc822-1]** et le second
+   dans le dossier **[$outputDir/rfc822-2]** ;
+
+-  ligne 46 : le contenu du mail attaché devient le nouveau texte à
+   parser ;
+
+-  ligne 48 : on appelle la fonction **[getParts]** de façon récursive
+   pour analyser le nouveau texte ;
+
+La fonction **[saveMessage]** sauve les contenus texte du message à
+analyser :
+
+.. code-block:: php 
+   :linenos:
+
+   // sauvegarde d'un message texte
+   function saveMessage(string $text, int $type, array $arrayHeaders, string $filename): void {
+     // contenu à sauvegarder
+     $contents = "";
+     // ajout des entêtes
+     switch ($type) {
+       case 0:
+         // text/plain
+         foreach ($arrayHeaders as $key => $value) {
+           $contents .= "$key: $value\n";
+         }
+         $contents .= "\n";
+         break;
+       case 1:
+         // text/HTML
+         foreach ($arrayHeaders as $key => $value) {
+           $contents .= "$key: $value<br/>\n";
+         }
+         $contents .= "<br/>\n";
+     }
+     // ajout du texte du message
+     $contents .= $text;
+     // sauvegarde du tout
+     if (!file_put_contents($filename, $contents)) {
+       // échec
+       print "Le message n'a pu être sauvegardé dans le fichier [$filename]\n";
+     } else {
+       // réussite
+       print "Le message a été sauvegardé dans le fichier [$filename]\n";
+     }
+   }
+
+**Commentaires**
+
+-  la fonction **[saveMessage]** admet les paramètres suivants :
+
+   -  **[$text]** : le texte à sauvegarder ;
+
+   -  **[$type]** : le type du texte (0 : text/plain, 1 : text/HTML) ;
+
+   -  **[$arrayHeaders]** : les entêtes du message analysé ;
+
+   -  **[$filename]** : le nom du fichier dans lequel doit être
+      sauvegardé **[$text]** ;
+
+-  ligne 4 : **[$contents]** va représenter la totalité du texte à
+   sauvegarder ;
+
+-  lignes 6-20 : on sauvegardera d’abord tous les entêtes du message
+   (from, to, subject…) ;
+
+-  lignes 16-19 : dans le cas d’un texte HTML, on termine chaque ligne
+   par la balise <br/> pour que chaque entête apparaisse seule sur sa
+   ligne dans un navigateur ;
+
+-  ligne 22 : on ajoute aux entêtes le texte du message à sauvegarder ;
+
+-  lignes 24-30 : l’ensemble est sauvegardé dans le fichier
+   **[$filename]** ;
+
+L’utilisation de la bibliothèque **[php-mime-mail-parser]** facilite
+considérablement l’écriture du script de lecture de mails.
+
+Le script **[smtp-02.php]** est utilisé pour envoyer un mail à
+l’utilisateur **[guest@localhost]** avec la configuration suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "mail to localhost via localhost": {
+           "smtp-server": "localhost",
+           "smtp-port": "25",
+           "from": "guest@localhost",
+           "to": "guest@localhost",
+           "subject": "test-localhost",
+           "message": "ligne 1\nligne 2\nligne 3",
+           "tls": "FALSE",
+           "attachments": [
+               "/attachments/Hello from SwiftMailer.docx",
+               "/attachments/Hello from SwiftMailer.pdf",
+               "/attachments/Hello from SwiftMailer.odt",
+               "/attachments/Cours-Tutoriels-Serge-Tahé-1568x268.png",
+               "/attachments/test-localhost-2.eml"
+           ]
+       }
+   }
+
+-  lignes 11-15 : il y a cinq attachements ;
+
+-  ligne 15 : **[test-localhost-2.eml]** est un mail structuré de la
+   façon suivante :
+
+   -  **[test-localhost-2.eml]** contient 4 attachements (les mêmes
+      qu’aux lignes 11-14) et un mail attaché ;
+
+   -  le mail attaché à **[test-localhost-2.eml]** contient 4
+      attachements (les mêmes qu’aux lignes 11-14) ;
+
+Le script **[imap-03.php]** est utilisé pour lire la boîte à lettres de
+l’utilisateur **[guest@localhost]** avec la configuration suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   {
+       "{localhost:110/pop3}": {
+           "imap-server": "localhost",
+           "imap-port": "110",
+           "user": "guest@localhost",
+           "password": "guest",
+           "pop3": "TRUE",
+           "output-dir": "output/localhost-pop3"
+       }
+   }
+
+Après exécution, l’arborescence du dossier **[output/localhost-pop3]**
+est devenue la suivante :
+
+|image75|
+
+-  en **[1]**, les 5 attachements du mail reçu par
+   **[guest@localhost]** ;
+
+-  en **[2]**, les 5 attachements du mail **[test-localhost-2.eml]** de
+   **[1]** ;
+
+-  en **[3]**, les 4 attachements du mails **[test-localhost.eml]** de
+   **[2]** ;
+
+Les affichages console sont les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   ------------Lecture de la boîte à lettres [{localhost:110/pop3}]
+   Connexion établie avec le serveur [{localhost:110/pop3}].
+   Il y a [1] messages dans la boîte à lettres [{localhost:110/pop3}]
+   Récupération de la liste des messages non lus de la boîte à lettres [{localhost:110/pop3}]
+   ---message n° [1]
+   -- Sauvegarde d'un message de type [text/plain]
+   Le message a été sauvegardé dans le fichier [output/localhost-pop3/message-1/message_1.txt]
+   -- Sauvegarde d'un message de type [text/html]
+   Le message a été sauvegardé dans le fichier [output/localhost-pop3/message-1/message_1.html]
+   -- Sauvegarde d'un attachement de type [application/vnd.openxmlformats-officedocument.wordprocessingml.document] dans le fichier [output/localhost-pop3/message-1/Hello from SwiftMailer.docx]
+   -- Sauvegarde d'un attachement de type [application/pdf] dans le fichier [output/localhost-pop3/message-1/Hello from SwiftMailer.pdf]
+   -- Sauvegarde d'un attachement de type [application/vnd.oasis.opendocument.text] dans le fichier [output/localhost-pop3/message-1/Hello from SwiftMailer.odt]
+   -- Sauvegarde d'un attachement de type [image/png] dans le fichier [output/localhost-pop3/message-1/Cours-Tutoriels-Serge-Tahé-1568x268.png]
+   -- Sauvegarde d'un attachement de type [message/rfc822] dans le fichier [output/localhost-pop3/message-1/test-localhost-2.eml]
+   -- Sauvegarde d'un message de type [text/plain]
+   Le message a été sauvegardé dans le fichier [output/localhost-pop3/message-1/rfc822-1/message_1.txt]
+   -- Sauvegarde d'un message de type [text/html]
+   Le message a été sauvegardé dans le fichier [output/localhost-pop3/message-1/rfc822-1/message_1.html]
+   -- Sauvegarde d'un attachement de type [application/vnd.openxmlformats-officedocument.wordprocessingml.document] dans le fichier [output/localhost-pop3/message-1/rfc822-1/Hello from SwiftMailer.docx]
+   -- Sauvegarde d'un attachement de type [application/pdf] dans le fichier [output/localhost-pop3/message-1/rfc822-1/Hello from SwiftMailer.pdf]
+   -- Sauvegarde d'un attachement de type [application/vnd.oasis.opendocument.text] dans le fichier [output/localhost-pop3/message-1/rfc822-1/Hello from SwiftMailer.odt]
+   -- Sauvegarde d'un attachement de type [image/png] dans le fichier [output/localhost-pop3/message-1/rfc822-1/Cours-Tutoriels-Serge-Tahé-1568x268.png]
+   -- Sauvegarde d'un attachement de type [message/rfc822] dans le fichier [output/localhost-pop3/message-1/rfc822-1/test-localhost.eml]
+   -- Sauvegarde d'un message de type [text/plain]
+   Le message a été sauvegardé dans le fichier [output/localhost-pop3/message-1/rfc822-1/rfc822-1/message_1.txt]
+   -- Sauvegarde d'un message de type [text/html]
+   Le message a été sauvegardé dans le fichier [output/localhost-pop3/message-1/rfc822-1/rfc822-1/message_1.html]
+   -- Sauvegarde d'un attachement de type [application/vnd.openxmlformats-officedocument.wordprocessingml.document] dans le fichier [output/localhost-pop3/message-1/rfc822-1/rfc822-1/Hello from SwiftMailer.docx]
+   -- Sauvegarde d'un attachement de type [application/pdf] dans le fichier [output/localhost-pop3/message-1/rfc822-1/rfc822-1/Hello from SwiftMailer.pdf]
+   -- Sauvegarde d'un attachement de type [application/vnd.oasis.opendocument.text] dans le fichier [output/localhost-pop3/message-1/rfc822-1/rfc822-1/Hello from SwiftMailer.odt]
+   -- Sauvegarde d'un attachement de type [image/png] dans le fichier [output/localhost-pop3/message-1/rfc822-1/rfc822-1/Cours-Tutoriels-Serge-Tahé-1568x268.png]
+   Fermeture de la connexion réussie.
+
+Si on visualise **[message_1.HTML]** de **[3]** dans un navigateur, on
+obtient la chose suivante :
+
+|image76|
 
 .. |image0| image:: ./chap-17/media/image1.png
-   :width: 4.4252in
-   :height: 0.62992in
+   :width: 1.22441in
+   :height: 0.77992in
 .. |image1| image:: ./chap-17/media/image2.png
-   :width: 6.19291in
-   :height: 0.83465in
+   :width: 2.92913in
+   :height: 1.28346in
 .. |image2| image:: ./chap-17/media/image3.png
-   :width: 7.31535in
-   :height: 2.6374in
+   :width: 1.7563in
+   :height: 1.36614in
 .. |image3| image:: ./chap-17/media/image4.png
-   :width: 5.5311in
-   :height: 0.78346in
+   :width: 4.64567in
+   :height: 0.58268in
 .. |image4| image:: ./chap-17/media/image5.png
-   :width: 5.79173in
-   :height: 1.92913in
+   :width: 5.05157in
+   :height: 0.59449in
 .. |image5| image:: ./chap-17/media/image6.png
-   :width: 3.18465in
-   :height: 0.76378in
+   :width: 4.83465in
+   :height: 0.82283in
 .. |image6| image:: ./chap-17/media/image7.png
-   :width: 6.09843in
-   :height: 1.88976in
+   :width: 5.01181in
+   :height: 0.59449in
 .. |image7| image:: ./chap-17/media/image8.png
-   :width: 6.67716in
-   :height: 2.08268in
+   :width: 4.21653in
+   :height: 0.92165in
 .. |image8| image:: ./chap-17/media/image9.png
-   :width: 5.77992in
-   :height: 1.18465in
-.. |image9| image:: ./chap-17/media/image10.png
-   :width: 6.48819in
-   :height: 1.40984in
-.. |image10| image:: ./chap-17/media/image11.png
-   :width: 6.98386in
-   :height: 1.41732in
-.. |image11| image:: ./chap-17/media/image12.png
-   :width: 1.53976in
-   :height: 1.0752in
-.. |image12| image:: ./chap-17/media/image13.png
-   :width: 6.83071in
-   :height: 1.64921in
-.. |image13| image:: ./chap-17/media/image14.png
-   :width: 5.53976in
-   :height: 1.14921in
-.. |image14| image:: ./chap-17/media/image15.png
-   :width: 6.5752in
-   :height: 1.15354in
-.. |image15| image:: ./chap-17/media/image16.png
-   :width: 6.96457in
-   :height: 1.39803in
-.. |image16| image:: ./chap-17/media/image17.png
-   :width: 3.54291in
-   :height: 3.37441in
-.. |image17| image:: ./chap-17/media/image18.png
-   :width: 3.44528in
-   :height: 1.87008in
-.. |image18| image:: ./chap-17/media/image19.png
-   :width: 2.37008in
-   :height: 1.05472in
-.. |image19| image:: ./chap-17/media/image20.png
-   :width: 5.88622in
-   :height: 1.37008in
-.. |image20| image:: ./chap-17/media/image21.png
-   :width: 1.50433in
-   :height: 1.15748in
-.. |image21| image:: ./chap-17/media/image22.png
-   :width: 5.90551in
-   :height: 1.61378in
-.. |image22| image:: ./chap-17/media/image23.png
-   :width: 6.24016in
-   :height: 2.73622in
-.. |image23| image:: ./chap-17/media/image24.png
-   :width: 5.29173in
-   :height: 4.02362in
-.. |image24| image:: ./chap-17/media/image25.png
-   :width: 5.53976in
-   :height: 3.52795in
-.. |image25| image:: ./chap-17/media/image26.png
-   :width: 5.34252in
-   :height: 1.46024in
-.. |image26| image:: ./chap-17/media/image27.png
-   :width: 5.16102in
-   :height: 2.13386in
-.. |image27| image:: ./chap-17/media/image28.png
-   :width: 4.02362in
-   :height: 1.0311in
-.. |image28| image:: ./chap-17/media/image29.png
-   :width: 4.23189in
-   :height: 1.76378in
-.. |image29| image:: ./chap-17/media/image30.png
-   :width: 5.94528in
-   :height: 1.21654in
-.. |image30| image:: ./chap-17/media/image31.png
-   :width: 1.5311in
-   :height: 1.82717in
-.. |image31| image:: ./chap-17/media/image32.png
-   :width: 4.18465in
-   :height: 0.94842in
-.. |image32| image:: ./chap-17/media/image33.png
-   :width: 4.3189in
-   :height: 1.7126in
-.. |image33| image:: ./chap-17/media/image34.png
-   :width: 5.79173in
-   :height: 1.92913in
-.. |image34| image:: ./chap-17/media/image35.png
-   :width: 1.9689in
-   :height: 3.85433in
-.. |image35| image:: ./chap-17/media/image36.png
-   :width: 6.06654in
-   :height: 2.51929in
-.. |image36| image:: ./chap-17/media/image37.png
-   :width: 2.61024in
-   :height: 1.20472in
-.. |image37| image:: ./chap-17/media/image38.png
-   :width: 7.12559in
-   :height: 2.19646in
-.. |image38| image:: ./chap-17/media/image39.png
-   :width: 2.10197in
-   :height: 3.45709in
-.. |image39| image:: ./chap-17/media/image40.png
-   :width: 1.8937in
-   :height: 1.37008in
-.. |image40| image:: ./chap-17/media/image41.png
-   :width: 4.03976in
-   :height: 0.87441in
-.. |image41| image:: ./chap-17/media/image42.png
-   :width: 4.06654in
-   :height: 1.95276in
-.. |image42| image:: ./chap-17/media/image43.png
-   :width: 2.2874in
-   :height: 0.97205in
-.. |image43| image:: ./chap-17/media/image44.png
-   :width: 3.19646in
-   :height: 1.49567in
-.. |image44| image:: ./chap-17/media/image45.png
-   :width: 4.24449in
-   :height: 1.72835in
-.. |image45| image:: ./chap-17/media/image46.png
-   :width: 5.62992in
-   :height: 2.09843in
-.. |image46| image:: ./chap-17/media/image47.png
-   :width: 2.85433in
-   :height: 3.19291in
-.. |image47| image:: ./chap-17/media/image48.png
-   :width: 1.7126in
-   :height: 1.9689in
-.. |image48| image:: ./chap-17/media/image49.png
-   :width: 1.3626in
+   :width: 3.92165in
    :height: 1.08268in
-.. |image49| image:: ./chap-17/media/image50.png
-   :width: 3.83898in
-   :height: 3.22441in
-.. |image50| image:: ./chap-17/media/image51.png
-   :width: 1.6811in
+.. |image9| image:: ./chap-17/media/image10.png
+   :width: 3.7874in
+   :height: 0.65354in
+.. |image10| image:: ./chap-17/media/image11.png
+   :width: 3.15354in
+   :height: 1.72835in
+.. |image11| image:: ./chap-17/media/image12.png
+   :width: 3.66929in
+   :height: 0.76378in
+.. |image12| image:: ./chap-17/media/image13.png
+   :width: 4.43661in
    :height: 1.4689in
+.. |image13| image:: ./chap-17/media/image14.png
+   :width: 1.34646in
+   :height: 1.00433in
+.. |image14| image:: ./chap-17/media/image15.png
+   :width: 2.87795in
+   :height: 1.33465in
+.. |image15| image:: ./chap-17/media/image16.png
+   :width: 4.73622in
+   :height: 0.60197in
+.. |image16| image:: ./chap-17/media/image17.png
+   :width: 3.62205in
+   :height: 1.11024in
+.. |image17| image:: ./chap-17/media/image18.png
+   :width: 5.74449in
+   :height: 1.88622in
+.. |image18| image:: ./chap-17/media/image19.png
+   :width: 2.94528in
+   :height: 2.42165in
+.. |image19| image:: ./chap-17/media/image20.png
+   :width: 4.41732in
+   :height: 2.27559in
+.. |image20| image:: ./chap-17/media/image21.png
+   :width: 4.62992in
+   :height: 1.07087in
+.. |image21| image:: ./chap-17/media/image22.png
+   :width: 4.7126in
+   :height: 3.2126in
+.. |image22| image:: ./chap-17/media/image23.png
+   :width: 2.60197in
+   :height: 2.40984in
+.. |image23| image:: ./chap-17/media/image24.png
+   :width: 4.95709in
+   :height: 0.3937in
+.. |image24| image:: ./chap-17/media/image25.png
+   :width: 4.98819in
+   :height: 2.70827in
+.. |image25| image:: ./chap-17/media/image26.png
+   :width: 1.55157in
+   :height: 1.35433in
+.. |image26| image:: ./chap-17/media/image27.png
+   :width: 6.02795in
+   :height: 1.72441in
+.. |image27| image:: ./chap-17/media/image28.png
+   :width: 3.03543in
+   :height: 1.9689in
+.. |image28| image:: ./chap-17/media/image29.png
+   :width: 4.6374in
+   :height: 3.05472in
+.. |image29| image:: ./chap-17/media/image30.png
+   :width: 7.10197in
+   :height: 1.70472in
+.. |image30| image:: ./chap-17/media/image31.png
+   :width: 3.05157in
+   :height: 3.25197in
+.. |image31| image:: ./chap-17/media/image32.png
+   :width: 4.51614in
+   :height: 1.11811in
+.. |image32| image:: ./chap-17/media/image33.png
+   :width: 3.46457in
+   :height: 1.62992in
+.. |image33| image:: ./chap-17/media/image34.png
+   :width: 6.11024in
+   :height: 3.28346in
+.. |image34| image:: ./chap-17/media/image35.png
+   :width: 5.52362in
+   :height: 3.72835in
+.. |image35| image:: ./chap-17/media/image36.png
+   :width: 5.81535in
+   :height: 2.92913in
+.. |image36| image:: ./chap-17/media/image37.png
+   :width: 6.03976in
+   :height: 2.41732in
+.. |image37| image:: ./chap-17/media/image38.png
+   :width: 4.4689in
+   :height: 1.67717in
+.. |image38| image:: ./chap-17/media/image39.png
+   :width: 5.55157in
+   :height: 1.91338in
+.. |image39| image:: ./chap-17/media/image40.png
+   :width: 3.6374in
+   :height: 2.70472in
+.. |image40| image:: ./chap-17/media/image41.png
+   :width: 5.22441in
+   :height: 3.37441in
+.. |image41| image:: ./chap-17/media/image42.png
+   :width: 5.96024in
+   :height: 3.24803in
+.. |image42| image:: ./chap-17/media/image43.png
+   :width: 4.70472in
+   :height: 2.30709in
+.. |image43| image:: ./chap-17/media/image44.png
+   :width: 3.29528in
+   :height: 1.15748in
+.. |image44| image:: ./chap-17/media/image45.png
+   :width: 4.5in
+   :height: 3.51181in
+.. |image45| image:: ./chap-17/media/image46.png
+   :width: 5.97638in
+   :height: 2.67717in
+.. |image46| image:: ./chap-17/media/image47.png
+   :width: 2.87441in
+   :height: 1.30354in
+.. |image47| image:: ./chap-17/media/image48.png
+   :width: 5.79173in
+   :height: 0.47638in
+.. |image48| image:: ./chap-17/media/image49.png
+   :width: 5.78346in
+   :height: 3.16102in
+.. |image49| image:: ./chap-17/media/image50.png
+   :width: 4.3937in
+   :height: 1.40157in
+.. |image50| image:: ./chap-17/media/image51.png
+   :width: 6.46457in
+   :height: 1.70827in
 .. |image51| image:: ./chap-17/media/image52.png
-   :width: 2.00748in
-   :height: 2.1374in
+   :width: 2.66102in
+   :height: 3.16535in
 .. |image52| image:: ./chap-17/media/image53.png
-   :width: 3.52795in
-   :height: 1.45709in
+   :width: 7.03976in
+   :height: 2.09016in
 .. |image53| image:: ./chap-17/media/image54.png
-   :width: 6.5752in
-   :height: 1.66102in
+   :width: 2.17717in
+   :height: 1.70472in
 .. |image54| image:: ./chap-17/media/image55.png
-   :width: 1.68898in
-   :height: 1.17283in
-.. |image55| image:: ./chap-17/media/image53.png
-   :width: 4.11378in
-   :height: 1.69646in
-.. |image56| image:: ./chap-17/media/image56.png
-   :width: 4.04291in
-   :height: 1.69646in
-.. |image57| image:: ./chap-17/media/image57.png
-   :width: 6.41339in
-   :height: 3.18898in
-.. |image58| image:: ./chap-17/media/image58.png
-   :width: 1.5311in
-   :height: 1.50433in
-.. |image59| image:: ./chap-17/media/image59.png
-   :width: 4.55157in
-   :height: 1.92913in
-.. |image60| image:: ./chap-17/media/image60.png
-   :width: 5.91339in
-   :height: 2.73189in
-.. |image61| image:: ./chap-17/media/image61.png
-   :width: 6.20827in
-   :height: 3.80354in
-.. |image62| image:: ./chap-17/media/image62.png
-   :width: 1.87441in
-   :height: 1.87795in
-.. |image63| image:: ./chap-17/media/image63.png
-   :width: 1.51181in
-   :height: 1.45709in
-.. |image64| image:: ./chap-17/media/image64.png
-   :width: 5.19291in
-   :height: 2.51929in
-.. |image65| image:: ./chap-17/media/image65.png
-   :width: 1.88189in
-   :height: 2.03976in
-.. |image66| image:: ./chap-17/media/image66.png
-   :width: 1.37008in
-   :height: 1.23189in
-.. |image67| image:: ./chap-17/media/image67.png
-   :width: 4.22008in
-   :height: 1.65354in
-.. |image68| image:: ./chap-17/media/image68.png
-   :width: 4.11378in
-   :height: 2.01929in
-.. |image69| image:: ./chap-17/media/image69.png
-   :width: 3.50433in
-   :height: 3.62205in
-.. |image70| image:: ./chap-17/media/image70.png
-   :width: 1.38189in
-   :height: 1.60197in
-.. |image71| image:: ./chap-17/media/image71.png
-   :width: 4.55472in
-   :height: 1.99567in
-.. |image72| image:: ./chap-17/media/image72.png
-   :width: 5.72441in
-   :height: 2.68465in
-.. |image73| image:: ./chap-17/media/image73.png
    :width: 3.97638in
    :height: 2.61811in
+.. |image55| image:: ./chap-17/media/image56.png
+   :width: 5.98071in
+   :height: 1.81102in
+.. |image56| image:: ./chap-17/media/image57.png
+   :width: 2.40551in
+   :height: 1.9689in
+.. |image57| image:: ./chap-17/media/image58.png
+   :width: 5.40984in
+   :height: 3.62559in
+.. |image58| image:: ./chap-17/media/image59.png
+   :width: 2.90551in
+   :height: 1.33465in
+.. |image59| image:: ./chap-17/media/image60.png
+   :width: 1.65354in
+   :height: 1.72835in
+.. |image60| image:: ./chap-17/media/image61.png
+   :width: 1.7563in
+   :height: 3in
+.. |image61| image:: ./chap-17/media/image62.png
+   :width: 1.31102in
+   :height: 1.6063in
+.. |image62| image:: ./chap-17/media/image63.png
+   :width: 4.89803in
+   :height: 4.01614in
+.. |image63| image:: ./chap-17/media/image64.png
+   :width: 4.29921in
+   :height: 2.29921in
+.. |image64| image:: ./chap-17/media/image65.png
+   :width: 4.22441in
+   :height: 1.73622in
+.. |image65| image:: ./chap-17/media/image66.png
+   :width: 2.62559in
+   :height: 2.53976in
+.. |image66| image:: ./chap-17/media/image67.png
+   :width: 4.90551in
+   :height: 0.74449in
+.. |image67| image:: ./chap-17/media/image68.png
+   :width: 4.51614in
+   :height: 1.41339in
+.. |image68| image:: ./chap-17/media/image69.png
+   :width: 3.96457in
+   :height: 1.70079in
+.. |image69| image:: ./chap-17/media/image70.png
+   :width: 3.81535in
+   :height: 1.77992in
+.. |image70| image:: ./chap-17/media/image71.png
+   :width: 2.39803in
+   :height: 0.93661in
+.. |image71| image:: ./chap-17/media/image72.png
+   :width: 4.23622in
+   :height: 1.47205in
+.. |image72| image:: ./chap-17/media/image73.png
+   :width: 3.64921in
+   :height: 1.84252in
+.. |image73| image:: ./chap-17/media/image74.png
+   :width: 3.08661in
+   :height: 1.80709in
+.. |image74| image:: ./chap-17/media/image75.png
+   :width: 4.94528in
+   :height: 1.88976in
+.. |image75| image:: ./chap-17/media/image76.png
+   :width: 2.56654in
+   :height: 3.39803in
+.. |image76| image:: ./chap-17/media/image77.png
+   :width: 5.87795in
+   :height: 1.95276in
