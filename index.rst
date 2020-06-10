@@ -5,6 +5,8 @@
 
 .. meta::
    :description lang=fr: Introduction à PHP 7 par l'exemple : bases, classes, interfaces, exceptions, traits, fonctions réseau, services web, XML
+   :google-site-verification: rEk3Ag5TVRTZ85C2Wwg6iYpLz8UWMgd07V6mLkq6ee4
+   <meta name="google-site-verification" content="rEk3Ag5TVRTZ85C2Wwg6iYpLz8UWMgd07V6mLkq6ee4" />
 
 INTRODUCTION AU LANGAGE PHP7 PAR L'EXEMPLE
 ----------------------------------------------
