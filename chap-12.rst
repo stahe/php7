@@ -1,1699 +1,1623 @@
-Exercice d’application – version 4
-==================================
-
-L’application de calcul d’impôts va implémenter la structure en couches
-suivante :
+Utilisation du SGBD MySQL
+=========================
 
 |image0|
 
-Nous allons reprendre les éléments de la version 3 du paragraphe
-`lien <#_Exercice_d'application_–>`__ en les modifiant pour les adapter
-à la nouvelle architecture de l’application. On appelle parfois cela du
-‘refactoring’. Nous supposons ici que les données nécessaires à
-l’application sont dans des fichiers texte. C’est la couche **[Dao]**
-qui va s’occuper des échanges avec ces fichiers.
-
-Arborescence des scripts
-------------------------
+Nous allons maintenant écrire des scripts PHP utilisant une base de
+données MySQL :
 
 |image1|
 
-Objets échangés entre couches
------------------------------
-
-Nous allons garder certains objets de la version 3. Nous les redonnons
-ici pour rappel.
-
-L’exception **[ExceptionImpots]** est l’exception que lancera la couche
-**[Dao]** lorsqu’elle rencontrera un problème soit avec l’accès aux
-données soit avec la nature des données (données incorrectes).
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   class ExceptionImpots extends \RuntimeException {
-
-     public function __construct(string $message, int $code=0) {
-       parent::__construct($message, $code);
-     }
-   }
-
-La classe **[Utilitaires]** rassemble des méthodes utiles à la gestion
-des fichiers texte (ici une seule méthode) :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   // une classe de fonctions utilitaires
-   abstract class Utilitaires {
-
-     public static function cutNewLinechar(string $ligne): string {
-       // on supprime la marque de fin de ligne de $ligne si elle existe
-       $longueur = strlen($ligne);  // longueur ligne
-       while (substr($ligne, $longueur - 1, 1) == "\n" or substr($ligne, $longueur - 1, 1) == "\r") {
-         $ligne = substr($ligne, 0, $longueur - 1);
-         $longueur--;
-       }
-       // fin - on rend la ligne
-       return($ligne);
-     }
-   }
-
-La classe **[TaxAdminData]** est la classe qui encapsule les données de
-l’administration fiscale :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   namespace Application;
-
-   class TaxAdminData {
-     // tranches d'impôt
-     private $limites;
-     private $coeffR;
-     private $coeffN;
-     // constantes de calcul de l'impôt
-     private $plafondQfDemiPart;
-     private $plafondRevenusCelibatairePourReduction;
-     private $plafondRevenusCouplePourReduction;
-     private $valeurReducDemiPart;
-     private $plafondDecoteCelibataire;
-     private $plafondDecoteCouple;
-     private $plafondImpotCouplePourDecote;
-     private $plafondImpotCelibatairePourDecote;
-     private $abattementDixPourcentMax;
-     private $abattementDixPourcentMin;
-
-     // initialisation
-     public function setFromJsonFile(string $taxAdminDataFilename): TaxAdminData {
-       // on récupère le contenu du fichier des données fiscales
-       $fileContents = \file_get_contents($taxAdminDataFilename);
-       …
-       // on rend l'objet
-       return $this;
-     }
-
-     private function check($value): \stdClass {
-       …
-       return $result;
-     }
-
-       // toString
-     public function __toString() {
-       // chaîne Json de l'objet
-       return \json_encode(\get_object_vars($this), JSON_UNESCAPED_UNICODE);
-     }
-
-     // getters et setters
-     public function getLimites() {
-       return $this->limites;
-     }
-
-     …
-
-     public function setLimites($limites) {
-       $this->limites = $limites;
-       return $this;
-     }
-
-     …
-   }
-
-Nous ajoutons une nouvelle classe **[TaxPayerData]** qui encapsule les
-données écrites dans le fichier des résultats :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   // la classe des données
-   class TaxPayerData {
-     // données nécessaires au calcul de l'impôt du contribuable
-     private $marié;
-     private $enfants;
-     private $salaire;
-     // résultats du calcul de l'impôt
-     private $montant;
-     private $surcôte;
-     private $décôte;
-     private $réduction;
-     private $taux;
-
-     // setter
-     public function setFromParameters(string $marié, int $nbEnfants, int $salaireAnnuel) : TaxPayerData{
-       // données du contribuable nécessaires au calcul de l'impôt
-       $this->marié = $marié;
-       $this->enfants = $nbEnfants;
-       $this->salaire = $salaireAnnuel;
-       // on rend l'objet initialisé
-       return $this;
-     }
-
-     // getters et setters
-     public function getMarié() {
-       return $this->marié;
-     }
-
-     …
-
-     public function setMarié($marié) {
-       $this->marié = $marié;
-       return $this;
-     }
-
-     …
-
-       // toString
-     public function __toString() {
-       // chaîne Json de l'objet
-       return \json_encode(\get_object_vars($this), JSON_UNESCAPED_UNICODE);
-     }
-
-   }
-
-**Note** : utilisez la génération automatique de code pour générer le
-constructeur, les getters et setters (cf paragraphe
-`lien <#_La_classe_[TaxAdminData]>`__). Remarquez que les setters sont
-‘fluents’.
-
-La couche [dao]
----------------
-
-Nous nous intéressons ici à la couche **[1]** de notre application :
+Dans l’architecture ci-dessus, le script PHP (1) ne dialogue pas
+directement avec le SGBD (**S**\ ystème de **G**\ estion de **B**\ ases
+de **D**\ onnées) (3). Il dialogue avec un intermédiaire appelé
+**pilote** de SGBD ou encore **driver** de SGBD. PHP fournit une
+interface standard pour ces pilotes, l’interface **PDO** (**P**\ HP
+**D**\ ata **O**\ bjects). Cette interface est implémentée par
+différentes classes adaptées à chaque SGBD : une classe pour le SGBD
+MySQL, une autre pour le SGBD PostgreSQL… Pour changer de SGBD, on
+change de pilote :
 
 |image2|
 
-L’interface [InterfaceDao]
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-L’interface de la couche **[dao]** sera la suivante
-**[InterfaceDao.php]** :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   interface InterfaceDao {
-
-     // lecture des données contribuables
-     public function getTaxPayersData(string $taxPayersFilename, string $errorsFilename): array;
-
-     // lecture des données de l'administration fiscale (tranches d'impôts)
-     public function getTaxAdminData(): TaxAdminData;
-
-     // enregistrement des résultats
-     public function saveResults(string $resultsFilename, array $taxPayersData): void;
-   }
-
-**Commentaires**
-
--  le cahier des charges est ici le suivant :
-
-   -  les données des contribuables sont dans un fichier texte ;
-
-   -  on enregistre les résultats du calcul d’impôts dans un fichier
-      texte ;
-
-   -  on enregistre les éventuelles erreurs dans un fichier texte ;
-
-   -  on ne sait pas sous quelle forme sont disponibles les données de
-      l’administration fiscale. Pour chaque nouvelle forme, l’interface
-      **[InterfaceDao]** devra être implémentée par une nouvelle
-      classe ;
-
-   -  les méthodes de l’interface qui rencontrent une erreur
-      irrécupérable lors de l’accès aux données doivent lancer une
-      exception de type **[ExceptionImpots]** ;
-
--  ligne 9 : la méthode qui permet d’obtenir les données du contribuable
-   **[statut marital, nombre d’enfants, salaire annuel]** ;
-
-   -  le 1er paramètre est le nom du fichier texte dans lequel se
-      trouvent ces données ;
-
-   -  le second paramètre est le nom du fichier texte dans lequel
-      enregistrer les éventuelles erreurs rencontrées ;
-
--  ligne 12 : la méthode qui permet d’obtenir les données de
-   l’administration fiscale. On ne lui passe ici aucun paramètre car on
-   ne sait pas comment elles sont stockées ;
-
--  ligne 15 : la méthode qui permet d’enregistrer les résultats du
-   calcul de l’impôt dans un fichier texte dont on passe le nom en
-   paramètre ;
-
-Lorsqu’on écrit l’interface **[InterfaceDao]**, on sait qu’il y aura
-différentes façons d’écrire la méthode **[getTaxAdminData]** selon la
-façon dont seront stockées les données de l’administration fiscale.
-L’interface **[InterfaceDao]** sera donc implémentée par différentes
-classes, chacune s’occupant d’un stockage particulier de ces données
-(tableaux, fichiers texte, base de données, service web). Ces classes
-dérivées auront néanmoins un code commun, celui de l’implémentation des
-méthodes **[getTaxPayersData, saveResults]**. On sait que ce cas
-d’utilisation peut être implémenté de deux façons (cf paragraphe
-`lien <#_Utiliser_un_trait>`__):
-
-1. on crée une classe **abstraite** **C** qui regroupe le code commun
-   aux classes dérivées. La classe C implémente l’interface I mais
-   certaines méthodes qui doivent être déclarées dans les classes
-   dérivées sont dans la classe C déclarées abstraites et donc la classe
-   C est elle-même abstraite. On crée ensuite des classes C1 et C2
-   dérivées de C qui implémentent chacune à leur manière les méthodes
-   non définies (abstraites) de leur classe parent C ;
-
-2. on crée un **trait** **T** quasi identique à la classe abstraite C de
-   la solution précédente. Ce trait n’implémente pas l’interface I car
-   syntaxiquement elle ne le peut pas. On crée ensuite des classes C1 et
-   C2 implémentant l’interface I et utilisant le trait T. Il ne reste à
-   ces classes qu’à implémenter les méthodes de l’interface I non
-   implémentées par le trait T qu’elles importent ;
-
-Pour l’exemple, nous allons utiliser ici un trait **[TraitDao]**.
-
-Le trait [TraitDao]
-~~~~~~~~~~~~~~~~~~~
-
-Le code du trait **[TraitDao]** est le suivant **[TraitDao.php]** :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   trait TraitDao {
-
-     // lecture des données contribuables
-     public function getTaxPayersData(string $taxPayersFilename, string $errorsFilename): array {
-       // tableau des données contribuables
-       $taxPayersData = [];
-       // tableau des erreurs
-       $errors = [];
-       // pas mal d'erreurs peuvent se produire dès qu'on gère des fichiers
-       try {
-         // lecture des données utilisateur
-         // chaque ligne a la forme statut marital, nombre d'enfants, salaire annuel
-         $taxPayersFile = fopen($taxPayersFilename, "r");
-         if (!$taxPayersFile) {
-           throw new ExceptionImpots("Impossible d'ouvrir en lecture les déclarations des contribuables [$taxPayersFilename]", 12);
-         }
-         // on exploite la ligne courante du fichier des données utilisateur
-         // qui a la forme statut marital, nombre d'enfants, salaire annuel
-         $num = 1;         // n° ligne courante
-         $nbErreurs = 0;   // nbre d'erreurs rencontrées
-         while ($ligne = fgets($taxPayersFile, 100)) {
-           // on néglige les lignes vides
-           $ligne = trim($ligne);
-           if (strlen($ligne) == 0) {
-             // ligne suivante
-             $num++;
-             // on reboucle
-             continue;
-           }
-           // on enlève l'éventuelle marque de fin de ligne
-           $ligne = Utilitaires::cutNewLineChar($ligne);
-           // on récupère les 3 champs marié:enfants:salaire qui forment $ligne
-           list($marié, $enfants, $salaire) = explode(",", $ligne);
-           // on les vérifie
-           // le statut marital doit être oui ou non
-           $marié = trim(strtolower($marié));
-           $erreur = ($marié !== "oui" and $marié !== "non");
-           if (!$erreur) {
-             // le nombre d'enfants doit être un entier
-             $enfants = trim($enfants);
-             if (!preg_match("/^\d+$/", $enfants)) {
-               $erreur = TRUE;
-             } else {
-               $enfants = (int) $enfants;
-             }
-           }
-           if (!$erreur) {
-             // le salaire est un entier sans les centimes d'euros
-             $salaire = trim($salaire);
-             if (!preg_match("/^\d+$/", $salaire)) {
-               $erreur = TRUE;
-             } else {
-               $salaire = (int) $salaire;
-             }
-           }
-           // erreur ?
-           if ($erreur) {
-             $errors[] = "la ligne [$num] du fichier [$taxPayersFilename] est erronée";
-             $nbErreurs++;
-           } else {
-             // on mémorise les informations
-             $taxPayersData[] = (new TaxPayerData())->setFromParameters($marié, $enfants, $salaire);
-           }
-           // ligne suivante
-           $num++;
-         }
-         // est-on à la fin du fichier ?
-         if (!feof($taxPayersFile)) {
-           // on est sorti de la boucle sur une erreur de lecture
-           throw new ExceptionImpots("Erreur lors de la lecture de la ligne n° [$num] du fichier [$taxPayersFilename]");
-         } else {
-           // on est sorti de la boucle sur la marque de fin de fichier
-           // on sauve les erreurs dans un fichier texte
-           $this->saveString($errorsFilename, implode("\n", $errors));
-           // résultat de la fonction
-           return $taxPayersData;
-         }
-       } finally {
-         // on ferme le fichier s'il est ouvert
-         if ($taxPayersFile) {
-           fclose($taxPayersFile);
-         }
-       }
-     }
-
-     // enregistrement des résultats
-     public function saveResults(string $resultsFilename, array $taxPayersData): void {
-       // enregistrement du tableau [$taxPayersData] dans le fichier texte [$resultsFileName]
-       // si le fichier texte [$resultsFileName] n'existe pas, il est créé
-       $this->saveString($resultsFilename, implode("\n", $taxPayersData));
-     }
-
-     // enregistrement d'es résultats d'un tableau dans un fichier texte
-     private function saveString(string $fileName, string $data): void {
-       // enregistrement du tableau [$data] dans le fichier texte [$fileName]
-       // si le fichier texte [$fileName] n'existe pas, il est créé
-       if (file_put_contents($fileName, $data) === FALSE) {
-         throw new ExceptionImpots("Erreur lors de l'enregistrement de données dans le fichier texte [$fileName]");
-       }
-     }
-
-   }
-
-**Commentaires**
-
--  ligne 6 : nous définissons ici un **trait** et non une **classe** ;
-
--  lignes 9-89 : la méthode **[getTaxPayersData]** implémente la méthode
-   de même nom de l’interface **[InterfaceDao]**. Elle récupère dans un
-   fichier texte nommé **[$taxPayersFilename]** les données des
-   contribuables **[statut marital, nombre d’enfants, salaire annuel]**.
-   Elle rend celles-ci sous la forme d’un tableau **[$taxPayersData]**
-   d’éléments de type **[TaxPayerData]** (lignes 67, 81) ;
-
--  la méthode **[getTaxPayersData]** est très semblable à la méthode
-   **[AbstractBaseImpots::executeBatchImpots]** décrite au paragraphe
-   `lien <#_La_classe_abstraite>`__ avec les différences suivantes :
-
-   -  la méthode **[getTaxPayersData]** ne fait que récupérer les
-      données des contribuables. **Elle ne fait pas de calcul d’impôt**.
-      Ici c’est le rôle de la couche **[métier]** ;
-
-   -  comme le faisait la méthode **[executeBatchImpots]** elle signale
-      les erreurs. Ici les erreurs sont d’abord mémorisées dans un
-      tableau **[$errors]** (ligne 13), tableau qui est mémorisé dans un
-      fichier texte à la fin du traitement (ligne 79). Selon les cas, il
-      est vide ou non ;
-
-   -  dans le cas d’erreur irrécupérable, une exception de type
-      **[ExceptionImpots]** est lancée (lignes 20, 75) ;
-
--  ligne 73 : on notera le traitement fait à la sortie de la boucle des
-   lignes 26-71. En effet la fonction **[fgets]** a l’inconvénient de
-   rendre le booléen FALSE aussi bien lorsque la lecture des lignes a
-   rencontré la marque de fin de fichier que si cette lecture n’a pu
-   aboutir à cause d’une erreur. Pour différentier les deux cas, on
-   teste si on est rendu à la fin du fichier avec la fonction
-   **[feof]**. Si on n’est pas rendu à la fin du fichier, c’est qu’une
-   erreur s’est produite et on lance alors une exception ;
-
--  lignes 83-88 : le **[finally]** est exécuté qu’il y ait eu exception
-   ou pas lors de l’exploitation du fichier ;
-
--  ligne 85 : si le fichier a été ouvert, alors le ‘handle’
-   **[$taxPayersFile]** du fichier a la valeur booléenne TRUE, FALSE
-   sinon ;
-
--  lignes 99-105 : la méthode privée **[saveString]** utilisée ligne 79
-   pour enregistrer le tableau des erreurs dans un fichier texte ;
-
--  ligne 99 : la méthode **[saveString]** reçoit deux paramètres :
-
-   -  **[string $filename]** qui est le nom du fichier texte utilisé
-      pour enregistrer les données ;
-
-   -  **[string $data]** qui est la chaîne de caractères à enregistrer
-      dans le fichier texte. Cette chaîne sera un ensemble de lignes
-      terminée par le caractère de fin de ligne \\n ;
-
--  ligne 102 : la fonction PHP **[file_puts_contents]** enregistre une
-   chaîne de caractères dans un fichier texte. Elle s’occupe d’ouvrir le
-   fichier, d’écrire la chaîne dedans et de fermer le fichier. Elle rend
-   le booléen FALSE si une erreur s’est produite ;
-
--  ligne 103 : si une erreur se produit, on lance une exception ;
-
--  lignes 92-96 : implémentation de la méthode **[saveResults]** de
-   l’interface **[InterfaceDao]**. On utilise de nouveau la méthode
-   privée **[saveString]**. Ici le second paramètre de **[saveString]**
-   est une chaîne construite à partir du tableau **[$taxPayersData]**
-   dont les éléments sont de type **[TaxPayerData]**. On peut se
-   demander quel va être le résultat de l’opération :
-
-.. code-block:: php 
-   :linenos:
-
-   implode("\n", $taxPayersData)
-
-..
-
-   Nous avons défini dans la classe **[TaxPayerData]** (paragraphe
-   `lien <#objets-échangés-entre-couches>`__) la méthode
-   **[__toString]** suivante :
-
-1. **public function** \__toString() {
-
-2. // chaîne Json de l'objet
-
-3. **return** \\\ *json_encode*\ (\\\ *get_object_vars*\ ($this),
-      *JSON_UNESCAPED_UNICODE*);
-
-4. }
-
-..
-
-   L’opération
-
-.. code-block:: php 
-   :linenos:
-
-   implode("\n", $taxPayersData)
-
-..
-
-   va concaténer chaque élément du tableau **[$taxPayersData]**
-   transformé en chaîne de caractères par sa méthode **[__toString]**
-   avec la marque de fin de ligne \\n. Cela va donner une chaîne de
-   caractères de la forme :
-
-   **json1\njson2\n**\ …
-
-**Conclusion**
-
-Le trait **[TraitDao]** a implémenté deux des méthodes de l’interface
-**[InterfaceDao]**, **[getTaxPayersData]** et **[saveResults]** :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   interface InterfaceDao {
-
-     // lecture des données contribuables
-     public function getTaxPayersData(string $taxPayersFilename, string $errorsFilename): array;
-
-     // lecture des données de l'administration fiscale (tranches d'impôts)
-     public function getTaxAdminData(): TaxAdminData;
-
-     // enregistrement des résultats
-     public function saveResults(string $resultsFilename, array $taxPayersData): void;
-   }
-
-Il nous reste à implémenter la méthode **[getTaxAdminData]** qui
-récupère les données de l’administration fiscale.
-
-La classe [ImpotsWithTaxAdminDataInJsonFile]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-La classe **[ImpotsWithTaxAdminDataInJsonFile]** implémente l’interface
-**[InterfaceDao]** de la façon suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   // définition d'une classe ImpotsWithDataInFile
-   class DaoImpotsWithTaxAdminDataInJsonFile implements InterfaceDao {
-     // usage d'un trait
-     use TraitDao;
-     // l'objet de type TaxAdminData qui contient les données des tranches d'impôts
-     private $taxAdminData;
-
-     // le constructeur
-     public function __construct(string $taxAdminDataFilename) {
-       // on veut initialiser l'attribut [$this->taxAdminData]
-       $this->taxAdminData = (new TaxAdminData())->setFromJsonFile($taxAdminDataFilename);
-     }
-
-     // retourne les données permettant le calcul de l'impôt
-     public function getTaxAdminData(): TaxAdminData {
-       return $this->taxAdminData;
-     }
-   }
-
-**Commentaires**
-
--  ligne 7 : la classe **[ImpotsWithTaxAdminDataInJsonFile]** implémente
-   l’interface **[InterfaceDao]** ;
-
--  ligne 9 : la classe **[ImpotsWithTaxAdminDataInJsonFile]** utilise le
-   trait **[traitDao]** qui on le sait implémente les méthodes
-   **[getTaxPayersData]** et **[saveResults]** de l’interface
-   **[InterfaceDao]**. Il ne reste donc plus, à la classe
-   **[ImpotsWithTaxAdminDataInJsonFile]** qu’à implémenter la méthode
-   **[getTaxAdminData]** qui récupère les données de l’administration
-   fiscale ;
-
--  ligne 11 : l’attribut de type **[TaxAdminData]** que rend la méthode
-   **[getTaxAdminData]** des lignes 20-22. Cet attribut est initialisé
-   par le constructeur des lignes 14-17 ;
-
-Nous en avons terminé avec la couche **[dao]** de notre application :
-nous avons une classe qui implémente totalement l’interface
-**[InterfaceDao]** que nous nous sommes imposés. Nous pouvons désormais
-passer à la couche\ **[métier]**.
-
-La couche [métier]
-------------------
-
-Nous allons maintenant implémenter la couche **[2]** de notre
-architecture :
+Le pilote PDO isole le script PHP (1) du SGBD (3, 6). Comme ces pilotes
+implémentent une interface standard, on peut s’attendre à ce que le
+script PHP (1) ne change pas si on passe du SGBD MySQL (3) au SGBD
+PostgreSQL (6). Dans la réalité cet idéal n’existe pas. En effet pour
+dialoguer avec le SGBD, le script PHP envoie des ordres SQL
+(**S**\ tandard **Q**\ uery **L**\ anguage). C’est un langage implémenté
+par tous les SGBD mais qui est incomplet. Aussi les SGBD lui ont-ils
+ajouté des ordres propriétaires. C’est une première cause
+d’incompatibilité entre SGBD. Par ailleurs les types de données
+utilisables dans les bases de données peuvent être différents d’un SGBD
+à l’autre. Ainsi PostgreSQL accepte un nombre de types de données bien
+plus grand que le SGBD MySQL. C’est une seconde cause d’incompatibilité.
+Une autre cause est la gestion des clés primaires automatiques (générées
+par le SGBD) : quasiment chaque SGBD a sa propre politique. Etc… Les
+causes d’incompatibilité sont nombreuses.
+
+Si on veut éviter de réécrire le script PHP (1) en passant de MySQL (3)
+à PostgreSQL (6), on est généralement amenés à insérer une nouvelle
+couche entre le script PHP (1) et le pilote PDO (2, 5) dont le rôle sera
+de gommer les incompatibilités entre les deux SGBD. Cependant dans les
+cas simples que nous allons rencontrer, cette couche supplémentaire ne
+sera pas nécessaire.
+
+Nous allons maintenant utiliser le SGBD MySQL. Celui-ci est inclus dans
+le paquetage Laragon (cf paragraphe `lien <chap-02.html#laragon>`__).
+
+Si le lecteur est novice avec la notion de base de données et de langage
+SQL, il pourra lire le document
+**[http://sergetahe.com/cours-tutoriels-de-programmation/cours-tutoriel-sql-avec-le-sgbd-firebird/]**.
+Ce document utilise le SGBD Firebird et non pas MySQL mais donne les
+fondamentaux des bases de données et du langage SQL. Comme MySQL,
+Firebird dispose d’une version librement utilisable et de faible
+empreinte mémoire.
+
+Création d’une base de données
+------------------------------
+
+Nous montrons maintenant comment créer une base de données ainsi qu'un
+utilisateur MySQL avec l’outil Laragon.
 
 |image3|
 
-L’interface [InterfaceMétier]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-  une fois lancé, Laragon **[1]** peut être administré à partir d'un
+   menu **[2]** ;
 
-L’interface de la couche **[métier]** sera la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   interface InterfaceMetier {
-
-     // calcul des impôts d'un contribuable
-     public function calculerImpot(string $marié, int $enfants, int $salaire): array;
-
-     // calcul des impôts en mode batch
-     public function executeBatchImpots(string $taxPayersFileName, string $resultsFileName, string $errorsFileName): void;
-   }
-
-**Commentaires**
-
--  ligne 9 : l’interface **[InterfaceMétier]** sait calculer le montant
-   de l’impôt d’un contribuable particulier pourvu qu’on lui donne les
-   informations suivantes : statut marital, nombre d’enfants, salaire
-   annuel. La méthode **[calculerImpot]** n’utilise pas la couche
-   **[dao]** aussi ne lance-t-elle pas d’exceptions ;
-
--  ligne 9 : l’interface **[InterfaceMétier]** peut aussi calculer le
-   montant de l’impôt d’un ensemble de contribuables dont les données
-   sont rassemblées dans le fichier texte nommé
-   **[$taxPayersFileName]**. Elle met les résultats dans un fichier
-   texte nommé **[$resultsFileName]**. La méthode
-   **[executeBatchImpots]** doit s’adresser à la couche **[dao]** qui
-   s’occupe des accès au système de fichiers. Des exceptions peuvent
-   alors remonter de la couche **[dao]** que la méthode
-   **[executeBatchImpots]** n’interceptera pas : elle les laissera
-   remonter au script principal. Les erreurs non fatales sont
-   enregistrées dans le fichier texte nommé **[$errorsFileName]** ;
-
--  ligne 9 : la méthode **[calculerImpot]** est une méthode purement
-   **[métier]**. Elle ne se préoccupe pas d’où viennent les données
-   qu’elle utilise ;
-
--  ligne 12 : la méthode **[executeBatchImpots]** va s’adresser à la
-   couche **[dao]** pour lire et écrire des données dans des fichiers
-   texte. Elle va appeler de façon répétée la méthode métier
-   **[calculerImpot]** ;
-
-   1. .. rubric:: La classe [Metier]
-         :name: la-classe-metier
-
-La classe **[Metier]** implémente l’interface **[InterfaceMetier]** de
-la façon suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // espace de noms
-   namespace Application;
-
-   class Metier implements InterfaceMetier {
-     // couche Dao
-     private $dao;
-     // données administration fiscale
-     private $taxAdminData;
-
-     //---------------------------------------------
-     // setter couche [dao]
-     public function setDao(InterfaceDao $dao) {
-       $this->dao = $dao;
-       return $this;
-     }
-
-     public function __construct(InterfaceDao $dao) {
-       // on mémorise une référence sur la couche [dao]
-       $this->dao = $dao;
-       // on récupère les données permettant le calcul de l'impôt
-       // la méthode [getTaxAdminData] peut lancer une exception ExceptionImpots
-       // on la laisse alors remonter au code appelant
-       $this->taxAdminData = $this->dao->getTaxAdminData();
-     }
-
-   // calcul de l'impôt
-   // --------------------------------------------------------------------------
-     public function calculerImpot(string $marié, int $enfants, int $salaire): array {
-       …
-       // résultat
-       return ["impôt" => floor($impot), "surcôte" => $surcôte, "décôte" => $décôte, "réduction" => $réduction, "taux" => $taux];
-     }
-
-   // --------------------------------------------------------------------------
-     private function calculerImpot2(string $marié, int $enfants, float $salaire): array {
-       …
-       // résultat
-       return ["impôt" => $impôt, "surcôte" => $surcôte, "taux" => $coeffR[$i]];
-     }
-
-     // revenuImposable=salaireAnnuel-abattement
-     // l'abattement a un min et un max
-     private function getRevenuImposable(float $salaire): float {
-       …
-       // résultat
-       return floor($revenuImposable);
-     }
-
-   // calcule une décôte éventuelle
-     private function getDecôte(string $marié, float $salaire, float $impots): float {
-       …
-       // résultat
-       return ceil($décôte);
-     }
-
-   // calcule une réduction éventuelle
-     private function getRéduction(string $marié, float $salaire, int $enfants, float $impots): float {
-       …
-       // résultat
-       return ceil($réduction);
-     }
-
-     // calcul des impôts en mode batch
-     public function executeBatchImpots(string $taxPayersFileName, string $resultsFileName, string $errorsFileName): void {
-       …
-       // enregistrement des résultats
-       $this->dao->saveResults($resultsFileName, $results);
-     }
-
-   }
-
-**Commentaires**
-
--  ligne 6 : la classe **[Metier]** implémente l’interface
-   **[InterfaceMetier]**, ç-à-d les méthodes **[calculerImpot]** (lignes
-   30-34) et **[executeBatchImpots]** (lignes 66-70) ;
-
--  ligne 8 : une référence sur la couche **[dao]**. Il en faut
-   obligatoirement une pour que la couche **[métier]** sache à qui
-   s’adresser lorsqu’elle veut des données externes. Cet attribut sera
-   initialisé via le setter des lignes 14-17 ou via le constructeur des
-   lignes 19-26 ;
-
--  ligne 10 : l’objet de type **[TaxAdminData]** qui encapsule les
-   données de l’administration fiscale. Ces données sont nécessaires à
-   la méthode métier **[calculerImpot]**. Cet attribut est initialisé
-   via le constructeur des lignes 19-26 ;
-
--  lignes 19-26 : le constructeur initialise les deux attributs de la
-   classe :
-
-   -  l’attribut **[$dao]** est initialisé avec la référence passée en
-      paramètre au constructeur. On notera que le type de ce paramètre
-      est celui de l’interface **[InterfaceDao]** permettant ainsi à la
-      classe **[Metier]** d’être initialisée par n’importe quelle classe
-      implémentant cette interface ;
-
-   -  l’attribut **[$taxAdminData]** est initialisé en faisant appel à
-      la méthode **[getTaxAdminData]** de la couche **[dao]** ;
-
-On en conclut que lorsque les méthodes **[calculerImpots]** et
-**[executeBatchImpots]** s’exécutent, les deux attributs **[$dao]** et
-**[$taxAdminData]** sont initialisés.
-
-La méthode **[calculerImpots]** est la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   public function calculerImpot(string $marié, int $enfants, int $salaire): array {
-       // $marié : oui, non
-       // $enfants : nombre d'enfants
-       // $salaire : salaire annuel
-       // $this->taxAdminData : données de l'administration fiscale
-       //
-       // on vérifie qu'on a bien les données de l'administration fiscale
-       if ($this->taxAdminData === NULL) {
-         $this->taxAdminData = $this->getTaxAdminData();
-       }
-       // calcul de l'impôt avec enfants
-       $result1 = $this->calculerImpot2($marié, $enfants, $salaire);
-       $impot1 = $result1["impôt"];
-       // calcul de l'impôt sans les enfants
-       if ($enfants != 0) {
-         $result2 = $this->calculerImpot2($marié, 0, $salaire);
-         $impot2 = $result2["impôt"];
-         // application du plafonnement du quotient familial
-         $plafonDemiPart = $this->taxAdminData->getPlafondQfDemiPart();
-         if ($enfants < 3) {
-           // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants
-           $impot2 = $impot2 - $enfants * $plafonDemiPart;
-         } else {
-           // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants, le double pour les suivants
-           $impot2 = $impot2 - 2 * $plafonDemiPart - ($enfants - 2) * 2 * $plafonDemiPart;
-         }
-       } else {
-         $impot2 = $impot1;
-         $result2 = $result1;
-       }
-       // on prend l'impôt le plus fort
-       if ($impot1 > $impot2) {
-         $impot = $impot1;
-         $taux = $result1["taux"];
-         $surcôte = $result1["surcôte"];
-       } else {
-         $surcôte = $impot2 - $impot1 + $result2["surcôte"];
-         $impot = $impot2;
-         $taux = $result2["taux"];
-       }
-       // calcul d'une éventuelle décôte
-       $décôte = $this->getDecôte($marié, $salaire, $impot);
-       $impot -= $décôte;
-       // calcul d'une éventuelle réduction d'impôts
-       $réduction = $this->getRéduction($marié, $salaire, $enfants, $impot);
-       $impot -= $réduction;
-       // résultat
-       return ["impôt" => floor($impot), "surcôte" => $surcôte, "décôte" => $décôte, "réduction" => $réduction, "taux" => $taux];
-     }
-
-**Commentaires**
-
--  ce code est celui de la méthode
-   **[AbstractBaseImpots::calculerImpot]** de la version 3, expliquée au
-   paragraphe `lien <#_La_classe_abstraite>`__. Il en est de même pour
-   les méthodes privées **[calculerImpot2, getDecôte, getRéduction,
-   getRevenuImposable]** ;
-
-La méthode **[Metier::executeBatchImpots]** est la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   public function executeBatchImpots(string $taxPayersFileName, string $resultsFileName, string $errorsFileName): void {
-       // on laisse remonter les exceptions qui proviennent de la couche [dao]
-       // on récupère les données contribuables
-       $taxPayersData = $this->dao->getTaxPayersData($taxPayersFileName, $errorsFileName);
-       // tableau des résultats
-       $results = [];
-       // on les exploite
-       foreach ($taxPayersData as $taxPayerData) {
-         // on calcule l'impôt
-         $result = $this->calculerImpot(
-           $taxPayerData->getMarié(),
-           $taxPayerData->getEnfants(),
-           $taxPayerData->getSalaire());
-         // on complète [$taxPayerData]
-         $taxPayerData->setMontant($result["impôt"]);
-         $taxPayerData->setDécôte($result["décôte"]);
-         $taxPayerData->setSurCôte($result["surcôte"]);
-         $taxPayerData->setTaux($result["taux"]);
-         $taxPayerData->setRéduction($result["réduction"]);
-         // on met le résultat dans le tableau des résultats
-         $results [] = $taxPayerData;
-       }
-       // enregistrement des résultats
-       $this->dao->saveResults($resultsFileName, $results);
-     }
-
-**Commentaires**
-
--  ligne 1 : la méthode doit appeler de façon répétée la méthode
-   **[calculerImpot]** pour chacun des contribuables trouvés dans le
-   fichier texte nommé **[$taxPayersFileName]**. Elle doit mettre les
-   résultats dans le fichier texte nommé **[$resultsFileName]**. Les
-   erreurs non fatales rencontrées sont enregistrées dans dans le
-   fichier texte nommé **[$errorsFileName]**. La méthode ne lance pas
-   d’exceptions elle-même mais laisse remonter celles que la couche
-   **[dao]** lance ;
-
--  ligne 4 : les données des contribuables sont demandées à la couche
-   **[dao]**. Celle-ci renvoie un tableau d’élements de type
-   **[TaxPayerData]** qui est une classe d’attributs **[marié,
-   nbEnfants, salaire, montant, décôte, réduction, surcôte, taux]** (cf
-   paragraphe `lien <#objets-échangés-entre-couches>`__). S’il se
-   produit une exception ici, comme elle n’est pas interceptée par un
-   *catch*, elle remontera automatiquement au code appelant. Cela
-   signifie qu’en cas d’exception, la ligne 6 n’est pas exécutée ;
-
--  ligne 6 : le tableau des résultats de type **[TaxPayerData]** ;
-
--  lignes 8-22 : on calcule l’impôt pour chacun des éléments du tableau
-   des contribuables **[$taxPayersData]**. Pour cela, on fait appel à la
-   méthode interne **[calculerImpot]** (ligne 10) ;
-
--  lignes 15-19 : le résultat obtenu est utilisé pour initialiser les
-   attributs de **[TaxPayerData]** qui ne l’étaient pas encore ;
-
--  ligne 21 : le résultat obtenu est cumulé dans le tableau des
-   résultats **[$results]** ;
-
--  ligne 24 : une fois l’impôt calculé pour tous les contribuables, les
-   résultats sont mémorisés dans un fichier texte. C’est la couche
-   **[dao]** qui fait ce travail ;
-
-**Conclusion**
-
-En général la couche **[métier]** est assez simple à écrire car elle
-s’adresse à la couche **[dao]** qui, elle, gère l’accès aux données avec
-la gestion des erreurs qui va avec.
-
-Le script principal
--------------------
-
-On écrit maintenant le script de la couche **[3]** de notre
-architecture :
+-  en **[3-5]**, on installe l'outil **[phpMyAdmin]** d'administration
+   de MySQL s’il n’a pas déjà été installé ;
 
 |image4|
 
-Le script principal est le suivant **[main.php]** :
+-  en **[6]**, on démarre le serveur web Apache ainsi que le SGBD
+   MySQL ;
 
-.. code-block:: php 
-   :linenos:
+-  en **[7]**, le serveur Apache est lancé ;
 
-   <?php
-
-   // respect strict des types déclarés des paramètres de foctions
-   declare (strict_types=1);
-
-   // espace de noms
-   namespace Application;
-
-   // gestion des erreurs par PHP
-   //ini_set("display_errors", "0");
-
-   // inclusion interface et classes
-   require_once __DIR__ . "/TaxAdminData.php";
-   require_once __DIR__ . "/TaxPayerData.php";
-   require_once __DIR__ . "/ExceptionImpots.php";
-   require_once __DIR__ . "/Utilitaires.php";
-   require_once __DIR__ . "/InterfaceDao.php";
-   require_once __DIR__ . "/TraitDao.php";
-   require_once __DIR__ . "/DaoImpotsWithTaxAdminDataInJsonFile.php";
-   require_once __DIR__ . "/InterfaceMetier.php";
-   require_once __DIR__ . "/Metier.php";
-   // test -----------------------------------------------------
-   // définition des constantes
-   const TAXPAYERSDATA_FILENAME = "taxpayersdata.txt";
-   const RESULTS_FILENAME = "resultats.txt";
-   const ERRORS_FILENAME = "errors.txt";
-   const TAXADMINDATA_FILENAME = "taxadmindata.json";
-
-   try {
-     // création de la couche [dao]
-     $dao = new DaoImpotsWithTaxAdminDataInJsonFile(TAXADMINDATA_FILENAME);
-     // création de la couche [métier]
-     $métier = new Metier($dao);
-     // calcul de l'impôts en mode batch
-     $métier->executeBatchImpots(TAXPAYERSDATA_FILENAME, RESULTS_FILENAME, ERRORS_FILENAME);
-   } catch (ExceptionImpots $ex) {
-     // on affiche l'erreur
-     print $ex->getMessage() . "\n";
-   }
-   // fin
-   print "Terminé\n";
-   exit;
-
-**Commentaires**
-
--  ligne 24 : le nom du fichier des données contribuables ;
-
--  ligne 25 : le nom du fichier des résultats ;
-
--  ligne 26 : le nom du fichier des erreurs ;
-
--  ligne 27 : le nom du fichier jSON contenant les données de
-   l’administration fiscale;
-
--  ligne 31 : création de la couche **[dao]** ;
-
--  ligne 33 : création de la couche **[métier]** s’appuyant sur cette
-   couche **[dao]** ;
-
--  ligne 35 : exécution de la méthode **[executeBatchImpots]** de la
-   couche **[métier]** ;
-
--  lignes 36-39 : on a vu que la couche **[métier]** pouvait remonter
-   des exceptions. Elles sont interceptées ici ;
-
-Tests visuels
--------------
-
-Test n° 1
-~~~~~~~~~
-
-Avec le fichier des contribuables **[taxpayersdata.txt]** suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   oui,2,55555
-   oui,2,50000
-   oui,3,50000
-   non,2,100000
-   non,3x,100000
-   oui,3,100000
-   oui,5,100000x
-   non,0,100000
-   oui,2,30000
-   non,0,200000
-   oui,3,200000
-
-on obtient le fichier des erreurs **[errors.txt]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   la ligne [5] du fichier [taxpayersdata.txt] est erronée
-   la ligne [7] du fichier [taxpayersdata.txt] est erronée
-
-et le fichier des résultats **[resultats.txt]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   {"marié":"oui","enfants":2,"salaire":55555,"impôt":2814,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
-   {"marié":"oui","enfants":2,"salaire":50000,"impôt":1384,"surcôte":0,"décôte":384,"réduction":347,"taux":0.14}
-   {"marié":"oui","enfants":3,"salaire":50000,"impôt":0,"surcôte":0,"décôte":720,"réduction":0,"taux":0.14}
-   {"marié":"non","enfants":2,"salaire":100000,"impôt":19884,"surcôte":4480,"décôte":0,"réduction":0,"taux":0.41}
-   {"marié":"oui","enfants":3,"salaire":100000,"impôt":9200,"surcôte":2180,"décôte":0,"réduction":0,"taux":0.3}
-   {"marié":"non","enfants":0,"salaire":100000,"impôt":22986,"surcôte":0,"décôte":0,"réduction":0,"taux":0.41}
-   {"marié":"oui","enfants":2,"salaire":30000,"impôt":0,"surcôte":0,"décôte":0,"réduction":0,"taux":0}
-   {"marié":"non","enfants":0,"salaire":200000,"impôt":64210,"surcôte":7498,"décôte":0,"réduction":0,"taux":0.45}
-   {"marié":"oui","enfants":3,"salaire":200000,"impôt":42842,"surcôte":17283,"décôte":0,"réduction":0,"taux":0.41}
-
-Test n° 2
-~~~~~~~~~
-
-Dans le script principal, on met pour le fichier des contribuables un
-nom de fichier qui n’existe pas :
-
-.. code-block:: php 
-   :linenos:
-
-   const TAXPAYERS_DATA_FILENAME = "taxpayersdata2.txt";
-
-Les résultats obtenus à la console alors sont les suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   Warning: fopen(taxpayersdata2.txt): failed to open stream: No such file or directory in C:\Data\st-2019\dev\php7\poly\scripts-console\impots\version-04\TraitDao.php on line 18
-   Impossible d'ouvrir en lecture les déclarations des contribuables [taxpayersdata2.txt]
-   Terminé
-   Done.
-
--  ligne 1 : avertissements (warning) de l’interpréteur PHP ;
-
--  ligne 2 : le message d’erreur de l’exception lancée par la couche
-   **[dao]** ;
-
-Il est possible de mettre en sourdine les messages d’erreur de
-l’interpréteur PHP :
+-  en **[8]**, le SBD MySQL est lancé ;
 
 |image5|
 
-La ligne 21 du code ci-dessus demande à ce que les erreurs PHP ne soient
-pas affichées. Pendant la phase de développement il est nécessaire
-qu’elles soient affichées. En mode production, il faut les cacher.
-
-Les résultats de l’exécution sont alors les suivants :
-
-.. code-block:: php 
-   :linenos:
-
-   Impossible d'ouvrir en lecture les déclarations des contribuables [taxpayersdata2.txt]
-   Terminé
-
-Tests [Codeception]
--------------------
-
-Les tests visuels sont très insuffisants :
-
--  on se limite en général à quelques tests ;
-
--  on est plus ou moins attentif lors de cette vérification visuelle et
-   des détails peuvent nous échapper ;
-
-Dans la réalité du développement professionnel, les tests sont rédigés
-par des personnes dédiées dont c’est le rôle principal. Elles cherchent
-alors à faire les tests les plus complets possible(s). Pour cela elles
-utilisent des frameworks de test.
-
-Nous allons ici utiliser le framework **Codeception**
-**[https://codeception.com/]** car il peut être intégré à Netbeans.
-C’est un framework avec un large éventail de possibilités. Nous n’allons
-en utiliser que quelques-unes. L’idée est d’avoir un moyen rapide, après
-chaque nouvelle version de l’exercice d’application, de vérifier que
-celle-ci fonctionne. L’existence de tests réussis donne au développeur
-confiance dans le code qu’il a écrit. C’est un facteur important.
-
-Installation du framework [Codeception]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Comme beaucoup de bibliothèques PHP, le framework **[Codeception]**
-s’installe avec **[Composer]**. Nous ouvrons donc un terminal Laragon
-(cf paragraphe `lien <#_Installation_de_Laragon>`__).
-
-Il nous faut tout d’abord installer le framework de tests PHPUnit
-**[https://phpunit.de/]**. En effet Codeception utilise en sous-main le
-framework PHPUnit:
+-  en **[8-10]**, on crée une base de données qu’on nomme
+   **[dbpersonnes]** **[11]**. On va construire une base de données de
+   personnes ;
 
 |image6|
 
-Ensuite, nous installons le framework Codeception :
+-  en **[11]**, on va gérer la base de données qu’on vient de créer ;
 
 |image7|
 
-C’est tout. Maintenant voyons l’intégration de **[Codeception]** dans
-Netbeans.
+-  l’opération **[Bases de données]** émet une requête web vers l’URL
+   **[http://localhost/phpmyadmin]**. C’est le serveur web Apache de
+   Laragon qui répond. L’URL **[http://localhost/phpmyadmin]** est l’URL
+   de l’utilitaire **[phpMyAdmin]** que nous avons installé précédemment
+   **[5]**. Cet utilitaire permet de gérer les bases de données MySQL ;
 
-Intégration de [CodeCeption] dans Netbeans
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-  par défaut, les identifiants de connexion de l’administrateur de la
+   base sont : **root** **[13]** sans mot de passe **[14]** ;
 
 |image8|
 
--  en **[1-2]**, on accède aux propriétés du projet ;
-
--  en **[3-4]**, on fait de **[Codeception]** l’un des frameworks de
-   test du projet ;
+-  en **[16]**, la base de données que nous avons créée précédemment ;
 
 |image9|
 
+-  on a pour l’instant une base **[dbpersonnes]** **[17]** qui est vide
+   **[18]** ;
+
+On crée un utilisateur **[admpersonnes]** avec le mot de passe
+**[nobody]** qui va avoir tous les droits sur la base de données
+**[dbpersonnes]** :
+
 |image10|
 
--  en **[5-8]**, on initialise le framework **[Codeception]** pour le
-   projet ;
+-  en **[19]**, on est positionnés sur la base **[dbpersonnes]** ;
+
+-  en **[20]**, on sélectionne l’onglet **[Privileges]** ;
+
+-  en **[21-22]**, on voit que l’utilisateur **[root]** a tous les
+   droits sur la base **[dbpersonnes]** ;
+
+-  en **[23]**, on crée un nouvel utilisateur ;
 
 |image11|
 
--  en **[9]**, un dossier **[tests]** a été créé, ainsi qu’un fichier de
-   configuration **[codeception.yml]** en **[10-11]**. Le fichier
-   **[11]** est le même que le fichier **[10]**. Codeception a
-   simplement créé un dossier **[Important Files]** pour donner une
-   signification particulière au fichier **[10]** ;
+-  en **[25-26]**, l’utilisateur aura l’identifiant
+   **[admdbpersonnes]** ;
 
--  en **[12-13]**, on revient aux propriétés du projet ;
+-  en **[27-29]**, son mot de passe sera **[nobody]** ;
+
+-  en **[30]**, phpMyAdmin signale que le mot de passe est très faible
+   (facile à craquer). En production, il est préférable de générer un
+   mot de passe fort avec **[31]** ;
+
+-  en **[32]**, on indique que l’utilisateur **[admdbpersonnes]** doit
+   avoir tous les droits sur la base **[dbpersonnes]** ;
+
+-  en **[33]**, on valide les renseignements donnés ;
 
 |image12|
 
--  en **[14-16]**, on désigne le dossier **[tests]** **[16]**, comme le
-   dossier de tests du projet ;
+-  en **[35]**, phpMyAdmin indique que l’utilisateur a été créé ;
 
--  en **[16]**, le dossier **[tests]** apparaît alors sous le nouveau
-   nom **[Test Files]**. La présence de ce dossier dans un projet PHP
-   montre que ce projet intègre un framework de tests programmés ;
+-  en **[36]**, l’ordre SQL qui a été émis sur la base ;
 
--  nous créerons nos tests dans le dossier **[unit]** **[17] ;**
+-  en **[37]**, l’utilisateur **[admpersonnes]** a tous les droits sur
+   la base de données **[dbpersonnes]** ;
 
-   1. .. rubric:: Tests de la couche [dao]
-         :name: tests-de-la-couche-dao
+Désormais nous avons :
+
+-  une base de données MySQL **[dbpersonnes]** ;
+
+-  un utilisateur **[admpersonnes/nobody]** qui a tous les droits sur
+   cette base de données ;
+
+Nous allons écrire des scripts PHP pour exploiter la base de données.
+PHP dispose de diverses bibliothèques pour gérer les bases de données.
+Nous utiliserons la bibliothèque PDO (PHP Data Objects) qui s'intercale
+entre le code PHP et le SGBD :
 
 |image13|
 
--  nous allons créer tous nos tests dans le dossier **[unit]** **[1]** ;
+La bibliothèque PDO permet au script PHP de s'abstraire de la nature
+exacte du SGBD utilisé. Ainsi ci-dessus, le SGBD **MySQL** peut être
+remplacé par le SGBD **PostgreSQL** avec un impact minimum sur le code
+du script PHP. Cette bibliothèque n'est pas disponible par défaut. On
+peut vérifier sa disponibilité de la façon suivante :
 
--  les noms des classes de test **[Codeception]** **doivent se terminer
-   par le mot clé [Test], sinon les classes ne seront pas reconnues
-   comme classes de test** ;
+|image14|
 
-Nos classes de test **[Codeception]** auront la forme suivante
-**[https://codeception.com/docs/05-UnitTests]** :
+-  en **[1-4]**, on vérifie les extensions PDO actives ;
+
+-  en **[5]**, on voit que l’extension PDO pour le SGBD MySQL est
+   active. Les autres ne le sont pas. Il suffirait de les cliquer pour
+   les activer ;
+
+Une autre façon d’activer une extension est de modifier directement le
+fichier **[php.ini]** (paragraphe `lien <chap-03.html#config_php>`__)
+qui configure PHP :
+
+|image15|
+
+-  en **[1]**, l’extension PDO de MySQL est activée ;
+
+-  en **[2]**, l’extension PDO de Firebird est désactivée ;
+
+Après avoir modifié le fichier **[php.ini]**, il faut **relancer** le
+PHP de Laragon pour que les modifications soient prises en compte.
+
+Connexion à une base de données MySQL
+-------------------------------------
+
+La connexion à un SGBD se fait par la construction d'un objet PDO. Le
+constructeur admet différents paramètres :
+
+.. code-block:: php 
+   :linenos:
+
+   $dbh=new PDO(string $dsn,string $user,string $passwd,array $driver_options)
+
+La signification des paramètres est la suivante :
+
+   $\ **dsn** (Data Source Name) est une chaîne précisant la nature du
+   SGBD et sa localisation sur internet. La chaîne
+   "*mysql:host=localhost*" indique qu'on a affaire à un SGBD MySQL
+   opérant sur le serveur local. Cette chaîne peut comprendre d'autres
+   paramètres, notamment le port d'écoute du SGBD et le nom de la base à
+   laquelle on veut se connecter :
+   "*mysql:host=localhost:port=3306:dbname=dbpersonnes*" ;
+
+   $\ **user** identifiant de l'utilisateur qui se connecte ;
+
+   $\ **passwd** son mot de passe ;
+
+   $\ **driver_options** un tableau d'options pour le pilote du SGBD ;
+
+Seul le premier paramètre est obligatoire. L'objet ainsi construit sera
+ensuite le support de toutes les opérations faites sur la base de
+données à laquelle on s'est connecté. Si l'objet PDO n'a pu être
+construit, une exception de type **PDOException** est lancée.
+
+Voici un exemple de connexion **[mysql-01.php]** :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // respect strict des types déclarés des paramètres de foctions
-   declare (strict_types=1);
-
-   // espace de noms
-   namespace Application;
-
-   // chargement de l’environnement de test
-   …
-
-   class DaoTest extends \Codeception\Test\Unit {
-     // attributs du test
-     private $attribut1;
-
-     public function __construct() {
-       parent::__construct();
-       // initialisation de l’environnement de test
-       …
-     }
-
-     // tests
-     public function testTaxAdminData() {
-       // tests
-       $this->assertEquals($expected, $actual);
-       $this->assertEqualsWithDelta($expected, $actual, $delta);
-       $this->assertTrue($actual);
-       $this->assertFalse($actual);
-       $this->assertNull($actual);
-       $this->assertEmpty($actual);
-       $this→assertSame($expected, $actual);
-   …
-     }
-
-   }
-
-**Commentaires**
-
--  ligne 7 : les classes de test seront dans le même espace de noms que
-   l’application testée ;
-
--  lignes 9-10 : ici on trouvera les opérations **[require]** pour
-   charger les classes et interfaces testées ;
-
--  ligne 12 : le nom de la classe de test **doit obligatoirement se
-   terminer par le mot clé [Test]**. Cette classe doit étendre la classe
-   **[\Codeception\Test\Unit]** ;
-
--  lignes 16-20 : le constructeur nous permettra d’initialiser
-   l’environnement du test ;
-
--  ligne 23 : les noms des méthodes de test **doivent obligatoirement
-   commencer par le mot clé [test]** ;
-
--  lignes 25-31 : diverses méthodes de test peuvent être utilisées ;
-
-La classe de test **[DaoTest]** sera la suivante :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict des types déclarés des paramètres de foctions
-   declare (strict_types=1);
-
-   // espace de noms
-   namespace Application;
-
-   // constantes
-   define("ROOT", "C:/Data/st-2019/dev/php7/poly/scripts-console/impots/version-04");
-   define("VENDOR", "C:/myprograms/laragon-lite/www/vendor");
-   // inclusion interface et classes
-   require_once ROOT . "/TaxAdminData.php";
-   require_once ROOT . "/TaxPayerData.php";
-   require_once ROOT . "/ExceptionImpots.php";
-   require_once ROOT . "/Utilitaires.php";
-   require_once ROOT . "/InterfaceDao.php";
-   require_once ROOT . "/TraitDao.php";
-   require_once ROOT . "/DaoImpotsWithTaxAdminDataInJsonFile.php";
-   require_once ROOT . "/InterfaceMetier.php";
-   require_once ROOT . "/Metier.php";
-   require_once VENDOR. "/autoload.php";;
-   // test -----------------------------------------------------
-   // définition des constantes
-   const TAXADMINDATA_FILENAME = "taxadmindata.json";
-
-   class DaoTest extends \Codeception\Test\Unit {
-     // TaxAdminData
-     private $taxAdminData;
-
-     public function __construct() {
-       parent::__construct();
-       // création de la couche [dao]
-       $dao = new DaoImpotsWithTaxAdminDataInJsonFile(ROOT . "/" . TAXADMINDATA_FILENAME);
-       $this->taxAdminData = $dao->getTaxAdminData();
-     }
-
-     // tests
-     public function testTaxAdminData() {
-       …
-     }
-   }
-
-**Commentaires**
-
-Pour construire les tests d’une version de l’exercice d’application,
-nous utiliserons un environnement identique à celui utilisé par le
-script principal de la version. Celui de la version 04 est le script
-**[main.php]** suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict des types déclarés des paramètres de foctions
-   declare (strict_types=1);
-
-   // espace de noms
-   namespace Application;
-
-   // gestion des erreurs par PHP
-   ini_set("display_errors", "0");
-
-   // inclusion interface et classes
-   require_once __DIR__ . "/TaxAdminData.php";
-   require_once __DIR__ . "/TaxPayerData.php";
-   require_once __DIR__ . "/ExceptionImpots.php";
-   require_once __DIR__ . "/Utilitaires.php";
-   require_once __DIR__ . "/InterfaceDao.php";
-   require_once __DIR__ . "/TraitDao.php";
-   require_once __DIR__ . "/DaoImpotsWithTaxAdminDataInJsonFile.php";
-   require_once __DIR__ . "/InterfaceMetier.php";
-   require_once __DIR__ . "/Metier.php";
-   // test -----------------------------------------------------
-   // définition des constantes
-   const TAXPAYERSDATA_FILENAME = "taxpayersdata.txt";
-   const RESULTS_FILENAME = "resultats.txt";
-   const ERRORS_FILENAME = "errors.txt";
-   const TAXADMINDATA_FILENAME = "taxadmindata.json";
+   // connexion à une base MySql locale
+   // l'identité de l'utilisateur est (admpersonnes,nobody)
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+   const HOTE = "localhost";
 
    try {
-     // création de la couche [dao]
-     $dao = new DaoImpotsWithTaxAdminDataInJsonFile(TAXADMINDATA_FILENAME);
-     // création de la couche [métier]
-     $métier = new Metier($dao);
-     // calcul de l'impôts en mode batch
-     $métier->executeBatchImpots(TAXPAYERSDATA_FILENAME, RESULTS_FILENAME, ERRORS_FILENAME);
-   } catch (ExceptionImpots $ex) {
-     // on affiche l'erreur
-     print $ex->getMessage() . "\n";
+     // connexion
+     $dbh = new PDO("mysql:host=".HOTE, ID, PWD);
+     print "Connexion réussie\n";
+     // fermeture de la connexion
+     $dbh = NULL;
+   } catch (PDOException $e) {
+     print "Erreur : " . $e->getMessage() . "\n";
+     exit();
+   }
+
+**Résultats** :
+
+.. code-block:: php 
+   :linenos:
+
+   Connexion réussie
+
+**Commentaires**
+
+-  ligne 11 : la connexion à un SGBD se fait par la construction d'un
+   objet PDO. Le constructeur est ici utilisé avec les paramètres
+   suivants :
+
+-  une chaîne précisant la nature du SGBD et sa localisation sur
+      internet. La chaîne "*mysql:host=localhost*" indique qu'on a
+      affaire à un SGBD MySQL opérant sur le serveur local. Le port n'a
+      pas été précisé. Le port 3306 est alors utilisé par défaut. Le nom
+      de la base de données n'est pas indiqué non plus. Il y aura alors
+      connexion au SGBD MySQL, la sélection d'une base précise se
+      faisant plus tard ;
+
+-  un identifiant d'utilisateur ;
+
+-  son mot de passe ;
+
+-  ligne 14 : la fermeture de la connexion se fait par suppression de
+   l'objet PDO créé initialement ;
+
+-  ligne 15 : la connexion à un SGBD peut échouer. Dans ce cas, une
+   exception de type PDOException est lancée. Celle-ci dérive de
+   l’exception PHP **[RuntimeException]** ;
+
+-  ligne 16 : on affiche le message d’erreur de l’exception ;
+
+Réexécutons le script en mettant ligne 6 un mot de passe erroné. Le
+résultat est alors le suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   Erreur : SQLSTATE[HY000] [1045] Access denied for user 'admpersonnes'@'localhost' (using password: YES)
+
+Création d'une table
+--------------------
+
+Le script **[mysql-02.php]** montre la création d’une table dans une
+base de données :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // identité de la base de données
+   const DSN = "mysql:host=localhost;dbname=dbpersonnes";
+   // identifiants de l'utilisateur
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+
+   try {
+     // connexion à la base MySql
+     $connexion = new PDO(DSN, ID, PWD);
+     // suppression de la table personnes si elle existe
+     $sql = "drop table personnes";
+     $connexion->exec($sql);
+     // création de la table personnes
+     $sql = "create table personnes (prenom varchar(30) NOT NULL, nom varchar(30) NOT NULL, age integer NOT NULL, primary key(nom,prenom))";
+     $connexion->exec($sql);
+   } catch (PDOException $ex) {
+     // affichage erreur
+     print "Erreur : " . $ex->getMessage() . "\n";
+   } finally {
+     // on se déconnecte si besoin est
+     $connexion = NULL;
    }
    // fin
    print "Terminé\n";
    exit;
 
-Pour tester la couche **[dao]**, dans la classe de test :
-
--  nous reprenons l’environnement des lignes 13-27 de **[main.php]** ;
-
--  dans le constructeur de la classe de test, nous construisons la
-   couche **[dao]** comme en ligne 31 ;
-
--  nous écrivons les méthodes de tests;
-
-Nous procéderons de cette façon pour toutes les classes de test.
-
-Revenons au code complet de la classe de test :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict des types déclarés des paramètres de foctions
-   declare (strict_types=1);
-
-   // espace de noms
-   namespace Application;
-
-   // constantes
-   define("ROOT", "C:/Data/st-2019/dev/php7/poly/scripts-console/impots/version-04");
-   define("VENDOR", "C:/myprograms/laragon-lite/www/vendor");
-   // inclusion interface et classes
-   require_once ROOT . "/TaxAdminData.php";
-   require_once ROOT . "/TaxPayerData.php";
-   require_once ROOT . "/ExceptionImpots.php";
-   require_once ROOT . "/Utilitaires.php";
-   require_once ROOT . "/InterfaceDao.php";
-   require_once ROOT . "/TraitDao.php";
-   require_once ROOT . "/DaoImpotsWithTaxAdminDataInJsonFile.php";
-   require_once ROOT . "/InterfaceMetier.php";
-   require_once ROOT . "/Metier.php";
-   require_once VENDOR. "/autoload.php";;
-   // test -----------------------------------------------------
-   // définition des constantes
-   const TAXADMINDATA_FILENAME = "taxadmindata.json";
-
-   class DaoTest extends \Codeception\Test\Unit {
-     // TaxAdminData
-     private $taxAdminData;
-
-     public function __construct() {
-       parent::__construct();
-       // création de la couche [dao]
-       $dao = new DaoImpotsWithTaxAdminDataInJsonFile(ROOT . "/" . TAXADMINDATA_FILENAME);
-       $this->taxAdminData = $dao->getTaxAdminData();
-     }
-
-     // tests
-     public function testTaxAdminData() {
-       // constantes de calcul
-       $this->assertEquals(1551, $this->taxAdminData->getPlafondQfDemiPart());
-       $this->assertEquals(21037, $this->taxAdminData->getPlafondRevenusCelibatairePourReduction());
-       $this->assertEquals(42074, $this->taxAdminData->getPlafondRevenusCouplePourReduction());
-       $this->assertEquals(3797, $this->taxAdminData->getValeurReducDemiPart());
-       $this->assertEquals(1196, $this->taxAdminData->getPlafondDecoteCelibataire());
-       $this->assertEquals(1970, $this->taxAdminData->getPlafondDecoteCouple());
-       $this->assertEquals(1595, $this->taxAdminData->getPlafondImpotCelibatairePourDecote());
-       $this->assertEquals(2627, $this->taxAdminData->getPlafondImpotCouplePourDecote());
-       $this->assertEquals(12502, $this->taxAdminData->getAbattementDixPourcentMax());
-       $this->assertEquals(437, $this->taxAdminData->getAbattementDixPourcentMin());
-       // tranches de l'impôt
-       $this->assertSame([9964.0, 27519.0, 73779.0, 156244.0, 0.0], $this->taxAdminData->getLimites());
-       $this->assertSame([0.0, 0.14, 0.30, 0.41, 0.45], $this->taxAdminData->getCoeffR());
-       $this->assertSame([0.0, 1394.96, 5798.0, 13913.69, 20163.45], $this->taxAdminData->getCoeffN());
-     }
-
-   }
-
 **Commentaires**
 
--  lignes 10-25 : chargement de l’environnement nécessaire aux tests et
-   définitions de constantes ;
+-  ligne 11 : connexion à la base de données. C’est toujours la
+   1\ :sup:`re` chose à faire. Le résultat de la connexion est un objet
+   **[PDO]** au travers duquel vont prendre les opérations sur la base
+   de données ;
 
--  lignes 31-36 : construction de la couche **[dao]**, ligne 34, puis
-   initialisation de l’attribut **[$taxAdminData]** de la ligne 29. Cet
-   attribut contient les données de l’administration fiscale ;
+-  ligne 13 : l’ordre SQL **[drop table personnes]** va supprimer la
+   table **[personnes]** de la base de données **[dbpersonnes]**. Si la
+   table **[personnes]** n’existe pas, cela ne provoque pas d’erreur ;
 
--  lignes 39-55 : l’unique méthode de test. Celui-ci consiste à vérifier
-   que le contenu de l’attribut **[$taxAdminData]** correspond à ce qui
-   est attendu ;
+-  ligne 14 : exécution de l’ordre SQL précédent sur la base de données
+   **[dbpersonnes]**. Cet exécution peut lancer une **[PDOException]**
+   qui sera interceptée ligne 18 ;
 
--  lignes 41-50 : vérifications des constantes du calcul de l’impôt ;
+-  ligne 16 : cet ordre SQL crée une table **[personnes]**. Une table
+   contient des lignes et des colonnes. Les colonnes forment ce qu’on
+   appelle la **structure** de la table. Les lignes forment le
+   **contenu** de la table. Une base de données peut contenir une ou
+   plusieurs tables. La table **[personnes]** aura ici trois colonnes :
 
--  lignes 52-55 : vérifications des tranches d’imposition. La méthode
-   **[assertSame]** vérifie que deux entités PHP, ici des tableaux, sont
-   identiques ;
+   -  **prenom** : le prénom d’une personne sous la forme d’une chaîne
+      d’au plus 30 caractères ;
 
-Pour exécuter cette classe de test, on procède de la façon suivante :
+   -  **nom** : le nom de cette même personne sous la forme d’une chaîne
+      d’au plus 30 caractères ;
 
-|image14|
+   -  **age** : l’âge de la personne sous la forme d’un entier ;
 
--  en **[1-2]**, on exécute le test ;
+   -  l’attribut **NOT NULL** sur une colonne impose que la colonne ait
+      une valeur. Ne pas lui en donner provoque une **[PDOException]** ;
 
--  **[3]** : la fenêtre des résultats des tests ;
+   -  **[primary key(nom,prenom)]** fixe une **clé primaire** à la table
+      **[personnes]**. Une clé primaire a une valeur **unique** pour
+      chaque ligne de la table. Ici la clé primaire sera obtenue par
+      concaténation des colonnes **[nom]** et **[prenom]** de la ligne.
+      Cette contrainte fait que dans la table on ne pourra pas avoir
+      deux personnes ayant les mêmes nom et prénom, donc deux homonymes.
+      Créer un homonyme d’une personne dans la table provoque une
+      **[PDOException]** ;
 
--  **[4]** : la classe de test exécutée ;
+-  ligne 17 : exécution de l’ordre SQL sur la base de données
+   **[dbpersonnes]** ;
 
--  **[5]** : les résultats. Ici l’unique méthode de test a été réussie ;
+-  ligne 20 : s’il se produit une **[PDOException]**, on affiche le
+   message d’erreur associé ;
 
--  **[6]** : lorsque le test échoue ou plus fréquemment lorsqu’aucun
-   test n’a été exécuté, il faut aller voir la fenêtre **[6]**. Le plus
-   souvent, c’est le chargement de l’environnement du test qui a échoué
-   et aucun test n’a alors pu être exécuté. Les erreurs affichées dans
-   **[6]** sont celles qu’on aurait avec l’exécution d’un script PHP
-   classique ;
+-  lignes 21-24 : on passe dans la clause **[finally]** dans tous les
+   cas, exception ou pas, pour fermer la connexion à la base de données
+   (ligne 23) ;
 
-Montrons un exemple de test erroné :
+**Résultats** :
 
-Dans la classe de test, nous introduisons une erreur dans la définition
-d’une constante :
-
-// constantes
-
-*define*\ (*"ROOT"*,
-"C:/Data/st-2019/dev/php7/poly/scripts-console/impots/version-04\ **x**");
-
-puis nous exécutons le test. Le résultat obtenu est le suivant :
-
-|image15|
-
-Dans la fenêtre **[4]** :
+Si l’exécution du script se passe sans erreurs, on peut voir la présence
+de la table dans phpMyAdmin  :
 
 |image16|
 
-Tests de la couche [métier]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+|image17|
 
-La classe de test **[MetierTest]** suit les mêmes règles de construction
-que la classe **[DaoTest]** mais il y a plus de méthodes de test :
+-  en **[3]** la base de données ;
+
+-  en **[4]**, la table présentée ;
+
+-  en **[5]**, la structure des tables est présentée dans l’onglet
+   **[Structure]** ;
+
+-  en **[6-8]**, les trois colonnes de la table ;
+
+-  en **[9]**, aucune des trois colonnes ne peut être vide ;
+
+|image18|
+
+-  en **[10]**, la liste des index de la table. Un index permet de
+   retrouver dans la table les lignes ayant tel index, plus vite que si
+   on parcourait séquentiellement les lignes de la table. La clé
+   primaire fait toujours partie des index mais un index peut ne pas
+   être une clé primaire ;
+
+-  en **[11]**, l’index est ici la clé primaire ;
+
+-  en **[12]**, l’index est constitué des colonnes **[nom, prenom]** de
+   chaque ligne ;
+
+Maintenant, voyons ce qui se passe si on crée des erreurs,
+respectivement sur le nom de la base, le nom de l’utilisateur, son mot
+de passe :
+
+Si on met un nom de base inexistante :
+
+.. code-block:: php 
+   :linenos:
+
+   Erreur : SQLSTATE[HY000] [1044] Access denied for user 'admpersonnes'@'%' to database 'dbpersonnes2'
+
+Si on met un nom d’utilisateur inexistant :
+
+.. code-block:: php 
+   :linenos:
+
+   Erreur : SQLSTATE[HY000] [1045] Access denied for user 'admpersonnes2'@'localhost' (using password: YES)
+
+Si on met un mot de passe erroné :
+
+.. code-block:: php 
+   :linenos:
+
+   Erreur : SQLSTATE[HY000] [1045] Access denied for user 'admpersonnes'@'localhost' (using password: YES)
+
+Remplissage d’une table
+-----------------------
+
+Nous allons écrire un script PHP qui exécute des ordres SQL trouvés dans
+le fichier texte **[creation.txt]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   drop table if exists personnes
+   SET NAMES 'utf8'
+   create table personnes (prenom varchar(30) not null, nom varchar(30) not null, age integer not null, primary key (nom,prenom))
+   insert into personnes (prenom, nom, age) values('Paul','Langevin',48)
+   insert into personnes (prenom, nom, age) values ('Sylvie','Lefur',70)
+   insert into personnes (prenom, nom, age) values ('Sylvie','Lefur',70)
+   insert into personnes (prenom, nom, age) values ('Pierre','Nicazou',35)
+   insert into personnes (prenom, nom, age) values ('Géraldine','Colou',26)
+   insert into personnes (prenom, nom, age) values ('Paulette','Girond',56)
+   insert into personnes (prenom, nom, age) values ('Paulette','Girond',56)
+
+**Commentaires**
+
+-  le langage SQL (Structured Query Language) n’est pas sensible à la
+   casse (majuscules, minuscules) des ordre SQL ;
+
+-  ligne 1 : on supprime la table **[personnes]** si elle existe ;
+
+-  ligne 2 : on indique au serveur MySQL qu’on va lui envoyer des
+   caractères codés en UTF-8. Cet ordre SQL propre à MySQL est
+   nécessaire ici par exemple pour avoir ligne 7, le é de Géraldine dans
+   la base. Si on ne met pas la ligne 2, le é va être traduit en une
+   suite de deux caractères étranges. Le client est le script PHP écrit
+   sous Netbeans. Or celui-ci code les fichiers en UTF-8 **[1-4]**
+   ci-dessous :
+
+|image19|
+
+-  ligne 3 : création de la table **[personnes]** avec les trois
+   colonnes (prenom, nom, age) et la clé primaire (nom, prenom) ;
+
+-  lignes 4-10 : insertion de 7 lignes dans la table **[personnes]** ;
+
+-  ligne 6 : cet ordre d’insertion devrait échouer car il tente la même
+   insertion que ligne 5. La contrainte de clé primaire devrait empêcher
+   cette insertion : on ne peut avoir deux personnes ayant mêmes nom et
+   prénom ;
+
+-  ligne 10 : cet ordre d’insertion devrait échouer car il tente la même
+   insertion que ligne 9 ;
+
+Le script PHP chargé d’exécuter les ordres SQL de ce fichier texte est
+le suivant **[mysql-03.php]** :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // respect strict des types déclarés des paramètres de foctions
-   declare (strict_types=1);
+   // identité de la base de données
+   const DSN = "mysql:host=localhost;dbname=dbpersonnes";
+   // identifiants de l'utilisateur
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+   // identité du fichier texte des commandes SQL à exécuter
+   const SQL_COMMANDS_FILENAME = "creation.txt";
 
-   // espace de noms
-   namespace Application;
+   // ouverture connexion à la base MySql
+   try {
+     $connexion = new PDO(DSN, ID, PWD);
+   } catch (PDOException $ex) {
+     // affichage erreur
+     print "Erreur : " . $ex->getMessage() . "\n";
+     exit;
+   }
+   // on veut qu'à chaque erreur de SGBD, une exception soit lancée
+   $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+   // exécution du fichier d'ordres SQL
+   $erreurs = exécuterCommandes($connexion, SQL_COMMANDS_FILENAME, TRUE, FALSE);
+   // fermeture connexion
+   $connexion = NULL;
+   //affichage nombre d'erreurs
+   printf("\n-----------------------\nIl y a eu %d erreur(s)\n", count($erreurs));
+   for ($i = 0; $i < count($erreurs); $i++) {
+     print "$erreurs[$i]\n";
+   }
 
-   // constantes
-   define("ROOT", "C:/Data/st-2019/dev/php7/poly/scripts-console/impots/version-04");
-   define("VENDOR", "C:/myprograms/laragon-lite/www/vendor");
-   // inclusion interface et classes
-   require_once ROOT . "/TaxAdminData.php";
-   require_once ROOT . "/TaxPayerData.php";
-   require_once ROOT . "/ExceptionImpots.php";
-   require_once ROOT . "/Utilitaires.php";
-   require_once ROOT . "/InterfaceDao.php";
-   require_once ROOT . "/TraitDao.php";
-   require_once ROOT . "/DaoImpotsWithTaxAdminDataInJsonFile.php";
-   require_once ROOT . "/InterfaceMetier.php";
-   require_once ROOT . "/Metier.php";
-   require_once VENDOR. "/autoload.php";;
-   // test -----------------------------------------------------
-   // définition des constantes
-   const TAXADMINDATA_FILENAME = "taxadmindata.json";
+   // c'est fini
+   print "Terminé\n";
+   exit;
 
-   class MetierTest extends \Codeception\Test\Unit {
-     // couche métier
-     private $métier;
+   // ---------------------------------------------------------------------------------
+   function exécuterCommandes(PDO $connexion, string $SQLFileName, bool $suivi = FALSE, bool $arrêt = TRUE): array {
+   // utilise la connexion $connexion
+   // exécute les commandes SQL contenues dans le fichier texte SQLFileName
+   // ce fichier est un fichier de commandes SQL à exécuter à raison d'une par ligne
+   // si $suivi=1 alors chaque exécution d'un ordre SQL fait l'objet d'un affichage indiquant sa réussite ou son échec
+   // si $arrêt=1, la fonction s'arrête sur la 1re erreur rencontrée sinon elle exécute ttes les commandes sql
+   // la fonction rend un tableau (nb d'erreurs, erreur1, erreur2…)
+   // on vérifie la présence du fichier SQLFileName
 
-     public function __construct() {
-       parent::__construct();
-       // création de la couche [dao]
-       $dao = new DaoImpotsWithTaxAdminDataInJsonFile(ROOT . "/" . TAXADMINDATA_FILENAME);
-       // création de la couche [métier]
-       $this->métier = new Metier($dao);
+     if (!file_exists($SQLFileName)) {
+       return ["Le fichier [$SQLFileName] n'existe pas"];
      }
 
-     // tests
-     public function test1() {
-       $result = $this->métier->calculerImpot("oui", 2, 55555);
-       $this->assertEqualsWithDelta(2815, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(0, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.14, $result["taux"]);
+     // exécution des requêtes SQL contenues dans SQLFileName
+     // on les met dans un tableau
+     $requêtes = file($SQLFileName);
+     // erreur ?
+     if ($requêtes === FALSE) {
+       return ["Erreur lors de l'exploitation du fichier SQL [$SQLFileName]"];
      }
-
-     public function test2() {
-       $result = $this->métier->calculerImpot("oui", 2, 50000);
-       $this->assertEqualsWithDelta(1385, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(0, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(384, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(347, $result["réduction"], 1);
-       $this->assertEquals(0.14, $result["taux"]);
+     // on exécute les requêtes une par une - au départ pas d'erreurs
+     $erreurs = [];
+     $i = 0;
+     $fini = FALSE;
+     while ($i < count($requêtes) && !$fini) {
+       // on récupère le texte de la requête
+       // trim va enlever la marque de fin de ligne
+       $requête = trim($requêtes[$i]);
+       // requête vide ?
+       if (strlen($requête) == 0) {
+         // on ignore la requête et on passe à la requête suivante
+         $i++;
+         continue;
+       }
+       try {
+         // exécution de la requête - une exception peut être lancée
+         $connexion->exec($requête);
+         // suivi écran ou non ?
+         if ($suivi) {
+           print "$requête : Exécution réussie\n";
+         }
+       } catch (PDOException $ex) {
+         // il s'est produit une erreur
+         addError($erreurs, $requête, $ex->getMessage(), $suivi);
+         // est-ce qu'on s'arrête ?
+         $fini = $arrêt;
+       }
+       // requête suivante
+       $i++;
      }
+     // résultat
+     return $erreurs;
+   }
 
-     public function test3() {
-       $result = $this->métier->calculerImpot("oui", 3, 50000);
-       $this->assertEqualsWithDelta(0, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(0, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(720, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.14, $result["taux"]);
-     }
-
-     public function test4() {
-       $result = $this->métier->calculerImpot("non", 2, 100000);
-       $this->assertEqualsWithDelta(19884, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(4480, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.41, $result["taux"]);
-     }
-
-     public function test5() {
-       $result = $this->métier->calculerImpot("non", 3, 100000);
-       $this->assertEqualsWithDelta(16782, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(7176, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.41, $result["taux"]);
-     }
-
-     public function test6() {
-       $result = $this->métier->calculerImpot("oui", 3, 100000);
-       $this->assertEqualsWithDelta(9200, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(2180, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.3, $result["taux"]);
-     }
-
-     public function test7() {
-       $result = $this->métier->calculerImpot("oui", 5, 100000);
-       $this->assertEqualsWithDelta(4230, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(0, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.14, $result["taux"]);
-     }
-
-     public function test8() {
-       $result = $this->métier->calculerImpot("non", 0, 100000);
-       $this->assertEqualsWithDelta(22986, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(0, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.41, $result["taux"]);
-     }
-
-     public function test9() {
-       $result = $this->métier->calculerImpot("oui", 2, 30000);
-       $this->assertEqualsWithDelta(0, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(0, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0, $result["taux"]);
-     }
-
-     public function test10() {
-       $result = $this->métier->calculerImpot("non", 0, 200000);
-       $this->assertEqualsWithDelta(64210, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(7498, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.45, $result["taux"]);
-     }
-
-     public function test11() {
-       $result = $this->métier->calculerImpot("oui", 3, 200000);
-       $this->assertEqualsWithDelta(42842, $result["impôt"], 1);
-       $this->assertEqualsWithDelta(17283, $result["surcôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["décôte"], 1);
-       $this->assertEqualsWithDelta(0, $result["réduction"], 1);
-       $this->assertEquals(0.41, $result["taux"]);
+   function addError(array &$erreurs, string $requête, string $msg, bool $suivi): void {
+     // on ajoute un msg d'erreur
+     $msg = "$requête : Erreur (" . $msg . ")";
+     $erreurs[] = $msg;
+     // suivi écran ou non ?
+     if ($suivi) {
+       print "$msg\n";
      }
    }
 
 **Commentaires**
 
--  lignes 10-25 : chargements des fichiers définissant l’environnement
-   du test. Celui-ci est le même que pour la couche **[dao]** ;
+-  la fonction **[exécuterCommandes]** (lignes 36-89) est chargée
+   d’exécuter les commandes SQL qu’elle trouve dans le fichier texte
+   **[$SQLFileName]** (paramètre 2). Pour les exécuter elle utilise la
+   connexion ouverte **[$connexion]** (paramètre 1) avec le serveur
+   MySQL. Le troisième paramètre **[$suivi]** est un booléen qui
+   contrôle les affichages écran : à TRUE, l’ordre SQL exécuté est
+   affiché à l’écran avec sa réussite ou son échec, sinon l’exécution de
+   l’ordre SQL est silencieux. Le quatrième paramètre **[$arrêt]**
+   contrôle ce qu’il faut faire lorsq’une commande SQL échoue : à TRUE,
+   il indique que l’exécution des commandes SQL doit s’arrêter, sinon
+   celle-ci continue. La fonction **[exécuterCommandes]** rend un
+   tableau de messages d’erreurs, vide s’il n’y a pas eu d’erreurs ;
 
--  lignes 31-37 : instanciation des couches **[dao]** et **[métier]** ;
+-  lignes 11-18 : on ouvre la connexion vers la base MySQL
+   **[dbpersonnes]**. Si l’ouverture échoue, un message d’erreur est
+   affiché et on s’arrête (lignes 14-18) ;
 
--  lignes 40-47 : un test de calcul d’impôt ;
+-  ligne 22 : on passe donc une connexion ouverte à la fonction
+   **[exécuterCommandes]**. Elle sera fermée au retour de la fonction
+   (ligne 24) ;
 
--  ligne 41 : un certain calcul d’impôt est fait avec la couche
-   **[métier]** ;
+-  ligne 20 : avant de la passer à la fonction **[exécuterCommandes]**,
+   on configure la connexion. En cas d’erreur, les opérations SQL avec
+   un objet **[PDO]** peuvent soit rendre le booléen **FALSE** (valeur
+   par défaut), soit lancer une exception. La ligne 20 choisit ce second
+   cas. En effet, il est facile ‘d’oublier’ de vérifier le résultat
+   booléen de l’exécution d’un ordre SQL. Cela produira une erreur
+   ultérieurement mais ailleurs dans le code rendant ainsi plus
+   difficile le lieu originel de celle-ci. Dans le cas d’une exception
+   non gérée (absence de *catch*), l’exception va remonter dans le code
+   jusqu’à rencontrer un *catch* ou jusqu’à remonter à l’interpréteur
+   PHP qui lui interceptera l’exception. Dans ce cas, la nature de
+   l’exception et son lieu d’origine dans le code sont affichés ;
 
--  lignes 42-46 : on vérifie que les résultats obtenus sont ceux du
-   simulateur de l’administration fiscale
-   **[https://www3.impots.gouv.fr/simulateur/calcul_impot/2019/simplifie/index.htm]** ;
+-  ligne 22 : la fonction **[exécuterCommandes]** est appelée pour
+   exécuter le fichier d’ordres SQL **[$SQLFileName]** ;
 
--  lignes 23-26 : les tests d’égalité sont faits à 1 euro près. En
-   effet, on a vu que des problèmes d’arrondi faisaient que l’algorithme
-   du document donnait les résultats attendus à 1 euro près ;
+-  lignes 45-47 : on vérifie que le fichier des ordres SQL existe bien.
+   Si ce n’est pas le cas, on note l’erreur et on retourne ce résultat ;
 
--  ligne 27 : le taux d’imposition est lui calculé sans marge d’erreur ;
+-  ligne 51 : on met les ordres SQL dans un tableau **[$requêtes]**.
+   Lignes 53-55, si l’opération échoue, on rend un tableau d’erreurs
+   avec un unique message ;
 
--  lignes 49-137 : on répète ce type de tests 10 fois avec à chaque fois
-   une configuration du contribuable différente ;
+-  ligne 57 : on va cumuler les erreurs dans le tableau **[$erreurs]** ;
 
-Les tests donnent les résultats suivants :
+-  ligne 58 : n° de la requête ;
 
-|image17|
+-  ligne 59 : le booléen **[$fini]** contrôle l’exécution des ordres SQL
+   du tableau **[$requêtes]**. Lorsqu’il passe à TRUE, l’exécution
+   s’arrête ;
 
-Tests des prochaines versions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-  ligne 60 : on boucle sur toutes les requêtes ;
 
-Dans la suite, les tests des couches **[dao]** et **[métier]** seront
-identiques à ceux de la version 04. Seul changera l’environnement du
-test. Nous ne présenterons donc que celui-ci et les résultats des tests.
+-  ligne 63 : on extrait le texte de l’ordre SQL n° i. La fonction
+   **[trim]** va enlever les espaces qui précèdent et suivent le texte
+   de l’ordre SQL. Par ‘espaces’, il faut entendre le blanc \\b, le
+   retour chariot \\r, la marque de fin de ligne \\n, le saut de page
+   \\f, la tabulation \\t… Ce qui nous importe ici c’est que la marque
+   de fin de ligne du texte SQL va disparaître ;
+
+-  lignes 65-69 : si le texte SQL est vide, alors on ignore la requête
+   et on passe à la suivante ;
+
+-  ligne 72 : on envoie l’ordre SQL au serveur MySQL. La méthode
+   **[PDO::exec]** va lancer une exception si l’exécution échoue. On
+   rappelle que ce comportement est dû à la configuration faite à la
+   ligne 20 ;
+
+-  ligne 79 : le message d’erreur est ajouté au tableau des erreurs ;
+
+-  ligne 81 : on positionne le booléen **[$fini]** qui contrôle la
+   boucle. Si le paramètre **[$arrêt]** (ligne 36) vaut TRUE, on doit
+   arrêter la boucle ;
+
+-  lignes 74-76 : si l’exécution de l’ordre SQL a réussi, on l’affiche à
+   l’écran si le paramètre **[$suivi]** (ligne 36) vaut TRUE ;
+
+-  ligne 87 : une fois toutes les ordres SQL exécutés, on rend le
+   tableau des erreurs **[$erreurs]** ;
+
+La fonction **[adError]** des lignes 90-97 permet d’ajouter une erreur
+au tableau des erreurs **[$erreurs]** :
+
+-  ligne 90 : la fonction reçoit 4 paramètres :
+
+   -  le paramètre **[$erreurs]** est passé par référence. En effet on
+      veut agir sur le tableau qui est passé en paramètre et non sur une
+      copie de celui-ci ;
+
+   -  le paramètre **[$requête]** est le texte SQL de l’ordre qui a
+      échoué ;
+
+   -  le paramètre **[$msg]** est le message d’erreur lié à l’ordre qui
+      a échoué ;
+
+   -  le booléen **[$suivi]** indique si le message d’erreur doit être
+      affiché ($suivi=TRUE) ou non ($suivi=FALSE) sur la console ;
+
+La fonction **[exécuterCommandes]** est appelé par le script des lignes
+3-33 :
+
+-  lignes 11-18 : une connexion est faite avec la base de données MySQL
+   **[dbpersonnes]** ;
+
+-  ligne 20 : la connexion est configurée ;
+
+-  ligne 22 : le fichier des ordres SQL est ensuite exécuté ;
+
+-  ligne 24 : on ferme la connexion ;
+
+-  lignes 26-29 : on affiche les erreurs rendues par la fonction
+   **[exécuterCommandes]** ;
+
+Les **résultats** écran :
+
+.. code-block:: php 
+   :linenos:
+
+   drop table if exists personnes : Exécution réussie
+   SET NAMES 'utf8' : Exécution réussie
+   create table personnes (prenom varchar(30) not null, nom varchar(30) not null, age integer not null, primary key (nom,prenom)) : Exécution réussie
+   insert into personnes (prenom, nom, age) values('Paul','Langevin',48) : Exécution réussie
+   insert into personnes (prenom, nom, age) values ('Sylvie','Lefur',70) : Exécution réussie
+   insert into personnes (prenom, nom, age) values ('Sylvie','Lefur',70) : Erreur (SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'Lefur-Sylvie' for key 'PRIMARY')
+   insert into personnes (prenom, nom, age) values ('Pierre','Nicazou',35) : Exécution réussie
+   insert into personnes (prenom, nom, age) values ('Géraldine','Colou',26) : Exécution réussie
+   insert into personnes (prenom, nom, age) values ('Paulette','Girond',56) : Exécution réussie
+   insert into personnes (prenom, nom, age) values ('Paulette','Girond',56) : Erreur (SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'Girond-Paulette' for key 'PRIMARY')
+
+   -----------------------
+   Il y a eu 2 erreur(s)
+   insert into personnes (prenom, nom, age) values ('Sylvie','Lefur',70) : Erreur (SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'Lefur-Sylvie' for key 'PRIMARY')
+   insert into personnes (prenom, nom, age) values ('Paulette','Girond',56) : Erreur (SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'Girond-Paulette' for key 'PRIMARY')
+   Terminé
+
+Les insertions faites sont visibles avec phpMyAdmin :
+
+|image20|
+
+Exécution d’ordres SQL quelconques
+----------------------------------
+
+Le script suivant montre l'exécution des ordres SQL du fichier texte
+**[sql.txt]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   select * from personnes
+   select nom,prenom from personnes order by nom asc, prenom desc
+   select * from personnes where age between 20 and 40 order by age desc, nom asc, prenom asc
+   insert into personnes values('Josette','Bruneau',46)
+   update personnes set age=47 where nom='Bruneau'
+   select * from personnes where nom='Bruneau'
+   delete from personnes where nom='Bruneau'
+   select * from personnes where nom='Bruneau'
+   xselect * from personnes where nom='Bruneau'
+
+Parmi ces ordres SQL, il y a l'ordre **select** qui ramène des résultats
+de la base de données, les ordres **insert**, **update**, **delete** qui
+modifient la base sans ramener de résultats et enfin des ordres erronés
+tels que le dernier (**xselect**). Le script **[mysql-04.php]** est le
+suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // identité de la base de données
+   const DSN = "mysql:host=localhost;dbname=dbpersonnes";
+   // identifiants de l'utilisateur
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+   // identité du fichier texte des commandes SQL à exécuter
+   const SQL_COMMANDS_FILENAME = "sql.txt";
+
+   try {
+     // connexion à la base MySql
+     $connexion = new PDO(DSN, ID, PWD);
+   } catch (PDOException $ex) {
+     // affichage erreur
+     print "Erreur : " . $ex->getMessage() . "\n";
+     exit;
+   }
+   // on veut qu'à chaque erreur de SGBD, une exception soit lancée
+   $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+   // exécution du fichier d'ordres SQL
+   $erreurs = exécuterCommandes($connexion, SQL_COMMANDS_FILENAME, TRUE, FALSE);
+   // fermeture connexion
+   $connexion = NULL;
+   //affichage nombre d'erreurs
+   printf("\n-----------------------\nIl y a eu %d erreur(s)\n", count($erreurs));
+   for ($i = 0; $i < count($erreurs); $i++) {
+     print "$erreurs[$i]\n";
+   }
+
+   // c'est fini
+   print "Terminé\n";
+   exit;
+
+   // ---------------------------------------------------------------------------------
+   function exécuterCommandes(PDO $connexion, string $SQLFileName, bool $suivi = FALSE, bool $arrêt = TRUE): array {
+   ………………………………………………………….
+     // on exécute les requêtes une par une - au départ pas d'erreurs
+     $erreurs = [];
+     $i = 0;
+     $fini = FALSE;
+     while ($i < count($requêtes) && !$fini) {
+       // on récupère le texte de la requête
+       // trim va enlever la marque de fin de ligne
+       $requête = trim($requêtes[$i]);
+       // requête vide ?
+       if (strlen($requête) == 0) {
+         // on ignore la requête et on passe à la requête suivante
+         $i++;
+         continue;
+       }
+       // exécution de la requête
+       // on récupère son nom
+       $commande = "";
+       if (preg_match("/^\s*(\S+)/", $requête, $champs)) {
+         $commande = strtolower($champs[0]);
+       }
+       try {
+         // est-ce un ordre SELECT ?
+         if ($commande === "select") {
+           $résultat = $connexion->query($requête);
+         } else {
+           $résultat = $connexion->exec($requête);
+         }
+         // suivi écran ou non ?
+         if ($suivi) {
+           print "[$requête] : Exécution réussie\n";
+         }
+         // on affiche le résultat de l'exécution
+         afficherInfos($commande, $résultat);
+       } catch (PDOException $ex) {
+         // il s'est produit une erreur
+         addError($erreurs, $requête, $ex->getMessage(), $suivi);
+         // est-ce qu'on s'arrête ?
+         $fini = $arrêt;
+       }
+       // requête suivante
+       $i++;
+     }
+     // résultat
+     return $erreurs;
+   }
+
+   function addError(array &$erreurs, string $requête, string $msg, bool $suivi): void {
+     …
+   }
+
+   // ---------------------------------------------------------------------------------
+   function afficherInfos(string $commande, $résultat): void {
+     // affiche le résultat $résultat d'une requête sql
+     // s'agissait-il d'un select ?
+     switch ($commande) {
+       case "select" :
+         // on affiche les noms des champs
+         $titre = "";
+         $nbColonnes = $résultat->columnCount();
+         for ($i = 0; $i < $nbColonnes; $i++) {
+           $infos = $résultat->getColumnMeta($i);
+           $titre .= $infos['name'] . ",";
+         }
+         // on enlève le dernier caractère ,
+         $titre = substr($titre, 0, strlen($titre) - 1);
+         // on affiche la liste des champs
+         print "$titre\n";
+         // ligne séparatrice
+         $séparateurs = "";
+         for ($i = 0; $i < strlen($titre); $i++) {
+           $séparateurs .= "-";
+         }
+         print "$séparateurs\n";
+         // données
+         foreach ($résultat as $ligne) {
+           $data = "";
+           for ($i = 0; $i < $nbColonnes; $i++) {
+             $data .= $ligne[$i] . ",";
+           }
+           // on enlève le dernier caractère ,
+           $data = substr($data, 0, strlen($data) - 1);
+           // on affiche
+           print "$data\n";
+         }
+         break;
+       case "update":
+       case "insert":
+       case "delete";
+         print " $résultat lignes(s) a (ont) été modifiée(s)\n";
+         break;
+     }
+   }
+
+**Commentaires**
+
+-  lignes 36-83 : la fonction **[exécuterCommandes]** est légèrement
+   modifiée : l’ordre SQL **[select]** ne s’exécute pas de la même façon
+   que les autres ordres SQL. Cet ordre est le seul à ramener comme
+   résultat une table, ç-à-d un ensemble de lignes et de colonnes de la
+   base de données ;
+
+-  lignes 55-57 : on isole le 1\ :sup:`er` mot de l’ordre SQL à l’aide
+   d’une expression régulière ;
+
+-  lignes 60-64 : si la commande SQL est **[select]**, on utilise la
+   méthode **[PDO::query]** sinon la méthode **[PDO::exec]** pour
+   exécuter l’ordre SQL. Dans les deux cas, si l’exécution échoue, une
+   exception sera lancée et interceptée lignes 71-77. Si l’exécution
+   réussit, la ligne 70 affiche son résultat ;
+
+-  lignes 90-130 : la fonction *afficherInfos* affiche des informations
+   sur le résultat de l’exécution d’un ordre SQL ;
+
+-  ligne 94 : on traite le cas du **[select]**. Son résultat est un
+   objet de type **[PDOStatement]** ;
+
+-  ligne 96 : la méthode **[PDOStatement::getColumnCount()]** rend le
+   nombre de colonnes de la table résultat du *select* ;
+
+-  lignes 98-99 : la méthode **[PDOStatement::getMeta(i)]** rend un
+   dictionnaire d'informations sur la colonne n° *i* de la table
+   résultat du *select.* Dans ce dictionnaire, la valeur associée à la
+   clé '*name*' est le nom de la colonne ;
+
+-  lignes 97-102 : les noms des colonnes de la table résultat du
+   *select* sont concaténées dans une chaîne de caractères ;
+
+-  lignes 105-110 : on construit une ligne de séparation ayant la même
+   longueur que la chaîne de caractères construite précédemment ;
+
+-  lignes 112-121 : un objet de type *PDOStatement* peut être parcouru
+   par une boucle *foreach*. A chaque itération, l'élément obtenu est
+   une ligne de la table résultat du *select* sous la forme d'un tableau
+   de valeurs représentant les valeurs des différentes colonnes de la
+   ligne. On affiche toutes ces valeurs avec une boucle *for* (lignes
+   114-116)\ * *;
+
+-  lignes 123-127 : le résultat de l'exécution d'un ordre *insert*,
+   *update*, *delete* est le nombre de lignes modifiées par l'ordre ;
+
+Les **résultats** écran :
+
+.. code-block:: php 
+   :linenos:
+
+   [set names 'utf8'] : Exécution réussie
+   [select * from personnes] : Exécution réussie
+   prenom,nom,age
+   --------------
+   Géraldine,Colou,26
+   Paulette,Girond,56
+   Paul,Langevin,48
+   Sylvie,Lefur,70
+   Pierre,Nicazou,35
+   [select nom,prenom from personnes order by nom asc, prenom desc] : Exécution réussie
+   nom,prenom
+   ----------
+   Colou,Géraldine
+   Girond,Paulette
+   Langevin,Paul
+   Lefur,Sylvie
+   Nicazou,Pierre
+   [select * from personnes where age between 20 and 40 order by age desc, nom asc, prenom asc] : Exécution réussie
+   prenom,nom,age
+   --------------
+   Pierre,Nicazou,35
+   Géraldine,Colou,26
+   [insert into personnes values('Josette','Bruneau',46)] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [update personnes set age=47 where nom='Bruneau'] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [select * from personnes where nom='Bruneau'] : Exécution réussie
+   prenom,nom,age
+   --------------
+   Josette,Bruneau,47
+   [delete from personnes where nom='Bruneau'] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [select * from personnes where nom='Bruneau'] : Exécution réussie
+   prenom,nom,age
+   --------------
+   [insert into personnes values('Josette','Bruneau',46)] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [xselect * from personnes where nom='Bruneau'] : Erreur (SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'xselect * from personnes where nom='Bruneau'' at line 1)
+
+   -----------------------
+   Il y a eu 1 erreur(s)
+   [xselect * from personnes where nom='Bruneau'] : Erreur (SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'xselect * from personnes where nom='Bruneau'' at line 1)
+   Terminé
+
+Utilisation d’ordres SQL préparés
+---------------------------------
+
+Exemple 1
+~~~~~~~~~
+
+Examinons le script suivant **[mysql-05.php]** :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // identité de la base de données
+   const DSN = "mysql:host=localhost;dbname=dbpersonnes";
+   // identifiants de l'utilisateur
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+
+   try {
+     // connexion à la base MySql
+     $connexion = new PDO(DSN, ID, PWD);
+     // on veut qu'à chaque erreur de SGBD, une exception soit lancée
+     $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+     // on vide la table des personnes
+     $connexion->exec("delete from personnes");
+     // une liste de personnes
+     $personnes = [];
+     $personnes[] = ["nom" => "Langevin", "prenom" => "Paul", "age" => 47];
+     $personnes[] = ["nom" => "Lefur", "prenom" => "Sylvie", "age" => 28];
+     // on va mettre ces personnes dans la base de données
+     $statement = $connexion->prepare("insert into personnes (nom, prenom, age) values (:nom, :prenom, :age)");
+     for ($i = 0; $i < count($personnes); $i++) {
+       $statement->execute($personnes[$i]);
+     }
+   } catch (PDOException $ex) {
+     // affichage erreur
+     print "Erreur : " . $ex->getMessage() . "\n";
+   } finally {
+   // fermeture connexion
+     $connexion = NULL;
+   }
+
+   // c'est fini
+   print "Terminé\n";
+   exit;
+
+**Commentaires**
+
+Nous nous intéressons ici aux lignes 16-24 qui insèrent deux personnes
+dans la table des personnes de la base **[dbpersonnes]**.
+
+-  ligne 21 : on ‘prépare’ un ordre SQL paramétré. Les paramètres sont
+   précédés du caractère : :**nom**, :**prenom**, :**age**. Pour
+   ‘préparer’ un ordre SQL, on utilise la méthode **[PDO::prepare]**. Le
+   résultat est un type **[PDOStatement]**. La ‘préparation’ n’est pas
+   une exécution : rien n’est exécuté ;
+
+-  ligne 23 : exécution de l’ordre ‘préparé’ avec la méthode
+   **[PDOStatement::execute]**. Pour ce faire, il faut donner des
+   valeurs aux paramètres :**nom**, :**prenom** et :**age**. Il y a
+   plusieurs façons de faire cela. On utilise ici un dictionnaire ayant
+   pour clés les paramètres de l’ordre préparé que l’on passe à la
+   méthode **[PDOStatement::execute]**. Une autre façon de faire est de
+   donner aux paramètres une valeur avec la méthode
+   **[PDOStatement::bindValue($paramètre,$valeur)]**. Par exemple ici :
+
+.. code-block:: php 
+   :linenos:
+
+   $statement→bindValue(“nom”,”Langevin”);
+   $statement→bindValue(“prenom”,”Paul”);
+   $statement→bindValue(“age”,47);
+   $statement→execute();
+
+..
+
+   L’inconvénient est qu’il faut réitérer cette instruction pour chaque
+   paramètre. La méthode du dictionnaire peut alors être plus pratique.
+   La méthode **[PDOStatement::execute]** rend FALSE si l’exécution
+   échoue ;
+
+-  la méthode utilisée ici pour faire les insertions :
+
+   -  **une** méthode préparée ;
+
+   -  **n** exécutions de l’ordre préparé ;
+
+..
+
+   est plus économique en temps d’exécution que d’exécuter **n** ordres
+   SQL **différents**. Cette méthode est donc à privilégier. Elle est
+   utilisable pour les ordres SQL *select, update, delete, insert*. Dans
+   le cas de l’ordre SQL *select*, après son exécution avec
+   **[PDOStatement::execute]**, on récupère les lignes du résultat avec
+   la méthode **[PDOStatement::fetchAll]** ;
+
+Exemple 2
+~~~~~~~~~
+
+Le script suivant **[mysql-06.php]** montre l’utilisation d’un ordre
+préparé pour l’opération SQL **select**, ainsi que diverses façons de
+récupérer les lignes ramenées par cette opération :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // identité de la base de données
+   const DSN = "mysql:host=localhost;dbname=dbpersonnes";
+   // identifiants de l'utilisateur
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+
+   try {
+     // connexion à la base MySql
+     $connexion = new PDO(DSN, ID, PWD);
+     // on veut qu'à chaque erreur de SGBD, une exception soit lancée
+     $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+     // on vide la table des personnes
+     $connexion->exec("delete from personnes");
+     // on va mettre ces personnes dans la base de données
+     $statement = $connexion->prepare("insert into personnes (nom, prenom, age) values (:nom, :prenom, :age)");
+     for ($i = 0; $i < 10; $i++) {
+       $statement->execute(["nom" => "nom" . $i, "prenom" => "prenom" . $i, "age" => $i * 10]);
+     }
+     // on interroge la base
+     $statement = $connexion->prepare("select nom, prenom, age from personnes");
+     $statement->execute();
+     // 1re ligne
+     $ligne = $statement->fetch();
+     var_dump($ligne);
+     // 2e ligne
+     $ligne = $statement->fetch(PDO::FETCH_ASSOC);
+     var_dump($ligne);
+     // 3e ligne
+     $ligne = $statement->fetch(PDO::FETCH_OBJ);
+     var_dump($ligne);
+     // 4e ligne
+     $statement->setFetchMode(PDO::FETCH_CLASS, "Person");
+     $ligne = $statement->fetch();
+     var_dump($ligne);
+     // lecture séquentielle de toutes les lignes
+     $statement = $connexion->prepare("select nom, prenom, age from personnes");
+     $statement->execute();
+     $statement->setFetchMode(PDO::FETCH_CLASS, "Person");
+     while ($personne = $statement->fetch()) {
+       print "$personne\n";
+     }
+   } catch (PDOException $ex) {
+     // affichage erreur
+     print "Erreur : " . $ex->getMessage() . "\n";
+   } finally {
+   // fermeture connexion
+     $connexion = NULL;
+   }
+
+   // c'est fini
+   print "Terminé\n";
+   exit;
+
+   class Person {
+     private $nom;
+     private $prenom;
+     private $age;
+
+     public function __toString() {
+       return "Personne[$this->nom,$this->prenom,$this->age]";
+     }
+
+   }
+
+**Commentaires**
+
+-  lignes 17-20 : on insère 10 lignes dans la table **[personnes]** de
+   la base **[admpersonnes]** :
+
+|image21|
+
+-  ligne 22 : on « prépare » un ordre SQL **[select]** qu’on exécute
+   ligne 23 ;
+
+-  ligne 25 : on récupère avec la méthode **[PDOStatement::fetch]** une
+   ligne du résultat de l’opération SQL **[select]** exécutée. La
+   méthode **[PDOStatement::fetch]** peut récupérer de diverses façons
+   les lignes résultats d’une opération SQL **[select]** préparée. Le
+   script en présente quelques unes. La méthode
+   **[PDOStatement::fetch]** sans paramètres ramène la ligne courante du
+   **[select]** sous la forme d’un dictionnaire indexé à la fois sur les
+   n°s de colonnes et leurs noms ;
+
+-  ligne 26 : affiche le résultat suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   array(6) {
+     ["nom"]=>
+     string(4) "nom0"
+     [0]=>
+     string(4) "nom0"
+     ["prenom"]=>
+     string(7) "prenom0"
+     [1]=>
+     string(7) "prenom0"
+     ["age"]=>
+     string(1) "0"
+     [2]=>
+     string(1) "0"
+   }
+
+-  lignes 28-29 : le paramètre **[PDO::FETCH_ASSOC]** fait que la ligne
+   ramenée est un dictionnaire indexé par les noms des colonnes de la
+   table :
+
+.. code-block:: php 
+   :linenos:
+
+   array(3) {
+     ["nom"]=>
+     string(4) "nom1"
+     ["prenom"]=>
+     string(7) "prenom1"
+     ["age"]=>
+     string(2) "10"
+   }
+
+-  lignes 31-32 : le paramètre **[PDO::FETCH_OBJ]** fait que la ligne
+   ramenée est un objet de type **[stdclass]** dont les attributs sont
+   les noms des colonnes de la table :
+
+.. code-block:: php 
+   :linenos:
+
+   object(stdClass)#2 (3) {
+     ["nom"]=>
+     string(4) "nom2"
+     ["prenom"]=>
+     string(7) "prenom2"
+     ["age"]=>
+     string(2) "20"
+   }
+
+-  ligne 34 : on fixe le mode de recherche de la méthode **[fetch]**
+   avec la méthode **[PDOStatement::setFetchMode]**. Ce mode devient
+   alors le mode par défaut tant qu’il n’est pas changé soit par une
+   autre opération **[PDOStatement::setFetchMode]** soit en passant un
+   mode en paramètre à la méthode **[PDOStatement::fetch]** comme il a
+   été fait précédemment. L’opération **[setFetchMode(PDO::FETCH_CLASS,
+   "Person")]** indique que la ligne lue doit être placée dans un objet
+   de type **[Person]**. Cette classe doit avoir parmi ces attributs,
+   des attributs portant le nom des colonnes de la ligne lue. C’est le
+   cas de la classe **[Person]** définie aux lignes 56-63 ;
+
+-  la ligne 36 affiche le résultat suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   object(Person)#4 (3) {
+     ["nom":"Person":private]=>
+     string(4) "nom3"
+     ["prenom":"Person":private]=>
+     string(7) "prenom3"
+     ["age":"Person":private]=>
+     string(2) "30"
+   }
+
+-  lignes 38-43 : montrent comment exploiter séquentiellement les
+   résultats du **[select]** ;
+
+-  ligne 42 : l’affichage de **[$personne]** va utiliser la méthode
+   **[__toString]** de la classe **[Person]** ;
+
+Utilisation de transactions
+---------------------------
+
+Une transaction permet de regrouper une séquence d’ordres SQL en une
+unité d’exécution : soit tous les ordres réussissent soit l’un d’eux
+échoue et alors tous les ordres SQL qui ont précédé celui-ci sont
+annulés. Dit autrement, lorsqu’on utilise une transaction pour exécuter
+des ordres SQL, après l’exécution de celle-ci la base de données est
+dans un état **stable** :
+
+-  soit dans un **état nouveau** créé par l’exécution réussie de tous
+   les ordres SQL de la transaction ;
+
+-  soit dans **l’état dans laquelle elle était** avant que la
+   transaction ne commence à être exécutée ;
+
+Nous allons reprendre l’exemple de l’exécution des ordres SQL contenus
+dans un fichier texte étudié au paragraphe
+`lien <chap-12.html#exécution_ordres_sql>`__. Nous allons inclure cette
+exécution dans une transaction. Les ordres SQL seront contenus dans le
+fichier **[sql2.txt]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   set names 'utf8'
+   select * from personnes
+   select nom,prenom from personnes order by nom asc, prenom desc
+   select * from personnes where age between 20 and 40 order by age desc, nom asc, prenom asc
+   insert into personnes values('Josette','Bruneau',46)
+   update personnes set age=47 where nom='Bruneau'
+   select * from personnes where nom='Bruneau'
+   delete from personnes where nom='Bruneau'
+   select * from personnes where nom='Bruneau'
+   insert into personnes values('Josette','Bruneau',46)
+   select * from personnes where nom='Bruneau'
+   xselect * from personnes where nom='Bruneau'
+
+L’ordre erroné de la ligne 12 va faire échouer toute la transaction. On
+devrait donc retrouver la base comme elle était avant la transaction.
+Dans l’exemple ci-dessus, on ne devrait donc pas voir dans la table la
+ligne insérée par la ligne 10 ci-dessus. Le script évolue très peu. On
+redonne cependant la totalité du code **[mysql-07.php]** :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // identité de la base de données
+   const DSN = "mysql:host=localhost;dbname=dbpersonnes";
+   // identifiants de l'utilisateur
+   const ID = "admpersonnes";
+   const PWD = "nobody";
+   // identité du fichier texte des commandes SQL à exécuter
+   const SQL_COMMANDS_FILENAME = "sql2.txt";
+
+   try {
+     // connexion à la base MySql
+     $connexion = new PDO(DSN, ID, PWD);
+   } catch (PDOException $ex) {
+     // affichage erreur
+     print "Erreur : " . $ex->getMessage() . "\n";
+     exit;
+   }
+   // on veut qu'à chaque erreur de SGBD, une exception soit lancée
+   $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+   // exécution du fichier d'ordres SQL
+   $erreurs = exécuterCommandes($connexion, SQL_COMMANDS_FILENAME, TRUE);
+   // fermeture connexion
+   $connexion = NULL;
+   //affichage nombre d'erreurs
+   printf("\n-----------------------\nIl y a eu %d erreur(s)\n", count($erreurs));
+   for ($i = 0; $i < count($erreurs); $i++) {
+     print "$erreurs[$i]\n";
+   }
+
+   // c'est fini
+   print "Terminé\n";
+   exit;
+
+   // ---------------------------------------------------------------------------------
+   function exécuterCommandes(PDO $connexion, string $SQLFileName, bool $suivi = FALSE): array {
+   // utilise la connexion $connexion
+   // exécute les commandes SQL contenues dans le fichier texte SQLFileName
+   // ce fichier est un fichier de commandes SQL à exécuter à raison d'une par ligne
+   // les commandes SQL sont exécutées dans une transaction
+   // si l'un des ordres échoue, la transaction est annulée et on retrouve la base de données dans l'état où elle était avant la transaction
+   // si $suivi=1 alors chaque exécution d'un ordre SQL fait l'objet d'un affichage indiquant sa réussite ou son échec
+   // la fonction rend un tableau (nb d'erreurs, erreur1, erreur2…)
+   //
+   // on vérifie la présence du fichier SQLFileName
+     if (!file_exists($SQLFileName)) {
+       return ["Le fichier [$SQLFileName] n'existe pas"];
+     }
+     // exécution des requêtes SQL contenues dans SQLFileName
+     // on les met dans un tableau
+     $requêtes = file($SQLFileName);
+     // erreur ?
+     if ($requêtes === FALSE) {
+       return ["Erreur lors de l'exploitation du fichier SQL [$SQLFileName]"];
+     }
+     // les requêtes vont être placées dans une transaction
+     $connexion->beginTransaction();
+     // on exécute les requêtes une par une - au départ pas d'erreurs
+     $erreurs = [];
+     $i = 0;
+     $fini = FALSE;
+     while ($i < count($requêtes) && !$fini) {
+       // on récupère le texte de la requête
+       // trim va enlever la marque de fin de ligne
+       $requête = trim($requêtes[$i]);
+       // requête vide ?
+       if (strlen($requête) == 0) {
+         // on ignore la requête et on passe à la requête suivante
+         $i++;
+         continue;
+       }
+       // exécution de la requête
+       // on récupère son nom
+       $commande = "";
+       if (preg_match("/^\s*(\S+)/", $requête, $champs)) {
+         $commande = strtolower($champs[0]);
+       }
+       try {
+         // est-ce un ordre SELECT ?
+         if ($commande === "select") {
+           $résultat = $connexion->query($requête);
+         } else {
+           $résultat = $connexion->exec($requête);
+         }
+         // suivi écran ou non ?
+         if ($suivi) {
+           print "[$requête] : Exécution réussie\n";
+         }
+         // on affiche le résultat de l'exécution
+         afficherInfos($commande, $résultat);
+       } catch (PDOException $ex) {
+         // il s'est produit une erreur
+         addError($erreurs, $requête, $ex->getMessage(), $suivi);
+         // on s'arrête au tour suivant
+         $fini = TRUE;
+       }
+       // requête suivante
+       $i++;
+     }
+     // fin de la transaction
+     if (!$fini) {
+       // il n'y a pas eu d'erreurs : on valide la transaction
+       $connexion->commit();
+     } else {
+       // il y a eu des erreurs : on annule la transaction
+       $connexion->rollBack();
+       // ajout erreur
+       addError($erreurs, "", "Transaction annulée", $suivi);
+     }
+     // résultat
+     return $erreurs;
+   }
+
+   function addError(array &$erreurs, string $requête, string $msg, bool $suivi): void {
+     …
+   }
+
+   // ---------------------------------------------------------------------------------
+   function afficherInfos(string $commande, $résultat): void {
+     …
+   }
+
+**Commentaires**
+
+Nous avons surligné les modifications du script original
+**[mysql-04.php]**.
+
+-  lignes 22, 36 : la fonction **[exécuterCommandes]** a perdu son
+   quatrième paramètre **[$arrêt=TRUE]**. En effet, comme les ordres SQL
+   s’exécutent au sein d’une transaction, toute erreur provoquera
+   l’arrêt de la transaction ;
+
+-  lignes 40-41 : rappel de la fonction d’une transaction ;
+
+-  ligne 57 : on démarre une transaction. A partir de maintenant, tout
+   ordre SQL exécuté dans la boucle des lignes 62-99 l’est au sein de
+   cette transaction ;
+
+-  lignes 101-109 : le booléen **[$fini]** est à TRUE s’il y a eu erreur
+   (ligne 95). Lorsqu’il est à FALSE, il n’y a pas eu d’erreurs et on
+   valide alors la transaction (ligne 103). Lorsqu’il est à TRUE, il y a
+   eu des erreurs et on annule alors la transaction (ligne 106) et on
+   rajoute l’erreur de transaction dans la liste des erreurs (ligne
+   108) ;
+
+**Résultats**
+
+Avant exécution du script, la base **[admpersonnes]** est dans l’état
+suivant :
+
+|image22|
+
+On exécute le script **[mysql-07.php]**. Les affichages écran sont alors
+les suivants :
+
+.. code-block:: php 
+   :linenos:
+
+   [set names 'utf8'] : Exécution réussie
+   [select * from personnes] : Exécution réussie
+   prenom,nom,age
+   --------------
+   prenom0,nom0,0
+   prenom1,nom1,10
+   prenom2,nom2,20
+   prenom3,nom3,30
+   prenom4,nom4,40
+   prenom5,nom5,50
+   prenom6,nom6,60
+   prenom7,nom7,70
+   prenom8,nom8,80
+   prenom9,nom9,90
+   [select nom,prenom from personnes order by nom asc, prenom desc] : Exécution réussie
+   nom,prenom
+   ----------
+   nom0,prenom0
+   nom1,prenom1
+   nom2,prenom2
+   nom3,prenom3
+   nom4,prenom4
+   nom5,prenom5
+   nom6,prenom6
+   nom7,prenom7
+   nom8,prenom8
+   nom9,prenom9
+   [select * from personnes where age between 20 and 40 order by age desc, nom asc, prenom asc] : Exécution réussie
+   prenom,nom,age
+   --------------
+   prenom4,nom4,40
+   prenom3,nom3,30
+   prenom2,nom2,20
+   [insert into personnes values('Josette','Bruneau',46)] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [update personnes set age=47 where nom='Bruneau'] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [select * from personnes where nom='Bruneau'] : Exécution réussie
+   prenom,nom,age
+   --------------
+   Josette,Bruneau,47
+   [delete from personnes where nom='Bruneau'] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [select * from personnes where nom='Bruneau'] : Exécution réussie
+   prenom,nom,age
+   --------------
+   [insert into personnes values('Josette','Bruneau',46)] : Exécution réussie
+    1 lignes(s) a (ont) été modifiée(s)
+   [select * from personnes where nom='Bruneau'] : Exécution réussie
+   prenom,nom,age
+   --------------
+   Josette,Bruneau,46
+   [xselect * from personnes where nom='Bruneau'] : Erreur (SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'xselect * from personnes where nom='Bruneau'' at line 1)
+   [] : Erreur (Transaction annulée)
+
+   -----------------------
+   Il y a eu 2 erreur(s)
+   [xselect * from personnes where nom='Bruneau'] : Erreur (SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'xselect * from personnes where nom='Bruneau'' at line 1)
+   [] : Erreur (Transaction annulée)
+   Terminé
+
+-  ligne 53 : une erreur se produit sur la commande **[xselect]** ;
+
+-  ligne 54 : la transaction est alors annulée ;
+
+Si on vérifie l’état de la base, on la trouve dans le même état qu’avant
+l’exécution du script. On n’y voit pas notamment la ligne **[Josette,
+Bruneau, 46]** de la ligne 52 des résultats ci-dessus.
+
+|image23|
+
+**Résumé**
+
+-  une transaction commence avec la méthode
+   **[PDO::beginTransaction]** ;
+
+-  on la termine sur un succès avec la méthode **[PDO::commit]** ;
+
+-  on la termine sur un échec avec la méthode **[PDO::rollback]** ;
+
+Lorsqu’on exploite une base de données, c’est une bonne habitude de
+mettre toute opération SQL dans une transaction pour s’isoler des autres
+utilisateurs de la base (elle a également ce rôle). Une transaction doit
+être la plus courte possible. Il ne faut donc pas oublier de la terminer
+par un **[commit]** ou un **[rollback]** selon les cas.
 
 .. |image0| image:: ./chap-12/media/image1.png
-   :width: 4.20079in
-   :height: 0.80709in
+   :width: 1.66535in
+   :height: 2.66102in
 .. |image1| image:: ./chap-12/media/image2.png
-   :width: 2.11378in
-   :height: 1.74803in
+   :width: 5.67717in
+   :height: 0.82283in
 .. |image2| image:: ./chap-12/media/image3.png
-   :width: 4.14567in
-   :height: 0.73189in
+   :width: 5.34252in
+   :height: 0.8626in
 .. |image3| image:: ./chap-12/media/image4.png
-   :width: 4.18898in
-   :height: 0.82717in
+   :width: 4.25984in
+   :height: 3.56654in
 .. |image4| image:: ./chap-12/media/image5.png
-   :width: 4.26378in
-   :height: 0.81102in
+   :width: 5.58661in
+   :height: 0.87008in
 .. |image5| image:: ./chap-12/media/image6.png
-   :width: 3.65354in
-   :height: 1.14567in
+   :width: 6.17283in
+   :height: 2.50748in
 .. |image6| image:: ./chap-12/media/image7.png
-   :width: 3.47638in
-   :height: 1.73189in
+   :width: 2.7563in
+   :height: 0.52795in
 .. |image7| image:: ./chap-12/media/image8.png
-   :width: 3.03543in
-   :height: 1.38976in
-.. |image8| image:: ./chap-12/media/image9.png
-   :width: 4.14567in
-   :height: 3.44528in
-.. |image9| image:: ./chap-12/media/image10.png
-   :width: 5.50433in
-   :height: 2.3937in
-.. |image10| image:: ./chap-12/media/image11.png
-   :width: 5.47638in
-   :height: 2.3937in
-.. |image11| image:: ./chap-12/media/image12.png
-   :width: 3.49567in
-   :height: 3.16535in
-.. |image12| image:: ./chap-12/media/image13.png
-   :width: 6.1063in
-   :height: 2.76811in
-.. |image13| image:: ./chap-12/media/image14.png
-   :width: 1.69291in
-   :height: 3.08268in
-.. |image14| image:: ./chap-12/media/image15.png
-   :width: 6.03543in
-   :height: 1.1811in
-.. |image15| image:: ./chap-12/media/image16.png
    :width: 4.07087in
-   :height: 0.75984in
+   :height: 2.77165in
+.. |image8| image:: ./chap-12/media/image9.png
+   :width: 3.32283in
+   :height: 1.79173in
+.. |image9| image:: ./chap-12/media/image10.png
+   :width: 3.99252in
+   :height: 1.30709in
+.. |image10| image:: ./chap-12/media/image11.png
+   :width: 4.83071in
+   :height: 1.86614in
+.. |image11| image:: ./chap-12/media/image12.png
+   :width: 5.59016in
+   :height: 3.44843in
+.. |image12| image:: ./chap-12/media/image13.png
+   :width: 6.9689in
+   :height: 1.06654in
+.. |image13| image:: ./chap-12/media/image14.png
+   :width: 5.55472in
+   :height: 0.80709in
+.. |image14| image:: ./chap-12/media/image15.png
+   :width: 4.74803in
+   :height: 2.94843in
+.. |image15| image:: ./chap-12/media/image16.png
+   :width: 3.47205in
+   :height: 3.12559in
 .. |image16| image:: ./chap-12/media/image17.png
-   :width: 5.38622in
-   :height: 1.11378in
+   :width: 4.5752in
+   :height: 2.16929in
 .. |image17| image:: ./chap-12/media/image18.png
-   :width: 5.99252in
-   :height: 1.35433in
+   :width: 5.17283in
+   :height: 1.37008in
+.. |image18| image:: ./chap-12/media/image19.png
+   :width: 4.10197in
+   :height: 0.98819in
+.. |image19| image:: ./chap-12/media/image20.png
+   :width: 6.16929in
+   :height: 3.41732in
+.. |image20| image:: ./chap-12/media/image21.png
+   :width: 2.46024in
+   :height: 1.12559in
+.. |image21| image:: ./chap-12/media/image22.png
+   :width: 4.27165in
+   :height: 3.01614in
+.. |image22| image:: ./chap-12/media/image23.png
+   :width: 3.83071in
+   :height: 2.6811in
+.. |image23| image:: ./chap-12/media/image23.png
+   :width: 3.83071in
+   :height: 2.6811in

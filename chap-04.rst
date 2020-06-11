@@ -1,2032 +1,504 @@
-Les bases de PHP
-================
+Exercice d'application – versions 1 et 2
+========================================
+
+Le problème
+-----------
+
+|image0|
+
+Le tableau ci-dessus permet de calculer l’impôt dans le cas simplifié
+d'un contribuable n'ayant que son seul salaire à déclarer. Comme
+l’indique la note (1), l’impôt ainsi calculé est l’impôt avant trois
+mécanismes :
+
+-  le plafonnement du quotient familial qui intervient pour les hauts
+   revenus ;
+
+-  la décôte et la réduction d’impôts qui interviennent pour les faibles
+   revenus ;
+
+Ainsi le calcul de l’impôt comprend les étapes suivantes
+**[http://impotsurlerevenu.org/comprendre-le-calcul-de-l-impot/1217-calcul-de-l-impot-2019.php]** :
+
+|image1|
+
+On se propose d'écrire un programme permettant de calculer l'impôt d'un
+contribuable dans le cas simplifié d'un contribuable n'ayant que son
+seul salaire à déclarer :
+
+Calcul de l’impôt brut
+~~~~~~~~~~~~~~~~~~~~~~
+
+L’impôt brut peut être calculé de la façon suivante :
+
+On calcule d’abord le nombre de parts du contribuable :
+
+-  chaque parent amène 1 part ;
+
+-  les deux premiers enfants amènent chacun 1/2 part ;
+
+-  les enfants suivants amènent une part chacun :
+
+Le nombre de part est donc :
+
+-  **nbParts=1+nbEnfants*0,5+(nbEnfants-2)*0,5** si le salarié n’est pas
+   marié ;
+
+-  **nbParts=2+nbEnfants*0,5+(nbEnfants-2)*0,5** s'il est marié ;
+
+..
+
+   où *nbEnfants* est son nombre d'enfants ;
+
+-  on calcule le revenu imposable **R=0.9*S** où *S* est le salaire
+   annuel ;
+
+-  on calcule le quotient familial **QF=R/nbParts ;**
+
+-  on calcule l’impôt brut **I** d'après les données suivantes (2019) :
+
+====== ==== ========
+9964   0    0
+27519  0.14 1394.96
+73779  0.3  5798
+156244 0.41 13913.69
+0      0.45 20163.45
+====== ==== ========
+
+Chaque ligne a 3 champs : *champ1*, *champ2*, *champ3*. Pour calculer
+l'impôt I, on recherche la première ligne où *QF<=champ1* et on prend
+les valeurs de cette ligne. Par exemple, pour un salarié marié avec deux
+enfants et un salaire annuel S de **50000** euros :
+
+Revenu imposable : **R**\ =0,9*S=45000
+
+Nombre de parts : **nbParts**\ =2+2*0,5=3
+
+Quotient familial : **QF**\ =45000/3=15000
+
+La 1\ :sup:`re` ligne où QF<=champ1 est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   	27519		0.14	1394.96
+
+L'impôt *I* est alors égal à **0.14*R –
+1394,96*nbParts**\ =\ **[0,14*45000-1394,96*3]**\ =\ **2115**. L’impôt
+est arrondi à l’euro inférieur.
+
+Si la relation *QF<=champ1* dès la 1\ :sup:`re` ligne, alors l’impôt est
+nul.
+
+Si QF est tel que la relation *QF<=champ1* n'est jamais vérifiée, alors
+ce sont les coefficients de la dernière ligne qui sont utilisés. Ici :
+
+.. code-block:: php 
+   :linenos:
+
+   	0			0.45		20163.45
+
+ce qui donne l'impôt brut I=\ **0.45*R – 20163,45*nbParts**.
+
+Plafonnement du quotient familial
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+|image2|
+
+Pour savoir si le plafonnement du quotient familial QF s’applique, on
+refait le calcul de l’impôt brut sans les enfants. Toujours pour le
+salarié marié avec deux enfants et un salaire annuel S de **50000**
+euros :
+
+Revenu imposable : **R**\ =0,9*S=45000
+
+Nombre de parts : **nbParts**\ =2 (on ne compte plus les enfants)
+
+Quotient familial : **QF**\ =45000/2=22500
+
+La 1\ :sup:`re` ligne où QF<=champ1 est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   	27519		0.14	1394.96
+
+L'impôt *I* est alors égal à **0.14*R –
+1394,96*nbParts**\ =\ **[0,14*45000-1394,96*2]**\ =\ **3510**.
+
+Gain maximal lié aux enfants : 1551 \* 2 = 3102 euros
+
+Impôt minimal : 3510-3102 = 408 euros
+
+L’impôt brut avec 3 parts déjà calculé 2115 euros est supérieur à
+l’impôt minimal 408 euros, donc le plafonnement familial ne s’applique
+pas ici.
+
+De façon générale, l’impôt brut est **sup(impôt1, impôt2)** où :
+
+-  **[impôt1]** : est l’impôt brut calculé avec les enfants ;
+
+-  **[impôt2]** : est l’impôt brut calculé sans les enfants et diminué
+   du gain maximal (ici 1551 euros par demi-part) lié aux enfants ;
+
+   1. .. rubric:: Calcul de la décôte
+         :name: calcul-de-la-décôte
+
+|image3|
+
+Toujours pour le salarié marié avec deux enfants et un salaire annuel S
+de **50000** euros :
+
+L’impôt brut (2115) issu de l’étape précédente est inférieur à 2627
+euros pour un couple (1595 euros pour un célibataire) : la décôte
+s’applique donc. Elle est obtenue avec le calcul suivant :
+
+décôte= seuil (couple=1970/célibataire=1196)-0,75\* Impôt brut
+
+**décôte**\ =1970-0,75*2115=383,75 arrondi à **384** euros.
+
+**Nouvel Impôt brut**\ = 2115-384= **1731** euros
+
+Calcul de la réduction d’impôts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+|image4|
+
+Au-dessous d’un certain seuil, une réduction de 20 % est faite sur
+l’impôt brut issu des calculs précédents. En 2019, les seuils sont les
+suivants :
+
+-  célibataire  : 21037 euros ;
+
+-  couple : 42074 euros ; ( le chiffre 37968 utilisé dans l’exemple
+   ci-dessus semble erroné) ;
+
+Ce seuil est augmenté de la valeur : 3797 \* (nombre de demi-parts
+amenées par les enfants).
+
+Toujours pour le salarié marié avec deux enfants et un salaire annuel S
+de **50000** euros :
+
+-  son revenu imposable (45000 euros) est inférieur au seuil
+   (42074+2*3797)=49668 euros ;
+
+-  il a donc droit à une réduction réduction de 20 % de son impôt : 1731
+   \* 0,2= 346,2 euros arrondi à 347 euros ;
+
+-  l’impôt brut du contribuable devient : 1731-347= **1384** euros ;
+
+   1. .. rubric:: Calcul de l’impôt net
+         :name: calcul-de-limpôt-net
+
+Notre calcul s’arrêtera là : l’impôt net à payer sera de **1384** euros.
+Dans la réalité, le contribuable peut bénéficier d’autres réductions
+notamment pour des dons à des organismes d’intérêt public ou général.
+
+Cas des hauts revenus
+~~~~~~~~~~~~~~~~~~~~~
+
+Notre exemple précédent correspond à la majorité des cas de salariés.
+Cependant le calcul de l’impôt est différent dans le cas des hauts
+revenus.
+
+Plafonnement de la réduction de 10 % sur les revenus annuels
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Dans la plupart des cas, le revenu imposable est obtenu par la formule :
+R=0,9*S où S est le salaire annuel. On appelle cela la réduction des
+10 %. Cette réduction est plafonnée. En 2019 :
+
+-  elle ne peut être supérieure à 12502 euros ;
+
+-  elle ne peut être inférieure à 437 euros ;
+
+Prenons le cas d’un salarié non marié sans enfants et un salaire annuel
+de 200000 euros :
+
+-  la réduction de 10 % est de 20000 euros > 12502 euros. Elle est donc
+   ramenée à 12502 euros ;
+
+   1. .. rubric:: Plafonnement du quotient familial
+         :name: plafonnement-du-quotient-familial-1
+
+Prenon un cas où le plafonnement familial présenté au paragraphe
+`lien <#plafonnement-du-quotient-familial>`__ intervient. Prenons le cas
+d’un couple avec trois enfants et des revenus annuels de 100000 euros.
+Reprenons les étapes du calcul :
+
+-  l’abattement de 10 % est de 10000 euros < 12502 euros. Le revenu
+   imposable **R** est donc 100000-10000=90000 euros ;
+
+-  le couple a **nbParts**\ =2+0,5*2+1=\ **4** parts ;
+
+-  son quotient familial est donc **QF**\ =
+   R/nbParts=90000/4=\ **22500** euros ;
+
+-  son impôt brut **I1** **avec** enfants est I1=0,14*90000-1394,96*4=
+   7020 euros ;
+
+-  son impôt brut **I2** **sans** enfants :
+
+   -  **QF**\ =90000/2=45000 euros ;
+
+   -  **I2**\ =0,3*90000-5798*2=15404 euros ;
+
+   -  la règle du plafonnement du quotient familial dit que le gain
+      amené par les enfants ne peut dépasser (1551*4 demi-parts)=6204
+      euros. Or ici, il est I2-I1=15404-7020= 8384 euros, donc supérieur
+      à 6204 euros ;
+
+   -  l’impôt brut est donc recalculé comme
+      **I3**\ =\ **I2**-6204=15404-6204= **9200** euros ;
+
+Ce couple n’aura ni décôte, ni réduction et son impôt final sera de
+**9200** euros.
+
+Chiffres officiels
+~~~~~~~~~~~~~~~~~~
+
+Le calcul de l’impôt est complexe. Tout au long du document, les tests
+seront faits avec les exemples suivants. Les résultats sont ceux du
+simulateur de l’administration fiscale
+**[**\ https://www3.impots.gouv.fr/simulateur/calcul_impot/2019/simplifie/index.htm\ **]** :
+
++----------------------+----------------------+----------------------+
+| **Contribuable**     | **Résultats          | **Résultats de       |
+|                      | officiels**          | l’algorithme du      |
+|                      |                      | document**           |
++======================+======================+======================+
+| Couple avec 2        | Impôt=\ **2815**     | Impôt=\ **2814**     |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 55555 euros          | Taux                 | Taux                 |
+|                      | d’imposition=14 %    | d’imposition=14 %    |
++----------------------+----------------------+----------------------+
+| Couple avec 2        | Impôt=\ **1385**     | Impôt=\ **1384**     |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 50000 euros          | Décôte=720 euros     | Décôte=384 euros     |
+|                      |                      |                      |
+|                      | Réduction=0 euros    | Réduction=347 euros  |
+|                      |                      |                      |
+|                      | Taux                 | Taux                 |
+|                      | d’imposition=14 %    | d’imposition=14 %    |
++----------------------+----------------------+----------------------+
+| Couple avec 3        | Impôt=\ **0** euro   | Impôt=\ **0** euro   |
+| enfants et des       |                      |                      |
+| revenus annuels de   | Décôte=384 euros     | Décôte=720 euros     |
+| 50000 euros          |                      |                      |
+|                      | Réduction=346 euros  | Réduction=0 euro     |
+|                      |                      |                      |
+|                      | Taux                 | Taux                 |
+|                      | d’imposition=14 %    | d’imposition=14 %    |
++----------------------+----------------------+----------------------+
+| Célibataire avec 2   | Impôt=\ **19884**    | Impôt=\ **19884**    |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 100000 euros         | Décôte=0 euro        | Surcôte=4480 euros   |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Taux                 | Réduction=0 euro     |
+|                      | d’imposition=41 %    |                      |
+|                      |                      | Taux                 |
+|                      |                      | d’imposition=41 %    |
++----------------------+----------------------+----------------------+
+| Célibataire avec 3   | Impôt=\ **16782**    | Impôt=\ **16782**    |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 100000 euros         | Décôte=0 euro        | Surcôte=7176 euros   |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Taux                 | Réduction=0 euro     |
+|                      | d’imposition=41 %    |                      |
+|                      |                      | Taux                 |
+|                      |                      | d’imposition=41 %    |
++----------------------+----------------------+----------------------+
+| Couple avec 3        | Impôt=\ **9200**     | Impôt=\ **9200**     |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 100000 euros         | Décôte=0 euro        | Surcôte=2180 euros   |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Taux                 | Réduction=0 euro     |
+|                      | d’imposition=30 %    |                      |
+|                      |                      | Taux                 |
+|                      |                      | d’imposition=30 %    |
++----------------------+----------------------+----------------------+
+| Couple avec 5        | Impôt=\ **4230**     | Impôt=\ **4230**     |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 100000 euros         | Décôte=0 euro        | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Réduction=0 euro     |
+|                      |                      |                      |
+|                      | Taux                 | Taux                 |
+|                      | d’imposition=14 %    | d’imposition=14 %    |
++----------------------+----------------------+----------------------+
+| Célibataire sans     | Impôt=\ **22986**    | Impôt= **22986**     |
+| enfants et des       | euros                | euros                |
+| revenus annuels de   |                      |                      |
+| 100000 euros         | Décôte=0 euro        | Surcôte=0 euro       |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Taux                 | Réduction=0 euro     |
+|                      | d’imposition=41 %    |                      |
+|                      |                      | Taux                 |
+|                      |                      | d’imposition=41 %    |
++----------------------+----------------------+----------------------+
+| Couple avec 2        | Impôt=\ **0** euro   | Impôt=\ **0** euro   |
+| enfants et des       |                      |                      |
+| revenus annuels de   | Décôte=0 euro        | Décôte=0 euro        |
+| 30000 euros          |                      |                      |
+|                      | Réduction=0 euro     | Réduction=0 euro     |
+|                      |                      |                      |
+|                      | Taux                 | Taux                 |
+|                      | d’imposition=0 %     | d’imposition=0 %     |
++----------------------+----------------------+----------------------+
+| Célibataire sans     | Impôt=\ **64211**    | Impôt= **64210**     |
+| enfants et des       | euro                 | euros                |
+| revenus annuels de   |                      |                      |
+| 200000 euros         | Décôte=0 euro        | Surcôte=7498 euros   |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Taux                 | Réduction=0 euro     |
+|                      | d’imposition=45 %    |                      |
+|                      |                      | Taux                 |
+|                      |                      | d’imposition=45 %    |
++----------------------+----------------------+----------------------+
+| Couple avec 3        | Impôt=\ **42843**    | Impôt=\ **42842**    |
+| enfants et des       | euro                 | euros                |
+| revenus annuels de   |                      |                      |
+| 200000 euros         | Décôte=0 euro        | Surcôte=17283 euros  |
+|                      |                      |                      |
+|                      | Réduction=0 euro     | Décôte=0 euro        |
+|                      |                      |                      |
+|                      | Taux                 | Réduction=0 euro     |
+|                      | d’imposition=41 %    |                      |
+|                      |                      | Taux                 |
+|                      |                      | d’imposition=41 %    |
++----------------------+----------------------+----------------------+
+
+Ci-dessus, on appelle surcôte, ce que paient en plus les hauts revenus à
+cause de deux phénomènes :
+
+-  le plafonnement de l’abattement de 10 % sur les revenus annuels ;
+
+-  le plafonnement du quotient familial ;
+
+Cet indicateur n’a pu être vérifié car le simulateur de l’administration
+fiscale ne le donne pas.
+
+On voit que l’algorithme du document donne un impôt juste à chaque fois,
+avec cependant une marge d’erreur de 1 euro. Cette marge d’erreur
+provient des arrondis. Toutes les sommes d’argent sont arrondies parfois
+à l’euro supérieur, parfois à l’euro inférieur. Comme je ne connaissais
+pas les règles officielles, les sommes d’argent de l’algorithme du
+document ont été arrondies :
+
+-  à l’euro supérieur pour les décôtes et réductions ;
+
+-  à l’euro inférieur pour les surcôtes et l’impôt final ;
+
+Dans la suite, des tests seront établis pour vérifier la validité des
+résultats. Ils seront faits avec les exemples du tableau précédent avec
+une marge d’erreur acceptée de 1 euro.
 
 L’arborescence des scripts
 --------------------------
 
-|image0|
-
-Configuration de PHP
---------------------
-
-PHP arrive préconfiguré par un fichier texte **[php.ini]**. Toutes ces
-configurations peuvent être changées par programmation. La configuration
-de PHP influence grandement l’exécution des scripts. Il est donc
-important de la connaître. Le script suivant **[phpinfo.php]** le
-permet :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   phpinfo();
-
-**Commentaires**
-
--  ligne 3 : la fonction **[phpinfo]** affiche la configuration de PHP ;
-
-**Résultats de l’exécution**
-
-.. code-block:: php 
-   :linenos:
-
-   "C:\myprograms\laragon-lite\bin\php\php-7.2.11-Win32-VC15-x64\php.exe" "C:\Data\st-2019\dev\php7\php5-exemples\exemples\tests\phpinfo.php"
-   phpinfo()
-   PHP Version => 7.2.11
-
-   System => Windows NT DESKTOP-528I5CU 10.0 build 17134 (Windows 10) AMD64
-   Build Date => Oct 10 2018 01:57:32
-   Compiler => MSVC15 (Visual C++ 2017)
-   Architecture => x64
-   Configure Command => cscript /nologo configure.js  "--enable-snapshot-build" "--enable-debug-pack" "--with-pdo-oci=c:\php-snap-build\deps_aux\oracle\x64\instantclient_12_1\sdk,shared" "--with-oci8-12c=c:\php-snap-build\deps_aux\oracle\x64\instantclient_12_1\sdk,shared" "--enable-object-out-dir=../obj/" "--enable-com-dotnet=shared" "--without-analyzer" "--with-pgo"
-   Server API => Command Line Interface
-   Virtual Directory Support => enabled
-   Configuration File (php.ini) Path => C:\windows
-   Loaded Configuration File => C:\myprograms\laragon-lite\bin\php\php-7.2.11-Win32-VC15-x64\php.ini
-   Scan this dir for additional .ini files => (none)
-   Additional .ini files parsed => (none)
-   …
-   Done.
-
-La fonction **[phpinfo]** affiche ici plus de 800 lignes de
-configuration. Nous n’allons pas les commenter car la plupart concerne
-un usage avancé de PHP. Une ligne importante est la ligne 13 ci-dessus :
-elle indique quel fichier **[php.ini]** a été utilisé pour configurer le
-PHP que vous allez utiliser pour exécuter vos scripts. Si vous souhaitez
-modifier la configuration d’exécution de PHP, c’est ce fichier qu’il
-vous faut modifier. De nombreux commentaires sont présents dans ce
-fichier pour expliquer le rôle des différentes configurations.
-
-Un premier exemple
-------------------
-
-Le code
-~~~~~~~
-
-Ci-dessous, on trouvera un programme **[bases-01.php]** présentant les
-premières caractéristiques de PHP.
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // ceci est un commentaire
-   // variable utilisée sans avoir été déclarée
-   $nom = "dupont";
-   // un affichage écran
-   print "nom=$nom\n";
-   // un tableau avec des éléments de type différent
-   $tableau = array("un", "deux", 3, 4);
-   // son nombre d'éléments
-   $n = count($tableau);
-   // une boucle
-   for ($i = 0; $i < $n; $i++) {
-     print "tableau[$i]=$tableau[$i]\n";
-   }
-   // initialisation de 2 variables avec le contenu d'un tableau
-   list($chaine1, $chaine2) = array("chaine1", "chaine2");
-   // concaténation des 2 chaînes
-   $chaine3 = $chaine1 . $chaine2;
-   // affichage résultat
-   print "[$chaine1,$chaine2,$chaine3]\n";
-   // utilisation fonction
-   affiche($chaine1);
-   // le type d'une variable peut être connu
-   afficheType("n", $n);
-   afficheType("chaine1", $chaine1);
-   afficheType("tableau", $tableau);
-   // le type d'une variable peut changer en cours d'exécution
-   $n = "a changé";
-   afficheType("n", $n);
-   // une fonction peut rendre un résultat
-   $res1 = f1(4);
-   print "res1=$res1\n";
-   // une fonction peut rendre un tableau de valeurs
-   list($res1, $res2, $res3) = f2();
-   print "(res1,res2,res3)=[$res1,$res2,$res3]\n";
-   // on aurait pu récupérer ces valeurs dans un tableau
-   $t = f2();
-   for ($i = 0; $i < count($t); $i++) {
-     print "t[$i]=$t[$i]\n";
-   }
-   // des tests
-   for ($i = 0; $i < count($t); $i++) {
-     // n'affiche que les chaînes
-     if (getType($t[$i]) === "string") {
-       print "t[$i]=$t[$i]\n";
-     }
-   }
-   // opérateurs de comparaison == et ===
-   if("2"==2){
-     print "avec l'opérateur ==, la chaîne 2 est égale à l'entier 2\n";
-   }else{
-     print "avec l'opérateur ==, la chaîne 2 n'est pas égale à l'entier 2\n";
-   }
-   if("2"===2){
-     print "avec l'opérateur ===, la chaîne 2 est égale à l'entier 2\n";
-   }
-   else{
-     print "avec l'opérateur ===, la chaîne 2 n'est pas égale à l'entier 2\n";
-   }
-   // d'autres tests
-   for ($i = 0; $i < count($t); $i++) {
-     // n'affiche que les entiers >10
-     if (getType($t[$i]) === "integer" and $t[$i] > 10) {
-       print "t[$i]=$t[$i]\n";
-     }
-   }
-   // une boucle while
-   $t = [8, 5, 0, -2, 3, 4];
-   $i = 0;
-   $somme = 0;
-   while ($i < count($t) and $t[$i] > 0) {
-     print "t[$i]=$t[$i]\n";
-     $somme += $t[$i];   //$somme=$somme+$t[$i]
-     $i++;               //$i=$i+1
-   }//while
-   print "somme=$somme\n";
-
-   // fin programme
-   exit;
-
-   //----------------------------------
-   function affiche($chaine) {
-     // affiche $chaine
-     print "chaine=$chaine\n";
-   }
-
-   //affiche
-   //----------------------------------
-   function afficheType($name, $variable) {
-     // affiche le type de $variable
-     print "type[variable $" . $name . "]=" . getType($variable) . "\n";
-   }
-
-   //afficheType
-   //----------------------------------
-   function f1($param) {
-     // ajoute 10 à $param
-     return $param + 10;
-   }
-
-   //----------------------------------
-   function f2() {
-     // rend 3 valeurs
-     return array("un", 0, 100);
-   }
-   ?>
-
-**Les résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   nom=dupont
-   tableau[0]=un
-   tableau[1]=deux
-   tableau[2]=3
-   tableau[3]=4
-   [chaine1,chaine2,chaine1chaine2]
-   chaine=chaine1
-   type[variable $n]=integer
-   type[variable $chaine1]=string
-   type[variable $tableau]=array
-   type[variable $n]=string
-   res1=14
-   (res1,res2,res3)=[un,0,100]
-   t[0]=un
-   t[1]=0
-   t[2]=100
-   t[0]=un
-   avec l'opérateur ==, la chaîne 2 est égale à l'entier 2
-   avec l'opérateur ===, la chaîne 2 n'est pas égale à l'entier 2
-   t[2]=100
-   t[0]=8
-   t[1]=5
-   somme=13
-
-**Commentaires**
-
--  ligne 5 : en PHP, on ne déclare pas le type des variables. Celles-ci
-   ont un type dynamique qui peut varier au cours du temps. $\ **nom**
-   représente la variable d'identifiant *nom ;*
-
--  ligne 7 : pour écrire à l'écran, on peut utiliser l'instruction
-   *print* ou l'instruction *echo ;*
-
--  ligne 9 : le mot clé *array* permet de définir un tableau. La
-   variable *$nom\ *\ **[$i]** représente l'élément *$i* du tableau
-   *$tableau ;*
-
--  ligne 11 : la fonction *count($tableau)* rend le nombre d'éléments du
-   tableau *$tableau* ;
-
--  lignes 13-15 : une boucle. Celle-ci n’ayant qu’une instruction, les
-   accolades sont alors facultatives. Dans la suite de ce document, nous
-   mettrons systématiquement les accolades quelque soit le nombre
-   d’instructions ;
-
--  ligne 14 : les chaînes de caractères sont entourées de guillemets "
-   ou d'apostrophes '. A l'intérieur de guillemets, les variables
-   $\ *variable* sont évaluées mais pas à l'intérieur d'apostrophes ;
-
--  ligne 17 : la fonction *list* permet de rassembler des variables dans
-   une liste et de leur attribuer une valeur avec une unique opération
-   d'affectation. Ici *$chaine1="chaine1"* et *$chaine2="chaine2*" ;
-
--  ligne 19 : l'opérateur . est l'opérateur de concaténation de
-   chaînes ;
-
--  lignes 83-86 : le mot clé *function* définit une fonction. Une
-   fonction rend ou non des valeurs par l'instruction *return*. Le code
-   appelant peut ignorer ou récupérer les résultats d'une fonction. Une
-   fonction peut être définie n'importe où dans le code.
-
--  ligne 92 : la fonction prédéfinie *getType($variable)* rend une
-   chaîne de caractères représentant le type de *$variable*. Ce type
-   peut changer au cours du temps ;
-
--  ligne 45 : l’opérateur === compare deux éléments de façon stricte :
-   il faut qu’ils aient le **même type** pour être comparés. L’opérateur
-   == est moins strict : deux éléments peuvent être égaux **sans être du
-   même type**. C’est ce que montrent les instructions des lignes 50-60.
-   Dans le cas de l’opérateur ==, la comparaison se fait après
-   transtypage des deux éléments comparés dans un même type. Des
-   conversions implicites ont alors lieu. Il est assez facile
-   « d’oublier » la présence de ces conversions implicites et d’aboutir
-   ainsi à des résultats imprévus, tels que de découvrir qu’une
-   condition est vraie alors que vous l’attendiez fausse. Pour éviter
-   cet écueil, nous utiliserons systématiquement l’opérateur de
-   compraison === ;
-
--  ligne 64 : on peut utiliser également les opérateurs booléens **or**
-   et **! ;**
-
--  ligne 69 : à la place de la notation **array()**, on peut utiliser la
-   notation **[]** pour initialiser un tableau depuis PHP7 ;
-
--  ligne 80 : la fonction prédéfinie *exit* arrête l’exécution du
-   script ;
-
--  ligne 107 : la balise **?>** signale la fin du script PHP. Elle n’est
-   pas indispensable. De plus, dans un contexte web, elle peut poser
-   problème si elle est suivie par des espaces ou des marques de fin de
-   ligne, difficiles à détecter car non visibles dans un éditeur de
-   texte. Aussi dans la suite du document, nous omettrons
-   systématiquement cette balise ;
-
-**Note** : dans ce document, nous utiliserons le mot clé **[print]**
-pour afficher du texte sur la console. Une autre méthode pour faire la
-même chose est d’utiliser le mot clé **[echo]**. Il y a de subtiles
-différences entre ces deux mots clés, mais dans le contexte de ce
-document il n’y en aura aucune. Si donc vous préférez utiliser
-**[echo]**, alors faites-le.
-
-Usage de Netbeans
-~~~~~~~~~~~~~~~~~
-
-Netbeans émet divers avertissements qu’il est utile de vérifier. Prenons
-l’exemple du script **[bases-01.php]** :
-
-|image1|
-
-A la ligne 5, Netbeans émet un avertissement comme quoi le fichier ne
-respecte pas la recommandation PSR-1 (PHP Standard Recommendations n°
-1). Les PSR sont des recommandations pour produire un code standard et
-ainsi faciliter l’interopérabilité et la maintenance de codes écrits par
-différentes personnes. Il peut être ennuyeux d’avoir des avertissements
-si on veut transgresser délibérément les standards, parce que par
-exemple l’équipe du projet en a d’autres. Ce que l’on souhaite vérifier
-ou pas avec Netbeans est configurable :
-
-|image2|
-
--  en **[5]**, on trouve les éléments que l’on veut contrôler avec
-   Netbeans ;
-
--  en **[6]**, le niveau de sévérité assigné à l’erreur signalée par
-   Netbeans ;
-
-|image3|
-
-On voit en **[7]** qu’on a demandé à contrôler que le code suit bien les
-recommandations PSR-0 et PSR-1. Il n’y a rien d’obligatoire. En phase
-d’apprentissage du langage, ll est conseillé de contrôler le maximum
-d’options proposées par Netbeans. On apprend ainsi beaucoup de choses.
-On adaptera ensuite ce contrôle de Netbeans aux normes de codage de
-l’équipe d’un projet.
-
-Voyons les normes de codage PSR-1 **[8, 9]** :
-
-+----------------------------------+----------------------------------+
-| **Option**                       | **Contrôle**                     |
-+==================================+==================================+
-| 1. **Class Constant              | Class constants MUST be declared |
-|    Declaration**                 | in all upper case with           |
-|                                  | underscore separators.           |
-|                                  |                                  |
-|                                  | Ex : *const TAUX_TVA*            |
-+----------------------------------+----------------------------------+
-| 2. **Method Declaration**        | Method names MUST be declared in |
-|                                  | camelCase().                     |
-|                                  |                                  |
-|                                  | Ex : *public function            |
-|                                  | executeBatchImpots{}*            |
-+----------------------------------+----------------------------------+
-| 3. **Property Name**             | Property names SHOULD be         |
-|                                  | declared in $StudlyCaps,         |
-|                                  | $camelCase, or $under_score      |
-|                                  | format (consistently in a scope) |
-|                                  |                                  |
-|                                  | Ex : *public SalaireAnnuel*      |
-|                                  | (StudlyCaps), *public            |
-|                                  | salaireAnnuel* (camelCase),      |
-|                                  | *public salaire_annuel*          |
-|                                  | (under_score)                    |
-+----------------------------------+----------------------------------+
-| 4. **Side Effects**              | A file SHOULD declare new        |
-|                                  | symbols and cause no other side  |
-|                                  | effects, or it SHOULD execute    |
-|                                  | logic with side effects, but     |
-|                                  | SHOULD NOT do both.              |
-+----------------------------------+----------------------------------+
-| 5. **Type Declaration**          | Type names MUST be declared in   |
-|                                  | StudlyCaps (Code written for     |
-|                                  | 5.2.x and before SHOULD use the  |
-|                                  | pseudonamespacing convention of  |
-|                                  | Vendor\_ prefixes on type        |
-|                                  | names). Each type is in a file   |
-|                                  | by itself, and is in a namespace |
-|                                  | of at least one level: a         |
-|                                  | top-level vendor name.           |
-|                                  |                                  |
-|                                  | Ex : *class EtudiantBoursier {}* |
-+----------------------------------+----------------------------------+
-
-La recommandation PSR-1 / 4 dit que dans un fichier PHP, on doit
-trouver :
-
--  soit la déclaration d’un type (classes, interface) ;
-
--  soit du code exécutable sans déclaration de nouveaux types ;
-
-Il existe d’autres recommandations PHP non contrôlées par Netbeans :
-PSR-3, PSR-4, PSR-6, PSR-7 et PSR-13.
-
-Par facilité, les exemples du document ne vérifient pas tous la
-recommandation PSR-1 car cela oblige à dispatcher le code des classes et
-interfaces dans des fichiers séparés, ce qui est trop lourd pour des
-exemples basiques. Il est alors plus facile de tout mettre dans un
-fichier. Pour l’exemple de l’application présentée comme fil rouge de ce
-document, on a cherché à observer au mieux la recommandation PSR-1.
-
-Certains avertissements de Netbeans signalent une erreur potentielle :
-
-|image4|
-
-L’avertissement **[Unitialized Variables]** signale une erreur probable,
-souvent une erreur de frappe sur le nom d’une variable. Il en est de
-même pour l’avertissement **[Unused Variables]**.
-
-Finalement, il est conseillé de vérifier tous les avertissements de
-Netbeans signalés par un panneau dans la marge gauche du code et un
-tiret jaune dans la marge droite :
-
 |image5|
 
-|image6|
+Version 1
+---------
 
-La portée des variables
------------------------
+L’algorithme
+~~~~~~~~~~~~
 
-Exemple 1
-~~~~~~~~~
+Nous présentons un premier programme où :
 
-Le script **[bases-02.php]** est le suivant :
+-  les données nécessaires au calcul de l'impôt sont codées en dur dans
+   le code sous forme de tableaux et de constantes ;
 
-.. code-block:: php 
-   :linenos:
+-  les données des contribuables (marié, enfants, salaire) sont dans un
+   premier fichier texte **[taxpayersdata.txt]** ;
 
-   <?php
+-  les résultats du calcul de l'impôt (marié, enfants, salaire, impôt)
+   sont mémorisés dans un second fichier texte **[resultats.txt]** ;
 
-   // portée des variables
-
-   function f1() {
-     // on utilise la variable globale $i
-     global $i;
-     $i++;
-     $j = 10;
-     print "f1[i,j]=[$i,$j]\n";
-   }
-
-   function f2() {
-     // on utilise la variable globale $i
-     global $i;
-     $i++;
-     $j = 20;
-     print "f2[i,j]=[$i,$j]\n";
-   }
-
-   function f3() {
-     // on utilise une variable locale $i
-     $i = 4;
-     $j = 30;
-     print "f3[i,j]=[$i,$j]\n";
-   }
-
-   // tests
-   $i = 0;
-   $j = 0;  // ces deux variables ne sont connues d'une fonction f
-   // que si celle-ci déclare explicitement par l'instruction global
-   // qu'elle veut les utiliser
-   f1();
-   f2();
-   f3();
-   print "test[i,j]=[$i,$j]\n";
-
-**Les résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   f1[i,j]=[1,10]
-   f2[i,j]=[2,20]
-   f3[i,j]=[4,30]
-   test[i,j]=[2,0]
-
-**Commentaires**
-
--  lignes 29-30 : définissent 2 variables *$i* et *$j* du programme
-   principal. Ces variables ne sont pas connues à l'intérieur des
-   fonctions. Ainsi, ligne 9, la variable *$j* de la fonction *f1* est
-   une variable **locale** à la fonction *f1* et est différente de la
-   variable *$j* du programme principal. Une fonction peut accéder à une
-   variable *$variable* du programme principal via le mot clé
-   **global ;**
-
--  ligne 7, l’instruction désigne la variable globale *$i* du programme
-   principal ;
-
-   1. .. rubric:: Exemple 3
-         :name: exemple-3
-
-Le script **[bases-03.php]** est le suivant :
+Le script **[version-01/main.php]** est le suivant :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // la portée d'une variable est globale aux blocs de code
-   $i = 0; {
-     $i = 4;
-     $i++;
-   }
-   print "i=$i\n";
-
-**Les résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   i=5
-
-**Commentaires**
-
-Dans certains langages, une variable définie à l'intérieur d'accolades a
-la portée de celles-ci : elle n'est pas connue à l'extérieur de
-celles-ci. Les résultats ci-dessus montrent qu'il n'en est rien en PHP.
-La variable $i définie ligne 5 à l'intérieur des accolades est la même
-que celle utilisée lignes 4 et 8 à l'extérieur de celles-ci.
-
-Les changements de types
-------------------------
-
-Les variables en PHP n’ont pas un type constant. Celui-ci peut changer
-en cours d’exécution selon la valeur affectée à la variable. Dans des
-opérations impliquant des données de divers types, l’interpréteur PHP
-fait des conversions implicites pour ramener les opérandes dans un type
-commun. Ces conversions implicites, si elles ne sont pas connues du
-développeur, peuvent être une source d’erreurs difficiles à repérer. On
-présente ci-dessous, un script **[bases-04.php]** montrant des
-conversions implicites et explicites :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // types stricts dans le passage des paramètres
+   // types stricts pour les paramètres de fonctions
    declare(strict_types=1);
 
-   // changements implicites de types
-   // type -->bool
-   print "Conversion vers un booléen------------------------------\n";
-   showBool("abcd", "abcd");
-   showBool("", "");
-   showBool("[1, 2, 3]", [1, 2, 3]);
-   showBool("[]", []);
-   showBool("NULL", NULL);
-   showBool("0.0", 0.0);
-   showBool("0", 0);
-   showBool("4.6", 4.6);
-
-   function showBool(string $prefixe, $var) : void {
-     print "(bool) $prefixe : ";
-     // la conversion de $var en booléen se fait automatiquement dans le test qui suit
-     if ($var) {
-       print "true";
-     } else {
-       print "false";
-     }
-     print "\n";
-   }
-
-**Commentaires**
-
--  ligne 4 : demande une vérification stricte du type des paramètres
-   d’une fonction lorsque celui-ci est précisé ;
-
--  ligne 18 : la fonction **[showBool]** a pour but de montrer la
-   transformation implicite (automatique) que fait l’interpréteur PHP
-   lorsqu’une valeur de tout type doit être transformée en booléen
-   (ligne 21) ;
-
--  ligne 18 : la paramètre $var n’a pas de type assigné. Le paramètre
-   effectif pourra donc être de tout type. Le paramètre $\ *prefixe* lui
-   devra être de type **string**. La fonction *showBool* ne rend aucune
-   valeur (**void**) ;
-
--  ligne 21 : dans l’instruction **if($var)**, la valeur de $var doit
-   être transformée en booléen pour que le *if* soit évalué. De façon
-   étonnante l’interpréteur PHP a une réponse pour tout type de valeur
-   qu’on lui donne ;
-
--  lignes 9-16 : la valeur du paramètre de la fonction **[showBool]**
-   sera successivement :
-
-   -  ligne 9 : une chaîne non vide : résultat TRUE (la casse n’est pas
-      importante, TRUE=true) ;
-
-   -  ligne 10 : une chaîne vide : résultat FALSE ;
-
-   -  ligne 11 : un tableau non vide : résultat TRUE ;
-
-   -  ligne 12 : un tableau vide : résultat FALSE ;
-
-   -  ligne 14 : le nombre réel 0 : résultat FALSE ;
-
-   -  ligne 15 : le nombre entier 0 : résultat FALSE ;
-
-   -  ligne 16 : le nombre réel (ou entier) différent de 0 : résultat
-      TRUE ;
-
-C’est ce que montrent les affichages écrans obtenus :
-
-.. code-block:: php 
-   :linenos:
-
-   Conversion vers un booléen------------------------------
-   (bool) abcd : true
-   (bool)  : false
-   (bool) [1, 2, 3] : true
-   (bool) [] : false
-   (bool) NULL : false
-   (bool) 0.0 : false
-   (bool) 0 : false
-   (bool) 4.6 : true
-
-Continuons le code du script :
-
-.. code-block:: php 
-   :linenos:
-
-
-   // changements implicites de type string vers un type numérique
-   // string --> nombre
-   print "Conversion chaîne vers nombre------------------------------\n";
-   showNumber("12");
-   showNumber("45.67");
-   showNumber("abcd");
-
-   function showNumber(string $var) : void {
-     $nombre = $var + 1;
-     var_dump($nombre);
-     print "($var): $nombre\n";
-   }
-
-**Commentaires**
-
--  ligne 9 : la fonction **[showNumber]** admet un paramètre de type
-   **string** et ne rend pas de résultat (**void**) ;
-
--  ligne 10 : ce paramètre est utilisé dans une opération arithmétique,
-   ce qui va forcer l’interpréteur PHP à essayer de transformer $var en
-   nombre ;
-
-   -  ligne 5 : va transformer la chaîne “12” en nombre entier 12 ;
-
-   -  ligne 6 : va transformer la chaîne “45.67” en nombre réel 45.67 ;
-
-   -  ligne 7 : va émettre un avertissement mais va quand même
-      transformer la chaîne “abcd” en nombre 0 ;
-
-Voici les résultats de l’exécution :
-
-.. code-block:: php 
-   :linenos:
-
-   Conversion chaîne vers nombre------------------------------
-   int(13)
-   (12): 13
-   float(46.67)
-   (45.67): 46.67
-
-   Warning: A non-numeric value encountered in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_031.php on line 37
-   int(1)
-   (abcd): 1
-
-Continuons le code du script :
-
-.. code-block:: php 
-   :linenos:
-
-   // changements explicites de type
-   // vers int
-   showInt("12.45");
-   showInt(67.8);
-   showInt(TRUE);
-   showInt(NULL);
-
-   function showInt($var) : void {
-     print "paramètre : ";
-     var_dump($var);
-     print "\n";
-     print "résultat de la conversion : ";
-     var_dump((int) $var);
-     print "\n";
-   }
-
-**Commentaires**
-
--  ligne 21 : la fonction **[showInt]** reçoit un paramètre de n’importe
-   quel type et ne rend pas de résultat. Elle essaie de convertir le
-   paramètre $\ *var* en entier ligne 26. De façon générale, pour
-   changer une variable $\ *var* en un type T, on écrit **(T) $var** où
-   **T** peut être : **int, integer, bool, boolean, float, double, real,
-   string, array, object, unset** ;
-
--  ligne 16 : convertit la chaîne “12.45” en entier 12 ;
-
--  ligne 17 : convertit le réel 67.8 en entier 67 ;
-
--  ligne 18 : convertit le booléen TRUE en l’entier 1 (le booléen FALSE
-   en l’entier 0) ;
-
--  ligne 19 : convertit le pointeur NULL en entier 0 ;
-
-C’est ce que montrent les affichages écran :
-
-.. code-block:: php 
-   :linenos:
-
-   paramètre : string(5) "12.45"
-
-   résultat de la conversion : int(12)
-
-   paramètre : float(67.8)
-
-   résultat de la conversion : int(67)
-
-   paramètre : bool(true)
-
-   résultat de la conversion : int(1)
-
-   paramètre : NULL
-
-   résultat de la conversion : int(0)
-
-Nous continuons l’étude du script avec la conversion explicite de
-valeurs en type **float** :
-
-.. code-block:: php 
-   :linenos:
-
-   // vers float
-   showFloat("12.45");
-   showFloat(67);
-   showFloat(TRUE);
-   showFloat(NULL);
-
-   function showFloat($var) : void {
-     print "paramètre : ";
-     var_dump($var);
-     print "\n";
-     print "résultat de la conversion : ";
-     var_dump((float) $var);
-     print "\n";
-   }
-
-**Commentaires**
-
--  ligne 35 : la fonction **[showFloat]** reçoit un paramètre de type
-   quelconque et ne rend pas de résultat ;
-
--  ligne 40 : la valeur de ce paramètre est transformée explicitement en
-   *float* ;
-
--  ligne 30 : la chaîne “12.45” est transformée en le nombre réel
-   12.45 ;
-
--  ligne 31 : l’entier 67 est transformée en le nombre réel 67 ;
-
--  ligne 32 : le booléen TRUE est transformé en le nombre réel 1 (la
-   valeur FALSE en le nombre 0) ;
-
--  ligne 33 : le pointeur NULL est transformé en le nombre réel 0 ;
-
-C’est ce montrent les résultats écran :
-
-.. code-block:: php 
-   :linenos:
-
-   paramètre : string(5) "12.45"
-
-   résultat de la conversion : float(12.45)
-
-   paramètre : int(67)
-
-   résultat de la conversion : float(67)
-
-   paramètre : bool(true)
-
-   résultat de la conversion : float(1)
-
-   paramètre : NULL
-
-   résultat de la conversion : float(0)
-
-Nous continuons la présentation du script en étudiant des conversions
-vers le type **string** :
-
-.. code-block:: php 
-   :linenos:
-
-   // vers string
-   showstring(5);
-   showString(6.7);
-   showString(FALSE);
-   showString(NULL);
-
-   function showString($var) : void {
-     print "paramètre : ";
-     var_dump($var);
-     print "\n";
-     print "résultat de la conversion : ";
-     var_dump((string) $var);
-     print "\n";
-   }
-
--  ligne 49 : la fonction **[showString]** reçoit un paramètre de type
-   quelconque et ne rend pas de résultat ;
-
--  ligne 54 : la valeur du paramètre est transformée en un type
-   **string** ;
-
--  ligne 44 : l’entier 5 sera transformé en la chaîne « 5 » ;
-
--  ligne 45 : le réel 6.7 sera transformé en la chaîne « 6.7 » ;
-
--  ligne 46 : le booléen FALSE sera ransformé en chaîne vide ;
-
--  ligne 47 : le pointeur NULL sera transformé en chaîne vide ;
-
-Voici les résultats écran :
-
-.. code-block:: php 
-   :linenos:
-
-   paramètre : int(5)
-
-   résultat de la conversion : string(1) "5"
-
-   paramètre : float(6.7)
-
-   résultat de la conversion : string(3) "6.7"
-
-   paramètre : bool(false)
-
-   résultat de la conversion : string(0) ""
-
-   paramètre : NULL
-
-   résultat de la conversion : string(0) ""
-
-Les tableaux
-------------
-
-Tableaux classiques à une dimension
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Le script **[bases-05.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // tableaux classiques
-   // initialisation
-   $tab1 = array(0, 1, 2, 3, 4, 5);
-   // parcours - 1
-   print "tab1 a " . count($tab1) . " éléments\n";
-   for ($i = 0; $i < count($tab1); $i++) {
-       print "tab1[$i]=$tab1[$i]\n";
-   }
-   // parcours - 2
-   print "tab1 a " . count($tab1) . " éléments\n";
-   reset($tab1);
-   while (list($clé, $valeur) = each($tab1)) {
-       print "tab1[$clé]=$valeur\n";
-   }
-   // ajout d'éléments
-   $tab1[] = $i++;
-   $tab1[] = $i++;
-   // parcours - 3
-   print "tab1 a " . count($tab1) . " éléments\n";
-   $i = 0;
-   foreach ($tab1 as $élément) {
-     print "tab1[$i]=$élément\n";
-     $i++;
-   }
-   // suppression dernier élément
-   array_pop($tab1);
-   // parcours - 4
-   print "tab1 a " . count($tab1) . " éléments\n";
-   for ($i = 0; $i < count($tab1); $i++) {
-       print "tab1[$i]=$tab1[$i]\n";
-   }
-   // suppression premier élément
-   array_shift($tab1);
-   // parcours - 5
-   print "tab1 a " . count($tab1) . " éléments\n";
-   for ($i = 0; $i < count($tab1); $i++) {
-       print "tab1[$i]=$tab1[$i]\n";
-   }
-   // ajout en fin de tableau
-   array_push($tab1, -2);
-   // parcours - 6
-   print "tab1 a " . count($tab1) . " éléments\n";
-   for ($i = 0; $i < count($tab1); $i++) {
-       print "tab1[$i]=$tab1[$i]\n";
-   }
-   // ajout en début de tableau
-   array_unshift($tab1, -1);
-   // parcours - 7
-   print "tab1 a " . count($tab1) . " éléments\n";
-   for ($i = 0; $i < count($tab1); $i++) {
-       print "tab1[$i]=$tab1[$i]\n";
-   }
-
-**Les résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   tab1 a 6 éléments
-   tab1[0]=0
-   tab1[1]=1
-   tab1[2]=2
-   tab1[3]=3
-   tab1[4]=4
-   tab1[5]=5
-   tab1 a 6 éléments
-
-   Deprecated: The each() function is deprecated. This message will be suppressed on further calls in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_04.php on line 14
-   tab1[0]=0
-   tab1[1]=1
-   tab1[2]=2
-   tab1[3]=3
-   tab1[4]=4
-   tab1[5]=5
-   tab1 a 8 éléments
-   tab1[0]=0
-   tab1[1]=1
-   tab1[2]=2
-   tab1[3]=3
-   tab1[4]=4
-   tab1[5]=5
-   tab1[6]=6
-   tab1[7]=7
-   tab1 a 7 éléments
-   tab1[0]=0
-   tab1[1]=1
-   tab1[2]=2
-   tab1[3]=3
-   tab1[4]=4
-   tab1[5]=5
-   tab1[6]=6
-   tab1 a 6 éléments
-   tab1[0]=1
-   tab1[1]=2
-   tab1[2]=3
-   tab1[3]=4
-   tab1[4]=5
-   tab1[5]=6
-   tab1 a 7 éléments
-   tab1[0]=1
-   tab1[1]=2
-   tab1[2]=3
-   tab1[3]=4
-   tab1[4]=5
-   tab1[5]=6
-   tab1[6]=-2
-   tab1 a 8 éléments
-   tab1[0]=-1
-   tab1[1]=1
-   tab1[2]=2
-   tab1[3]=3
-   tab1[4]=4
-   tab1[5]=5
-   tab1[6]=6
-   tab1[7]=-2
-
-**Commentaires**
-
-Le programme ci-dessus montre des opérations de manipulation d'un
-tableau de valeurs. Il existe deux notations pour les tableaux en PHP :
-
-.. code-block:: php 
-   :linenos:
-
-   $tableau=array("un",2,"trois")
-   $contraires=array("petit"=>"grand", "beau"=>"laid", "cher"=>"bon marché")
-
-Le tableau 1 est appelé **tableau** et le tableau 2 un **dictionnaire**
-ou **tableau associatif** où les éléments sont notés **clé => valeur**.
-La notation *$contraires\ *\ **["beau"]** désigne la valeur associée à
-la clé "beau". C'est donc ici la chaîne "laid". Le tableau 1 n'est
-qu'une variante du dictionnaire et pourrait être noté :
-
-.. code-block:: php 
-   :linenos:
-
-   $tableau=array(0=>"un",1=>2,2=>"trois")
-
-On a ainsi *$tableau\ *\ **[2]**\ *\ ="trois"*. Finalement, il n'y a que
-des dictionnaires. Dans le cas d'un tableau classique de *n* éléments,
-les clés sont les nombres entiers de l'intervalle **[0,n-1]**.
-
--  ligne 14 : la fonction *each($tableau)* permet de parcourir un
-   dictionnaire. A chaque appel, elle rend une paire (clé,valeur) de
-   celui-ci. Comme le montre la ligne 10 des résultats, la fonction
-   **each** est désormais **obsolète** dans PHP 7 ;
-
--  ligne 13 : la fonction *reset($dictionnaire)* positionne la fonction
-   *each* sur la première paire (clé,valeur) du dictionnaire.
-
--  ligne 14 : la boucle *while* s'arrête lorsque la fonction *each* rend
-   une paire vide à la fin du dictionnaire. C’est une conversion
-   implicite qui agit ici : la paire vide est convertie en le booléen
-   FALSE ;
-
--  ligne 18 : la notation *$tableau[]=valeur* ajoute l'élément *valeur*
-   comme dernier élément de *$tableau ;*
-
--  ligne 23 : le tableau est parcouru avec un *foreach*. Cet élément
-   syntaxique permet de parcourir un dictionnaire, donc un tableau,
-   selon deux syntaxes :
-
-.. code-block:: php 
-   :linenos:
-
-   foreach($dictionnaire as $clé=>$valeur)
-   foreach($tableau as $valeur)
-
-..
-
-   La première syntaxe ramène une paire (*clé,valeur*) à chaque
-   itération alors que la seconde syntaxe ne ramène que l'élément
-   *valeur* du dictionnaire.
-
--  ligne 28 : la fonction *array_pop($tableau)* supprime le dernier
-   élément de $\ *tableau ;*
-
--  ligne 35 : la fonction *array_shift($tableau)* supprime le premier
-   élément de $\ *tableau ;*
-
--  ligne 42 : la fonction *array_push($tableau,valeur)* ajoute *valeur*
-   comme dernier élément de $\ *tableau ;*
-
--  ligne 49 : la fonction *array_unshift($tableau,valeur)* ajoute
-   *valeur* comme premier élément de $\ *tableau ;*
-
-   1. .. rubric:: Le dictionnaire ou tableau associatif
-         :name: le-dictionnaire-ou-tableau-associatif
-
-Le script **[bases-06.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // dictionnaires
-   $conjoints = ["Pierre" => "Gisèle", "Paul" => "Virginie", "Jacques" => "Lucette", "Jean" => ""];
-   // parcours - 1
-   print "Nombre d'éléments du dictionnaire : " . count($conjoints) . "\n";
-   reset($conjoints);
-   while (list($clé, $valeur) = each($conjoints)) {
-       print "conjoints[$clé]=$valeur\n";
-   }
-   // tri du dictionnaire sur la clé
-   ksort($conjoints);
-   // parcours - 2
-   reset($conjoints);
-   while (list($clé, $valeur) = each($conjoints)) {
-       print "conjoints[$clé]=$valeur\n";
-   }
-   // liste des clés du dictionaire
-   $clés = array_keys($conjoints);
-   for ($i = 0; $i < count($clés); $i++) {
-       print "clés[$i]=$clés[$i]\n";
-   }
-   // liste des valeurs du dictionaire
-   $valeurs = array_values($conjoints);
-   for ($i = 0; $i < count($valeurs); $i++) {
-       print "valeurs[$i]=$valeurs[$i]\n";
-   }
-   // recherche d'une clé
-   existe($conjoints, "Jacques");
-   existe($conjoints, "Lucette");
-   existe($conjoints, "Jean");
-   // suppression d'une clé-valeur
-   unset($conjoints["Jean"]);
-   print "Nombre d'éléments du dictionnaire : " . count($conjoints) . "\n";
-   foreach ($conjoints as $clé => $valeur) {
-     print "conjoints[$clé]=$valeur\n";
-   }
-   // fin
-   exit;
-
-   function existe($conjoints, $mari) {
-     // vérifie si la clé $mari existe dans le dictionnaire $conjoints
-     if (isset($conjoints[$mari])) {
-           print "La clé [$mari] existe associée à la valeur [$conjoints[$mari]]\n";
-       } else {
-           print "La clé [$mari] n'existe pas\n";
-       }
-   }
-
-**Les résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   Nombre d'éléments du dictionnaire : 4
-
-   Deprecated: The each() function is deprecated. This message will be suppressed on further calls in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_05.php on line 8
-   conjoints[Pierre]=Gisèle
-   conjoints[Paul]=Virginie
-   conjoints[Jacques]=Lucette
-   conjoints[Jean]=
-   conjoints[Jacques]=Lucette
-   conjoints[Jean]=
-   conjoints[Paul]=Virginie
-   conjoints[Pierre]=Gisèle
-   clés[0]=Jacques
-   clés[1]=Jean
-   clés[2]=Paul
-   clés[3]=Pierre
-   valeurs[0]=Lucette
-   valeurs[1]=
-   valeurs[2]=Virginie
-   valeurs[3]=Gisèle
-   La clé [Jacques] existe associée à la valeur [Lucette]
-   La clé [Lucette] n'existe pas
-   La clé [Jean] existe associée à la valeur []
-   Nombre d'éléments du dictionnaire : 3
-   conjoints[Jacques]=Lucette
-   conjoints[Paul]=Virginie
-   conjoints[Pierre]=Gisèle
-
-**Commentaires**
-
-Le code précédent applique à un dictionnaire ce qui a été vu auparavant
-pour un simple tableau. Nous ne commentons que les nouveautés :
-
--  ligne 12 : la fonction *ksort (key sort)* permet de trier un
-   dictionnaire dans l'ordre naturel de la clé ;
-
--  ligne 19 : la fonction *array_keys($dictionnaire)* rend la liste des
-   clés du dictionnaire sous forme de tableau ;
-
--  ligne 24 : la fonction *array_values($dictionnaire)* rend la liste
-   des valeurs du dictionnaire sous forme de tableau ;
-
--  ligne 43 : la fonction *isset($variable)* rend TRUE si la variable
-   $\ *variable* a été définie, FALSE sinon ;
-
--  ligne 33 : la fonction *unset($variable)* supprime la variable
-   $\ *variable*.
-
-   1. .. rubric:: Les tableaux à plusieurs dimensions
-         :name: les-tableaux-à-plusieurs-dimensions
-
-Le script **[bases-07.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // tableaux classiques multidimensionnels
-   // initialisation
-   $multi = array(array(0, 1, 2), array(10, 11, 12, 13), array(20, 21, 22, 23, 24));
-   // parcours
-   for ($i1 = 0; $i1 < count($multi); $i1++) {
-     for ($i2 = 0; $i2 < count($multi[$i1]); $i2++) {
-       print "multi[$i1][$i2]=" . $multi[$i1][$i2] . "\n";
-     }
-   }
-   // dictionnaires multidimensionnels
-   // initialisation
-   $multi = array("zéro" => array(0, 1, 2), "un" => array(10, 11, 12, 13), "deux" => array(20, 21, 22, 23, 24));
-   // parcours
-   foreach ($multi as $clé => $valeur) {
-       for ($i2 = 0; $i2 < count($valeur); $i2++) {
-           print "multi[$clé][$i2]=" . $multi[$clé][$i2] . "\n";
-       }
-   }
-
-**Résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   multi[0][0]=0
-   multi[0][1]=1
-   multi[0][2]=2
-   multi[1][0]=10
-   multi[1][1]=11
-   multi[1][2]=12
-   multi[1][3]=13
-   multi[2][0]=20
-   multi[2][1]=21
-   multi[2][2]=22
-   multi[2][3]=23
-   multi[2][4]=24
-   multi[zéro][0]=0
-   multi[zéro][1]=1
-   multi[zéro][2]=2
-   multi[un][0]=10
-   multi[un][1]=11
-   multi[un][2]=12
-   multi[un][3]=13
-   multi[deux][0]=20
-   multi[deux][1]=21
-   multi[deux][2]=22
-   multi[deux][3]=23
-   multi[deux][4]=24
-
-**Commentaires**
-
--  ligne 5 : les éléments du tableau $\ *multi* sont eux-mêmes des
-   tableaux ;
-
--  ligne 14 : le tableau $\ *multi* devient un dictionnaire
-   (*clé,valeur*) où chaque *valeur* est un tableau ;
-
-Les chaînes de caractères
--------------------------
-
-Notation
-~~~~~~~~
-
-Le script **[bases-08.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // notation des chaînes
-   $chaine1 = "un";
-   $chaine2 = 'un';
-   print "[$chaine1,$chaine2]\n";
-   ?>
-
-**Résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   [un,un]
-
-Comparaison
-~~~~~~~~~~~
-
-Le script **[bases-09.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict du type des paramètres des fonctions
-   declare(strict_types=1);
-
-   // fonction de comparaison
-   function compareModele2Chaine(string $chaine1, string $chaine2): void {
-     // compare chaine1 et chaine2
-     if ($chaine1 === $chaine2) {
-       print "[$chaine1] est égal à [$chaine2]\n";
-     } else {
-       print "[$chaine1] est différent de [$chaine2]\n";
-     }
-   }
-
-   // tests de comparaisons de chaînes
-   compareModele2Chaine("abcd", "abcd");
-   compareModele2Chaine("", "");
-   compareModele2Chaine("1", "");
-   exit;
-
-**Résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   [abcd] est égal à [abcd]
-   [] est égal à []
-   [1] est différent de []
-
-**Commentaires**
-
--  ligne 9 du code : on aurait pu utiliser le comparateur == plutôt que
-   ===. Ce dernier opérateur est plus contraignant en ce sens qu’il
-   impose que les deux opérandes soient de même type. A noter qu’ici, il
-   pouvait être remplacé par l’opérateur == puisque le type des deux
-   paramètres est fixé à **string** dans la signature de la fonction ;
-
-   1. .. rubric:: Liens entre chaînes et tableaux
-         :name: liens-entre-chaînes-et-tableaux
-
-Le script **[bases-10.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // chaîne vers tableau
-   $chaine = "1:2:3:4";
-   $tab = explode(":", $chaine);
-   // parcours tableau
-   print "tab a " . count($tab) . " éléments\n";
-   for ($i = 0; $i < count($tab); $i++) {
-       print "tab[$i]=$tab[$i]\n";
-   }
-   // tableau vers chaîne
-   $chaine2 = implode(":", $tab);
-   print "chaine2=$chaine2\n";
-   // ajoutons un champ vide
-   $chaine .= ":";
-   print "chaîne=$chaine\n";
-   $tab = explode(":", $chaine);
-   // parcours tableau
-   print "tab a " . count($tab) . " éléments\n";
-   for ($i = 0; $i < count($tab); $i++) {
-       print "tab[$i]=$tab[$i]\n";
-   } // on a maintenant 5 éléments, le dernier étant vide
-   // ajoutons de nouveau un champ vide
-   $chaine .= ":";
-   print "chaîne=$chaine\n";
-   $tab = explode(":", $chaine);
-   // parcours tableau
-   print "tab a " . count($tab) . " éléments\n";
-   for ($i = 0; $i < count($tab); $i++) {
-       print "tab[$i]=$tab[$i]\n";
-   } // on a maintenant 6 éléments, les deux derniers étant vides
-
-**Résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   tab a 4 éléments
-   tab[0]=1
-   tab[1]=2
-   tab[2]=3
-   tab[3]=4
-   chaine2=1:2:3:4
-   chaîne=1:2:3:4:
-   tab a 5 éléments
-   tab[0]=1
-   tab[1]=2
-   tab[2]=3
-   tab[3]=4
-   tab[4]=
-   chaîne=1:2:3:4::
-   tab a 6 éléments
-   tab[0]=1
-   tab[1]=2
-   tab[2]=3
-   tab[3]=4
-   tab[4]=
-   tab[5]=
-
-**Commentaires**
-
--  ligne 5 : la fonction *explode($séparateur,$chaine)* permet de
-   récupérer les champs de $\ *chaine* séparés par $\ *séparateur*.
-   Ainsi *explode(":",$chaine)* permet de récupérer sous forme de
-   tableau les éléments de $\ *chaine* qui sont séparés par la chaîne
-   ":" ;
-
--  ligne 12 : la fonction *implode*\ ($séparateur,$tableau) fait
-   l'opération inverse de la fonction *explode*. Elle rend une chaîne de
-   caractères formée des éléments de $\ *tableau* séparés par
-   $\ *séparateur ;*
-
-   1. .. rubric:: Les expressions régulières
-         :name: les-expressions-régulières
-
-Le script **[bases-11.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // type strict pour les paramètres de fonctions
-   declare (strict_types=1);
-
-   // expressions régulières en php
-   // récupérer les différents champs d'une chaîne
-   // le modèle : une suite de chiffres entourée de caractères quelconques
-   // on ne veut récupérer que la suite de chiffres
-   $modèle = "/(\d+)/";
-   // on confronte la chaîne au modèle
-   compareModele2Chaine($modèle, "xyz1234abcd");
-   compareModele2Chaine($modèle, "12 34");
-   compareModele2Chaine($modèle, "abcd");
-
-   // le modèle : une suite de chiffres entourée de caractères quelconques
-   // on veut la suite de chiffres ainsi que les champs qui suivent et précèdent
-   $modèle = "/^(.*?)(\d+)(.*?)$/";
-   // on confronte la chaîne au modèle
-   compareModele2Chaine($modèle, "xyz1234abcd");
-   compareModele2Chaine($modèle, "12 34");
-   compareModele2Chaine($modèle, "abcd");
-
-   // le modèle - une date au format jj/mm/aa
-   $modèle = "/^\s*(\d\d)\/(\d\d)\/(\d\d)\s*$/";
-   compareModele2Chaine($modèle, "10/05/97");
-   compareModele2Chaine($modèle, "  04/04/01  ");
-   compareModele2Chaine($modèle, "5/1/01");
-
-   // le modèle - un nombre décimal
-   $modèle = "/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/";
-   compareModele2Chaine($modèle, "187.8");
-   compareModele2Chaine($modèle, "-0.6");
-   compareModele2Chaine($modèle, "4");
-   compareModele2Chaine($modèle, ".6");
-   compareModele2Chaine($modèle, "4.");
-   compareModele2Chaine($modèle, " + 4");
-
-   // fin
-   exit;
-
-   // --------------------------------------------------------------------------
-   function compareModele2Chaine(string $modèle, string $chaîne): void {
-     // compare la chaîne $chaîne au modèle $modèle
-     // on confronte la chaîne au modèle
-     $champs = [];
-     $correspond = preg_match($modèle, $chaîne, $champs);
-     // affichage résultats
-     print "\nRésultats($modèle,$chaîne)\n";
-     if ($correspond) {
-       for ($i = 0; $i < count($champs); $i++) {
-         print "champs[$i]=$champs[$i]\n";
-       }
-     } else {
-       print "La chaîne [$chaîne] ne correspond pas au modèle [$modèle]\n";
-     }
-   }
-
-**Résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   Résultats(/(\d+)/,xyz1234abcd)
-   champs[0]=1234
-   champs[1]=1234
-
-   Résultats(/(\d+)/,12 34)
-   champs[0]=12
-   champs[1]=12
-
-   Résultats(/(\d+)/,abcd)
-   La chaîne [abcd] ne correspond pas au modèle [/(\d+)/]
-
-   Résultats(/^(.*?)(\d+)(.*?)$/,xyz1234abcd)
-   champs[0]=xyz1234abcd
-   champs[1]=xyz
-   champs[2]=1234
-   champs[3]=abcd
-
-   Résultats(/^(.*?)(\d+)(.*?)$/,12 34)
-   champs[0]=12 34
-   champs[1]=
-   champs[2]=12
-   champs[3]= 34
-
-   Résultats(/^(.*?)(\d+)(.*?)$/,abcd)
-   La chaîne [abcd] ne correspond pas au modèle [/^(.*?)(\d+)(.*?)$/]
-
-   Résultats(/^\s*(\d\d)\/(\d\d)\/(\d\d)\s*$/,10/05/97)
-   champs[0]=10/05/97
-   champs[1]=10
-   champs[2]=05
-   champs[3]=97
-
-   Résultats(/^\s*(\d\d)\/(\d\d)\/(\d\d)\s*$/,  04/04/01  )
-   champs[0]=  04/04/01  
-   champs[1]=04
-   champs[2]=04
-   champs[3]=01
-
-   Résultats(/^\s*(\d\d)\/(\d\d)\/(\d\d)\s*$/,5/1/01)
-   La chaîne [5/1/01] ne correspond pas au modèle [/^\s*(\d\d)\/(\d\d)\/(\d\d)\s*$/]
-
-   Résultats(/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/,187.8)
-   champs[0]=187.8
-   champs[1]=
-   champs[2]=187.8
-
-   Résultats(/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/,-0.6)
-   champs[0]=-0.6
-   champs[1]=-
-   champs[2]=0.6
-
-   Résultats(/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/,4)
-   champs[0]=4
-   champs[1]=
-   champs[2]=4
-
-   Résultats(/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/,.6)
-   champs[0]=.6
-   champs[1]=
-   champs[2]=.6
-
-   Résultats(/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/,4.)
-   champs[0]=4.
-   champs[1]=
-   champs[2]=4.
-
-   Résultats(/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/, + 4)
-   champs[0]= + 4
-   champs[1]=+
-   champs[2]=4
-
-**Commentaires**
-
--  nous utilisons ici les expression régulières pour récupérer les
-   divers champs d'une chaîne de caractères. Les expressions régulières
-   permettent de dépasser les limites de la fonction *implode*. Le
-   principe est de comparer une chaîne de caractères à une autre chaîne
-   appelée *modèle* à l'aide de la fonction *preg_match* :
-
-.. code-block:: php 
-   :linenos:
-
-   $correspond = preg_match($modèle, $chaîne, $champs);
-
-..
-
-   La fonction *preg_match* rend un booléen TRUE si le *modèle* peut
-   être trouvé dans la *chaîne*. Si oui, $\ *champs\ *\ **[0]**
-   représente la sous-chaîne correspondant au modèle. Par ailleurs, si
-   *modèle* contient des sous-modèles entre parenthèses,
-   $\ *champs\ *\ **[1]** est le morceau de $\ *chaîne* correspondant au
-   1\ :sup:`er` sous-modèle, $\ *champs\ *\ **[2]** est le morceau de
-   $\ *chaîne* correspondant au 2\ :sup:`e` sous-modèle, etc…
-
-   Considérons le 1\ :sup:`er` exemple. Le modèle est défini ligne 10 :
-   il désigne une suite de un ou plusieurs (+) chiffres (\d) placés
-   n'importe où dans une chaîne. Par ailleurs, le modèle définit un
-   sous-modèle entouré de parenthèses ;
-
--  ligne 12 : le modèle **/(\d+)/** (suite d'un ou plusieurs chiffres
-   n'importe où dans la chaîne) est comparé à la chaîne
-   "**xyz1234abcd**". On voit que la sous-chaîne 1234 correspond au
-   modèle. On aura donc $champs\ **[0]** égal à "1234". Par ailleurs, le
-   modèle a des sous-modèles entre parenthèses. On aura
-   $champs\ **[1]**\ ="1234" ;
-
--  ligne 13 : le modèle **/(\d+)/** est comparé à la chaîne "**12 34**".
-   On voit que les sous-chaînes 12 et 34 correspondent au modèle. La
-   comparaison s'arrête à la première sous-chaîne correspondant au
-   modèle. On aura donc, $champs\ **[0]**\ =12 et
-   $champs\ **[1]**\ =12 ;
-
--  ligne 14 : le modèle **/(\d+)/** est comparé à la chaîne "**abcd**".
-   Aucune correspondance n'est trouvée ;
-
-Explicitons les modèles utilisés dans la suite du code :
-
-.. code-block:: php 
-   :linenos:
-
-   $modèle = "/^(.*?)(\d+)(.*?)$/";
-
-..
-
-   correspond à début de chaîne (^), puis 0 ou plusieurs (*) caractères
-   quelconques (.) puis 1 ou plusieurs (+) chiffres, puis de nouveau 0
-   ou plusieurs (*) caractères quelconques (.). Le modèle (.*) désigne 0
-   ou plusieurs caractères quelconques. Un tel modèle va correspondre à
-   n'importe quelle chaîne. Ainsi le modèle /^(.*)(\d+)(.*)$/ ne
-   sera-t-il jamais trouvé car le premier sous-modèle (.*) va absorber
-   toute la chaîne. Le modèle (.*?)(\d+) désigne lui 0 ou plusieurs
-   caractères quelconques **jusqu'au sous-modèle suivant (?)**, ici
-   \\d+. Donc les chiffres ne sont maintenant plus absorbés par le
-   modèle (.*). Le modèle ci-dessus correspond donc à **[début de chaîne
-   (^), une suite de caractères quelconques (.*?), une suite d'un ou
-   plusieurs chiffres (\d+), une suite de caractères quelconques (.*?),
-   la fin de la chaîne ($)]**.
-
-.. code-block:: php 
-   :linenos:
-
-   $modèle = "/^\s*(\d\d)\/(\d\d)\/(\d\d)\s*$/";
-
-..
-
-   correspond à **[début de chaîne (^), 2 chiffres (\d\d), le caractère
-   / (\/), 2 chiffres, /, 2 chiffres, une suite de 0 ou plusieurs
-   espaces (\s*), la fin de chaîne ($)]**.
-
-.. code-block:: php 
-   :linenos:
-
-   $modèle = "/^\s*([+|-]?)\s*(\d+\.\d*|\.\d+|\d+)\s*/";
-
-..
-
-   correspond à début de chaîne (^), 0 ou plusieurs espaces (\s*), un
-   signe + ou - **[+|-]** présent 0 ou 1 fois (?), une suite de 0 ou
-   plusieurs espaces (\s*), 1 ou plusieurs chiffres suivis d'un point
-   décimal suivi de zéro ou plusieurs chiffres (\d+\.\d*) ou (|) un
-   point décimal (\.) suivi d'un ou plusieurs chiffres (\d+) ou (|) un
-   ou plusieurs chiffres (\d+), une suite de 0 ou plusieurs espaces
-   (\s*)].
-
-**Note** : le terme **[espace]** dans les expressions régulières désigne
-un ensemble de caractères : blanc, saut de ligne \\n, tabulation \\t,
-retour à la ligne \\r, saut de page \\f…
-
-Les fonctions
--------------
-
-Mode de passage des paramètres
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Le script **[base-12.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // mode de pasage des paramètres d'une fonction
-   // respect strict du type des paramères
-   declare(strict_types=1);
-
-   function f(int &$i, int $j): void {
-     // $i sera obtenu par référence
-     // $j sera obtenu par valeur
-     $i++;
-     $j++;
-     print "f[i,j]=[$i,$j]\n";
-   }
-
-   // tests
-   $i = 0;
-   $j = 0;
-   // $i et $j sont passés à la fonction f
-   f($i, $j);
-   print "test[i,j]=[$i,$j]\n";
-
-**Résultats** :
-
-.. code-block:: php 
-   :linenos:
-
-   f[i,j]=[1,1]
-   test[i,j]=[1,0]
-
-**Commentaires**
-
-Le code ci-dessus montre les deux modes de passage de paramètres à une
-fonction. Prenons l'exemple suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   function f(&$a,$b){
-   …
-   }
-
-   // programme principal
-   $i=10; $j=20;
-   f($i,$j);
-
--  ligne 1 : définit les paramètres formels $a et $b de la fonction f.
-   Celle-ci manipule ces deux paramètres formels et rend un résultat ;
-
--  ligne 7 : appel de la fonction f avec deux paramètres effectifs $i et
-   $j. Les liens entre les paramètres formels ($a,$b) et les paramètres
-   effectifs ($i,$j) sont définis par les lignes 1 et 7 :
-
--  &$a : le signe **&** indique que le paramètre formel $a prendra pour
-      valeur l'adresse du paramètre effectif $i. Dit autrement, $a et $i
-      sont deux références sur un même emplacement mémoire. Manipuler le
-      paramètre formel $a revient à manipuler le paramètre effectif $i.
-      C'est ce que montre l'exécution du code. Ce mode de passage
-      convient aux paramètres de sortie et aux données volumineuses
-      telles que les tableaux et dictionnaires. On appelle ce mode
-      passage, passage par **référence**.
-
--  $b : le paramètre formel $b prendra pour valeur celle du paramètre
-      effectif $j. C'est un passage par **valeur**. Les paramètres
-      formels et effectifs sont deux variables différentes. Manipuler le
-      paramètre formel $b n'a aucune incidence sur le paramètre effectif
-      $j. C'est ce que montre l'exécution du code. Ce mode de passage
-      convient aux paramètres d'entrée.
-
--  Soit la fonction *échange* qui admet deux paramètres formels $\ *a*
-      et $\ *b*. La fonction échange la valeur de ces deux paramètres.
-      Ainsi lors d'un appel échange *($i,$j)*, le code appelant s'attend
-      à ce que les valeurs des deux paramètres effectifs soient
-      échangées. Ce sont donc des paramètres de sortie (ils sont
-      modifiés). On écrira donc :
-
-.. code-block:: php 
-   :linenos:
-
-   function échange(&$a,&$b){….}
-
-Le script suivant **[base-13.php]** montre d’autres exemples :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // types en mode strict
-   // declare(strict_types = 1);
-
-   // mode de passage des paramètres
-
-   function f(&$i, $j) {
-     // $i sera obtenu par référence
-     // $j sera obtenu par valeur
-     $i++;
-     $j++;
-     print "f[i,j]=[$i,$j]\n";
-   }
-
-   function g(int &$i, int $j) : void {
-     // $i sera obtenu par référence
-     // $j sera obtenu par valeur
-     $i++;
-     $j++;
-     print "g[i,j]=[$i,$j]\n";
-   }
-
-   // tests
-   $i = 0;
-   $j = 0;
-   // $i et $j sont passés à la fonction f
-   f($i, $j);
-   print "test[i,j]=[$i,$j]\n";
-   // $i et $j sont passés à la fonction g
-   g($i, $j);
-   print "test[i,j]=[$i,$j]\n";
-   // on passe des paramètres incorrects à f
-   $a=5.3;
-   $b=6.2;
-   f($a, $b);
-   print "test[a,b]=[$a,$b]\n";
-   // on passe des paramètres incorrects à f
-   $a=5.3;
-   $b=6.2;
-   g($a, $b);
-   print "test[a,b]=[$a,$b]\n";
-
-**Commentaires**
-
--  lignes 8-14 : la fonction **f** étudiée dans le paragraphe précédent
-   mais on n’a pas typé les paramètres ;
-
--  lignes 16-22 : la fonction **g** fait la même chose que la fonction
-   **f** mais on précise le type des paramètres attendus – c’est une
-   nouveauté PHP 7. On attend deux paramètres de type **int.** On veut
-   voir ce qui se passe lorsque le paramètre effectif passé à la
-   fonction n’a pas le type attendu par celle-ci ;
-
--  lignes 25-26 : $i et $j sont deux entiers ;
-
--  lignes 28-29 : appel de la fonction **f** avec des paramètres du type
-   attendu ;
-
--  lignes 31-32 : appel de la fonction **g** avec des paramètres du type
-   attendu ;
-
--  lignes 34-35 : les variables $a et $b sont de type **float** ;
-
--  lignes 36-37 : appel de la fonction **f** avec des paramètres qui ne
-   sont pas du type attendu ;
-
--  lignes 41-42 : appel de la fonction **g** avec des paramètres qui ne
-   sont pas du type attendu ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   f[i,j]=[1,1]
-   test[i,j]=[1,0]
-   g[i,j]=[2,1]
-   test[i,j]=[2,0]
-   f[i,j]=[6.3,7.2]
-   test[a,b]=[6.3,6.2]
-   g[i,j]=[6,7]
-   test[a,b]=[6,6.2]
-
--  les lignes 5-6 montrent que la fonction **f** a accepté les deux
-   paramètres de type **float** et a travaillé avec ;
-
--  les lignes 7-8 montrent que la fonction **g** a accepté les deux
-   paramètres de type **float** mais qu’elle les a transformés en type
-   **int** (ligne 7) ;
-
-Maintenant décommentons la ligne 4 :
-
-.. code-block:: php 
-   :linenos:
-
-   declare(strict_types = 1);
-
-Cette instruction indique que les types des paramètres formels doivent
-être respectés. Si ce n’est pas le cas, une erreur est signalée. Les
-résultats de l’exécution deviennent alors :
-
-.. code-block:: php 
-   :linenos:
-
-   f[i,j]=[1,1]
-   test[i,j]=[1,0]
-   g[i,j]=[2,1]
-   test[i,j]=[2,0]
-   f[i,j]=[6.3,7.2]
-   test[a,b]=[6.3,6.2]
-
-   Fatal error: Uncaught TypeError: Argument 1 passed to g() must be of the type integer, float given, called in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_111.php on line 40 and defined in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_111.php:15
-   Stack trace:
-   #0 C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_111.php(40): g(5.3, 6.2)
-   #1 {main}
-     thrown in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exemple_111.php on line 15
-
--  lignes 9-10 : l’interpréteur PHP 7 a lancé une exception pour
-   indiquer que le 1\ :sup:`er` paramètre passé à la fonction **g**
-   n’avait pas le bon type. Il est recommandé d’être strict sur les
-   types des paramètres, chaque fois que c’est possible, pour détecter
-   les erreurs d’appel de fonctions ;
-
-   1. .. rubric:: Résultats rendus par une fonction
-         :name: résultats-rendus-par-une-fonction
-
-Le script **[base-15.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // types en mode strict
-   declare(strict_types=1);
-
-   // résultats rendus par une fonction
-   // une fonction peut rendre plusieurs valeurs dans un tableau
-   list($res1, $res2, $res3) = f1(10);
-   print "[$res1,$res2,$res3]\n";
-   $res = f1(10);
-   for ($i = 0; $i < count($res); $i++) {
-     print "f1 : res[$i]=$res[$i]\n";
-   }
-
-   // une fonction peut rendre un objet
-   $res = f2(10);
-   print "f2 : [$res->res1,$res->res2,$res->res3]\n";
-   // objet de quelle nature ?
-   print "nature de l'objet : ";
-   var_dump($res);
-   print "\n";
-
-   // on fait la même chose avec la fonction f3
-   $res = f3(10);
-   print "f3 : [$res->res1,$res->res2,$res->res3]\n";
-   // objet de quelle nature ?
-   print "nature de l'objet : ";
-   var_dump($res);
-   print "\n";
-
-   // fin
-   exit;
-
-   // fonction f1
-   function f1(int $valeur): array {
-     // rend un tableau ($valeur+1,$valeur+2,$valeur+3)
-     return array($valeur + 1, $valeur + 2, $valeur + 3);
-   }
-
-   // fonction f2
-   function f2(int $valeur): object {
-     // rend un objet ($valeur+1,$valeur+2,$valeur+3)
-     $res->res1 = $valeur + 1;
-     $res->res2 = $valeur + 2;
-     $res->res3 = $valeur + 3;
-     // rend l'objet
-     return $res;
-   }
-
-   // fonction f3 - fait la même chose que la fonction f2
-   function f3(int $valeur): object {
-     // rend un objet ($valeur+1,$valeur+2,$valeur+3)
-     $res = new stdclass();
-     $res->res1 = $valeur + 1;
-     $res->res2 = $valeur + 2;
-     $res->res3 = $valeur + 3;
-     // rend l'objet
-     return $res;
-   }
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   [11,12,13]
-   f1 : res[0]=11
-   f1 : res[1]=12
-   f1 : res[2]=13
-
-   Warning: Creating default object from empty value in C:\Data\st-2019\dev\php7\php5-exemples\exemples\bases\base-15.php on line 43
-   f2 : [11,12,13]
-   nature de l'objet : object(stdClass)#1 (3) {
-     ["res1"]=>
-     int(11)
-     ["res2"]=>
-     int(12)
-     ["res3"]=>
-     int(13)
-   }
-
-   f3 : [11,12,13]
-   nature de l'objet : object(stdClass)#2 (3) {
-     ["res1"]=>
-     int(11)
-     ["res2"]=>
-     int(12)
-     ["res3"]=>
-     int(13)
-   }
-
-**Commentaires**
-
--  le programme précédent montre qu'une fonction PHP peut rendre un
-   ensemble de résultats et non un seul, sous la forme d'un tableau ou
-   d'un objet. La notion d'objet est explicitée un peu plus loin ;
-
--  lignes 35-38 : la fonction f1 rend plusieurs valeurs sous la forme
-   d'un tableau (**array**) ;
-
--  lignes 41-48 : la fonction f2 rend plusieurs valeurs sous la forme
-   d'un objet (**object**) ;
-
--  lignes 51-59 : la fonction f3 est identique à la fonction f2 si ce
-   n’est qu’elle crée explicitement un objet, ligne 53 ;
-
--  la ligne 6 des résultats émet un avertissement (warning) indiquant
-   que PHP a été obligé de créer un objet par défaut à la ligne 43 du
-   code, ç-a-d lors de l’utilisation de la notation **[$res→res1]**. La
-   fonction **var_dump** de la ligne 20 du code donne accès à la nature
-   de l’objet et à son contenu. Dans les résultats, on voit que :
-
-   -  ligne 8 : l’objet créé par défaut est de type **stdClass** ;
-
-   -  lignes 9-10 : la propriété *res1* est de type *entier* et a la
-      valeur 11 ;
-
-   -  etc…
-
-   -  pour éviter le warning de la ligne 6 des résultats, on crée
-      explicitement, ligne 53 de la fonction f3, un objet de type
-      **stdClass ;**
-
-Les fichiers texte
-------------------
-
-Le script **[bases-16.php]** est le suivant :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict du type des paramères des fonctions
-   declare (strict_types=1);
-
-   // exploitation séquentielle d'un fichier texte
-   // celui-ci est un ensemble de lignes de la forme login:pwd:uid:gid:infos:dir:shell
-   // chaque ligne est mis dans un dictionnaire sous la forme login => uid:gid:infos:dir:shell
-   // on fixe le nom du fichier
-   $INFOS = "infos.txt";
-   // on l'ouvre en création
-   if (!$fic = fopen($INFOS, "w")) {
-     print "Erreur d'ouverture du fichier $INFOS en écriture\n";
-     exit;
-   }
-   // on génère un contenu arbitraire
-   for ($i = 0; $i < 100; $i++) {
-     fputs($fic, "login$i:pwd$i:uid$i:gid$i:infos$i:dir$i:shell$i\n");
-   }
-   // on ferme le fichier
-   fclose($fic);
-
-   // on l'exploite - fgets garde la marque de fin de ligne
-   // cela permet de ne pas récupérer une chaîne vide lors de la lecture d'une ligne blanche
-   // on l'ouvre en lecture
-   if (!$fic = fopen($INFOS, "r")) {
-     print "Erreur d'ouverture du fichier $INFOS en lecture\n";
+   // constantes globales
+   define("PLAFOND_QF_DEMI_PART", 1551);
+   define("PLAFOND_REVENUS_CELIBATAIRE_POUR_REDUCTION", 21037);
+   define("PLAFOND_REVENUS_COUPLE_POUR_REDUCTION", 42074);
+   define("VALEUR_REDUC_DEMI_PART", 3797);
+   define("PLAFOND_DECOTE_CELIBATAIRE", 1196);
+   define("PLAFOND_DECOTE_COUPLE", 1970);
+   define("PLAFOND_IMPOT_COUPLE_POUR_DECOTE", 2627);
+   define("PLAFOND_IMPOT_CELIBATAIRE_POUR_DECOTE", 1595);
+   define("ABATTEMENT_DIXPOURCENT_MAX", 12502);
+   define("ABATTEMENT_DIXPOURCENT_MIN", 437);
+
+   // définition des constantes locales
+   $DATA = "taxpayersdata.txt";
+   $RESULTATS = "resultats.txt";
+   $limites = array(9964, 27519, 73779, 156244, 0);
+   $coeffR = array(0, 0.14, 0.3, 0.41, 0.45);
+   $coeffN = array(0, 1394.96, 5798, 13913.69, 20163.45);
+
+   // lecture des données
+   $data = fopen($DATA, "r");
+   if (!$data) {
+     print "Impossible d'ouvrir en lecture le fichier des données [$DATA]\n";
      exit;
    }
 
-   // les lignes font moins de 1000 caractères
-   // la lecture de la ligne s'arrête sur la marque de fin de ligne
-   // ou celle de fin de fichier
-   while ($ligne = fgets($fic, 1000)) {
-     // on supprime la marque de fin de ligne si elle existe
+   // ouverture fichier des résultats
+   $résultats = fopen($RESULTATS, "w");
+   if (!$résultats) {
+     print "Impossible de créer le fichier des résultats [$RESULTATS]\n";
+     exit;
+   }
+
+   // on exploite la ligne courante du fichier des données
+   while ($ligne = fgets($data, 100)) {
+     // on enlève l'éventuelle marque de fin de ligne
      $ligne = cutNewLineChar($ligne);
-     // on met la ligne dans un tableau
-     $infos = explode(":", $ligne);
-     // on récupère le login
-     $login = array_shift($infos);
-     // on néglige le pwd
-     array_shift($infos);
-     // on crée une entrée dans le dictionnaire
-     $dico[$login] = $infos;
+     // on récupère les 3 champs marié:enfants:salaire qui forment $ligne
+     list($marié, $enfants, $salaire) = explode(",", $ligne);
+     // on calcule l'impôt
+     $result = calculImpot($marié, (int) $enfants, (float) $salaire, $limites, $coeffR, $coeffN);
+     // on inscrit le résultat dans le fichier des résultats
+     $result = ["marié" => $marié, "enfants" => $enfants, "salaire" => $salaire] + $result;
+     fputs($résultats, \json_encode($result, JSON_UNESCAPED_UNICODE) . "\n");
+     // donnée suivante
    }
-   // on le ferme
-   fclose($fic);
-
-   // exploitation du dictionnaire
-   afficheInfos($dico, "login10");
-   afficheInfos($dico, "X");
+   // on ferme les fichiers
+   fclose($data);
+   fclose($résultats);
 
    // fin
    exit;
-
-   // --------------------------------------------------------------------------
-   function afficheInfos(array $dico, string $clé): void {
-     // affiche la valeur associée à clé dans le dictionnaire $dico si elle existe
-     if (isset($dico[$clé])) {
-       // valeur existe - est-ce un tableau ?
-       $valeur = $dico[$clé];
-       if (is_array($valeur)) {
-         print "[$clé," . join(":", $valeur) . "]\n";
-       } else {
-         // $valeur n'est pas un tableau
-         print "[$clé,$valeur]\n";
-       }
-     } else {
-       // $clé n'est pas une clé du dictionnaire $dico
-       print "la clé [$clé] n'existe pas\n";
-     }
-   }
 
    // --------------------------------------------------------------------------
    function cutNewLinechar(string $ligne): string {
      // on supprime la marque de fin de ligne de $ligne si elle existe
      $L = strlen($ligne);  // longueur ligne
-     while (substr($ligne, $L - 1, 1) == "\n" or substr($ligne, $L - 1, 1) == "\r") {
+     while (substr($ligne, $L - 1, 1) === "\n" or substr($ligne, $L - 1, 1) === "\r") {
        $ligne = substr($ligne, 0, $L - 1);
        $L--;
      }
@@ -2034,383 +506,791 @@ Le script **[bases-16.php]** est le suivant :
      return($ligne);
    }
 
-Le fichier **infos.txt** :
+   // calcul de l'impôt
+   // --------------------------------------------------------------------------
+   function calculImpot(string $marié, int $enfants, float $salaire, array $limites, array $coeffR, array $coeffN): array {
+     …
+     // résultat
+     return ["impôt" => floor($impot), "surcôte" => $surcôte, "décôte" => $décôte, "réduction" => $réduction, "taux" => $taux];
+   }
+
+   // --------------------------------------------------------------------------
+   function calculImpot2(string $marié, int $enfants, float $salaire, array $limites, array $coeffR, array $coeffN): array {
+     …
+     // résultat
+     return ["impôt" => $impôt, "surcôte" => $surcôte, "taux" => $coeffR[$i]];
+   }
+
+   // revenuImposable=salaireAnnuel-abattement
+   // l'abattement a un min et un max
+   function getRevenuImposable(float $salaire): float {
+     …
+     // résultat
+     return floor($revenuImposable);
+   }
+
+   // calcule une décôte éventuelle
+   function getDecote(string $marié, float $salaire, float $impots): float {
+     …
+     // résultat
+     return ceil($décôte);
+   }
+
+   // calcule une réduction éventuelle
+   function getRéduction(string $marié, float $salaire, int $enfants, float $impots): float {
+     /…
+     // résultat
+     return ceil($réduction);
+   }
+
+Le fichier des données *taxpayersdata.txt* (marié, enfants, salaire) :
 
 .. code-block:: php 
    :linenos:
 
-   login0:pwd0:uid0:gid0:infos0:dir0:shell0
-   login1:pwd1:uid1:gid1:infos1:dir1:shell1
-   login2:pwd2:uid2:gid2:infos2:dir2:shell2
-   …
-   login98:pwd98:uid98:gid98:infos98:dir98:shell98
-   login99:pwd99:uid99:gid99:infos99:dir99:shell99
+   oui,2,55555
+   oui,2,50000
+   oui,3,50000
+   non,2,100000
+   non,3,100000
+   oui,3,100000
+   oui,5,100000
+   non,0,100000
+   oui,2,30000
+   non,0,200000
+   oui,3,200000
 
-**Les résultats** :
+Les fichier *résultats.txt* (marié, enfants, salaire, impôt, surcôte,
+décôte, réduction, taux d’imposition) des résultats obtenus :
 
 .. code-block:: php 
    :linenos:
 
-   [login10,uid10:gid10:infos10:dir10:shell10]
-   la clé [X] n'existe pas
+   {"marié":"oui","enfants":"2","salaire":"55555","impôt":2814,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
+   {"marié":"oui","enfants":"2","salaire":"50000","impôt":1384,"surcôte":0,"décôte":384,"réduction":347,"taux":0.14}
+   {"marié":"oui","enfants":"3","salaire":"50000","impôt":0,"surcôte":0,"décôte":720,"réduction":0,"taux":0.14}
+   {"marié":"non","enfants":"2","salaire":"100000","impôt":19884,"surcôte":4480,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"non","enfants":"3","salaire":"100000","impôt":16782,"surcôte":7176,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":"3","salaire":"100000","impôt":9200,"surcôte":2180,"décôte":0,"réduction":0,"taux":0.3}
+   {"marié":"oui","enfants":"5","salaire":"100000","impôt":4230,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
+   {"marié":"non","enfants":"0","salaire":"100000","impôt":22986,"surcôte":0,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":"2","salaire":"30000","impôt":0,"surcôte":0,"décôte":0,"réduction":0,"taux":0}
+   {"marié":"non","enfants":"0","salaire":"200000","impôt":64210,"surcôte":7498,"décôte":0,"réduction":0,"taux":0.45}
+   {"marié":"oui","enfants":"3","salaire":"200000","impôt":42842,"surcôte":17283,"décôte":0,"réduction":0,"taux":0.41}
 
 **Commentaires**
 
--  ligne 12 : *fopen(nom_fichier,"w")* ouvre le fichier *nom_fichier* en
-   écriture (*w=write*). Si le fichier n'existe pas, il est créé. S'il
-   existe, il est vidé. Si la création échoue, *fopen* rend la valeur
-   *false*. Dans l'instruction **if**\ *(!$fic = fopen($INFOS, "w"))
-   {…}*, il y a deux opérations successives : 1) *$fic=fopen(..)* 2)
-   *if( ! $fic) {…} ;*
+-  ligne 4 : on force le respect strict du type des paramètres des
+   fonctions ;
 
--  ligne 18 : *fputs($fic,$chaîne)* écrit *chaîne* dans le fichier
-   $\ *fic. $chaine* est écrite avec la marque de fin de ligne \\n
-   derrière ;
+-  lignes 7-16 : définition de toutes les constantes nécessaire au
+   calcul de l’impôt ;
 
--  ligne 21 : *fclose($fic)* ferme le fichier $\ *fic ;*
+-  ligne 19 : le nom du fichier texte contenant les données des
+   contribuables (marié, enfants, salaire) ;
 
--  ligne 26 : *fopen(nom_fichier,"r")* ouvre le fichier *nom_fichier* en
-   lecture (*r=read*). Si l'ouverture échoue (le fichier n'existe pas
-   par exemple), *fopen* rend la valeur *false ;*
+-  ligne 20 : le nom du fichier texte contenant les résultats (marié,
+   enfants, salaire, impôt) du calcul de l'impôt ;
 
--  ligne 34 : *fgets($fic,1000)* lit la ligne suivante du fichier dans
-   la limite de 1000 caractères. Dans l'opération **while**\ *($ligne =
-   fgets($fic, 1000)) {…}*, il y a deux opérations successives 1)
-   *$ligne=fgets(…)* 2) *while ( ! $ligne)*. Après que le dernier
-   caractère du fichier a été lu, la fonction *fgets* rend la valeur
-   *false* et la boucle *while* s'arrête. La fonction *fgets* tente ici
-   de lire au plus 1000 caractères mais s’arrête dès qu’une marque de
-   fin de ligne est rencontrée. Ici toutes les lignes ayant moins de
-   1000 caractères, **[fgets]** lit une ligne de texte, caractère de fin
-   de ligne inclus. La fonction *cutNewLineChar* des lignes 75-84
-   élimine les éventuels caractères de fin de ligne ;
+-  lignes 21-23 : les trois tableaux des données définissant les
+   différentes tranches d’imposition du calcul de l'impôt ;
 
--  ligne 77 : la fonction *strlen($chaîne)* rend le nombre de caractères
-   de $\ *chaîne *;
+-  lignes 26-30 : ouverture en lecture **[r]** du fichier des données
+   contribuables. La fonction **[fopen]** rend le booléen FALSE si
+   l’ouverture n’a pu se faire ;
 
--  ligne 78 : la fonction *substr($ligne, $position, $taille)* rend
-   $\ *taille* caractères de $\ *ligne*, pris à partir du caractère n°
-   $\ *position*, le 1\ :sup:`er` caractère ayant le n° 0. Sur les
-   machines windows, la marque de fin de ligne est "\r\n". Sur les
-   machines Unix, c'est la chaîne "\n" ;
+-  lignes 33-37 : ouverture en écriture **[w]** du fichier des
+   résultats ;
 
--  ligne 40 : la fonction *array_shift($tableau)* élimine le
-   1\ :sup:`er` élément de $\ *tableau* et le rend comme résultat. On
-   néglige ici le résultat rendu par *array_shift* ;
+-  lignes 40-51 : boucle de lecture des lignes (marié, enfants, salaire)
+   du fichier des données contribuables ;
 
--  ligne 62 : la fonction *is_array($variable)* rend *true* si
-   $\ *variable* est un tableau, *false* sinon ;
+-  ligne 40 : la fonction **[fgets]** lit 100 caractères et s’arrête à
+   la 1\ :sup:`re` marque de fin de ligne rencontrée. Ici toutes les
+   lignes font moins de 100 caractères. Si une marque de fin de ligne a
+   été rencontrée, elle est incluse dans la chaîne rendue. Lorsque la
+   fin du fichier est rencontrée, la fonction **[fgets]** rend la valeur
+   FALSE ;
 
--  ligne 63 : la fonction *join* fait la même chose que la fonction
-   *implode* déjà rencontrée ;
+-  ligne 42 : la marque de fin de ligne est enlevée ;
 
-Encodage / décodage jSON
-------------------------
+-  ligne 44 : les composantes (marié, enfants, salaire) de la ligne sont
+   récupérées ;
 
-|image7|
+-  ligne 46 : l'impôt est calculé. Le résultat est rendu sous la forme
+   d’un tableau associatif (ligne 76) ;
 
-L’encodage / décodage jSON (**J**\ avaScript **O**\ bject
-**N**\ otation) est quelque chose que nous allons utiliser intensivement
-dans l’exercice qui sert de fil rouge au document. Les scripts
-**[json-01.php, json-02.php, json-03.php]** expliquent ce qui est à
-savoir pour la suite.
+-  ligne 48 : au tableau récupéré précédemment, on rajoute les clés
+   **[marié, enfants, salaire]** ;
 
-Le script **[json-01.php]** est le suivant :
+-  ligne 49 : le résultat est mémorisé dans le fichier des résultats
+   sous la forme d’une chaîne jSON ;
 
-.. code-block:: php 
-   :linenos:
+-  lignes 53-54 : une fois le fichier des données contribuables exploité
+   totalement, les fichiers sont fermés ;
 
-   <?php
+-  ligne 60 : la fonction qui supprime la marque de fin de ligne d'une
+   ligne $\ *ligne*. La marque de fin de ligne est la chaîne "\r\n" sur
+   les systèmes windows, "\n" sur les systèmes Unix. Le résultat est la
+   chaîne d'entrée sans sa marque de fin de ligne.
 
-   $array1 = ["nom" => "séléné", "prénom" => "bénédicte", "âge" => 34];
-   // encodage json du tableau array1 avec caractères Unicode échappés
-   print "encodage json du tableau array1 avec caractères Unicode échappés\n";
-   $json1 = json_encode($array1);
-   print "json1=$json1\n";
-   // encodage json du tableau array1 avec caractères Unicode non échappés
-   print "encodage json du tableau array1 avec caractères Unicode non échappés\n";
-   $json2 = json_encode($array1, JSON_UNESCAPED_UNICODE);
-   print "json2=$json2\n";
-   // décodage jSON dans tableau associatif
-   print "décodage jSON de json2 dans tableau associatif\n";
-   $array2 = json_decode($json2, true);
-   var_dump($array2);
-   foreach ($array2 as $key => $value) {
-     print "$key:$value\n";
-   }
-   // décodage jSON dans objet
-   print "décodage jSON de json2 dans objet stdClass\n";
-   $array2 = json_decode($json2);
-   var_dump($array2);
-   print "prénom=$array2->prénom\n";
-   print "nom=$array2->nom\n";
-   print "âge=$array2->âge\n";
+-  lignes 63-64 : *substr($chaîne,$début,$taille)* est la sous-chaîne de
+   $\ *chaîne* commençant au caractère $\ *début* et ayant au plus
+   $\ *taille* caractères ;
 
-**Résultats**
+La fonction **[calculImpot]** est la suivante :
 
 .. code-block:: php 
    :linenos:
 
-   encodage json du tableau array1 avec caractères Unicode échappés
-   json1={"nom":"s\u00e9l\u00e9n\u00e9","pr\u00e9nom":"b\u00e9n\u00e9dicte","\u00e2ge":34}
-   encodage json du tableau array1 avec caractères Unicode non échappés
-   json2={"nom":"séléné","prénom":"bénédicte","âge":34}
-   décodage jSON de json2 dans tableau associatif
-   array(3) {
-     ["nom"]=>
-     string(9) "séléné"
-     ["prénom"]=>
-     string(11) "bénédicte"
-     ["âge"]=>
-     int(34)
+   // constantes globales
+   define("PLAFOND_QF_DEMI_PART", 1551);
+   // calcul de l'impôt
+   // --------------------------------------------------------------------------
+   function calculImpot(string $marié, int $enfants, float $salaire, array $limites, array $coeffR, array $coeffN): array {
+     // $marié : oui, non
+     // $enfants : nombre d'enfants
+     // $salaire : salaire annuel
+     // $limites, $coeffR, $coeffN : les tableaux des données permettant le calcul de l'impôt
+     //
+     // calcul de l'impôt avec enfants
+     $result1 = calculImpot2($marié, $enfants, $salaire, $limites, $coeffR, $coeffN);
+     $impot1 = $result1["impôt"];
+     // calcul de l'impôt sans les enfants
+     if ($enfants != 0) {
+       $result2 = calculImpot2($marié, 0, $salaire, $limites, $coeffR, $coeffN);
+       $impot2 = $result2["impôt"];
+       // application du plafonnement du quotient familial
+       if ($enfants < 3) {
+         // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants
+         $impot2 = $impot2 - $enfants * PLAFOND_QF_DEMI_PART;
+       } else {
+         // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants, le double pour les suivants
+         $impot2 = $impot2 - 2 * PLAFOND_QF_DEMI_PART - ($enfants - 2) * 2 * PLAFOND_QF_DEMI_PART;
+       }
+     } else {
+       $impot2 = $impot1;
+       $result2 = $result1;
+     }
+     // on prend l'impôt le plus fort avec le taux et la surcôte qui vont avec
+     if ($impot1 > $impot2) {
+       $impot = $impot1;
+       $taux = $result1["taux"];
+       $surcôte = $result1["surcôte"];
+     } else {
+       $surcôte = $impot2 - $impot1 + $result2["surcôte"];
+       $impot = $impot2;
+       $taux = $result2["taux"];
+     }
+     // calcul d'une éventuelle décôte
+     $décôte = getDecote($marié, $salaire, $impot);
+     $impot -= $décôte;
+     // calcul d'une éventuelle réduction d'impôts
+     $réduction = getRéduction($marié, $salaire, $enfants, $impot);
+     $impot -= $réduction;
+     // résultat
+     return ["impôt" => floor($impot), "surcôte" => $surcôte, "décôte" => $décôte, "réduction" => $réduction, "taux" => $taux];
    }
-   nom:séléné
-   prénom:bénédicte
-   âge:34
-   décodage jSON de json2 dans objet stdClass
-   object(stdClass)#1 (3) {
-     ["nom"]=>
-     string(9) "séléné"
-     ["prénom"]=>
-     string(11) "bénédicte"
-     ["âge"]=>
-     int(34)
+
+   // --------------------------------------------------------------------------
+   function calculImpot2(string $marié, int $enfants, float $salaire, array $limites, array $coeffR, array $coeffN): array {
+     …
+     // résultat
+     return ["impôt" => $impôt, "surcôte" => $surcôte, "taux" => $coeffR[$i]];
    }
-   prénom=bénédicte
-   nom=séléné
-   âge=34
+
+   // revenuImposable=salaireAnnuel-abattement
+   // l'abattement de 10 % a un min et un max
+   function getRevenuImposable(float $salaire): float {
+     …
+   }
+
+   // calcule une décôte éventuelle
+   function getDecote(string $marié, float $salaire, float $impots): float {
+     …
+     // résultat
+     return ceil($décôte);
+   }
+
+   // calcule une réduction éventuelle
+   function getRéduction(string $marié, float $salaire, int $enfants, float $impots): float {
+     …
+     // résultat
+     return ceil($réduction);
+   }
 
 **Commentaires**
 
--  ligne 6 du code : la fonction **[json_encode]** transforme son
-   paramètre en chaîne de caractères jSON ;
+-  ligne 10 : l’impôt brut est calculé avec les enfants. On obtient un
+   résultat sous la forme **["impôt" => $impôt, "surcôte" => $surcôte,
+   "taux" => $coeffR[$i]**] avec :
 
--  ligne 2 des résultats : la chaîne jSON produite. Les caractères
-   Unicode éâ ont été remplacés par leur code Unicode qui commence par
-   \\u ;
+   -  **[‘impôt’]** : l’impôt brut ;
 
--  ligne 10 du code : on refait la même chose en demandant cette fois-ci
-   à ce que les caractères Unicode soient conservés tels quels ;
+   -  **[‘surcôte’]** : le montant de la surcôte s’il y a. Celle-ci
+      existe lorsque l’abattement de 10 % dépasse le seuil de 12502
+      euros ;
 
--  ligne 4 des résultats : la chaîne jSON résultante. Elle est beaucoup
-   plus lisible ;
+   -  **[‘taux’]** : le taux d’imposition du contribuable ;
 
--  lignes 14-18 du code : on fait l’opération inverse. On transforme une
-   chaîne jSON en tableau associatif ;
+-  ligne 11 : l’impôt **[impot1]** brut à payer ;
 
--  lignes 6-13 des résultats : on voit qu’on a récupéré un tableau
-   associatif ;
+-  lignes 13-14 : si le contribuable a au moins un enfant, le calcul de
+   l’impôt est refait avec les mêmes données mais avec 0 enfant. Ce
+   second calcul est nécessaire pour voir si la réduction amenée par les
+   enfants (nbParts*coeffN) est supérieure à un certain seuil ;
 
--  lignes 19-25 du code : on transforme une chaîne jSON en objet de type
-   **[stdClass]** ;
+-  ligne 15 : l’impôt brut **[impot2]** à payer ;
 
--  lignes 18-25 des résultats : on voit qu’on a récupéré un objet de
-   type **[stdClass]** ;
+-  lignes 16-23 : pour l’impôt brut **[impot2]**, on fait jouer
+   maintenant les enfants : chaque 1/2 part amenée par les enfants
+   permet une réduction de **[PLAFOND_QF_DEMI_PART]** euros ;
 
--  lignes 23-25 du code : l’attribut A d’un objet O est noté **[O→A]** ;
+-  lignes 25-26 : cas où le contribuable n’a pas d’enfants. Dans ce cas,
+   le calcul de **[impot2]** est inutile. Il est égal à **[impot1]** ;
 
-On peut encoder en jSON des tableaux à plusieurs niveaux comme le montre
-le script **[json-02.php]** suivant :
+-  lignes 29-37 : deux impôts bruts ont été calculés **[impot1,
+   impot2]**. L’administration fiscale retient le plus fort des deux. On
+   obtient un impôt brut **[impot]** ;
 
-.. code-block:: php 
-   :linenos:
+-  lignes 39-40 : le montant brut **[impot]** peut subir une décôte ;
 
-   <?php
+-  lignes 42-43 : le montant brut **[impot]** peut subir une réduction ;
 
-   $array = ["nom" => "séléné", "prénom" => "bénédicte", "âge" => 34,
-     "mari" => ["nom" => "icariù", "prénom" => "ignacio", "âge" => 35],
-     "enfants" => [
-       ["prénom" => "angèle", "age" => 8],
-       ["prénom" => "andré", "age" => 2],
-     ]];
-   // encodage jSON du tableau à plusieurs niveaux
-   print "encodage jSON d'un tableau à plusieurs niveaux\n";
-   $json = json_encode($array, JSON_UNESCAPED_UNICODE);
-   print "json=$json\n";
+-  ligne 45 : **[impot]** est désormais l’impôt net à payer. On rend les
+   résultats ;
 
-**Résultats**
+La fonction **[calculImpot2]** est la suivante :
 
 .. code-block:: php 
    :linenos:
 
-   encodage jSON d'un tableau à plusieurs niveaux
-   json={"nom":"séléné","prénom":"bénédicte","âge":34,"mari":{"nom":"icariù","prénom":"ignacio","âge":35},"enfants":[{"prénom":"angèle","age":8},{"prénom":"andré","age":2}]}
+   // --------------------------------------------------------------------------
+   function calculImpot2(string $marié, int $enfants, float $salaire, array $limites, array $coeffR, array $coeffN): array {
+     // $marié : oui, non
+     // $enfants : nombre d'enfants
+     // $salaire : salaire annuel
+     // $limites, $coeffR, $coeffN : les tableaux des données permettant le calcul de l'impôt
+     //
+     // nombre de parts
+     $marié = strtolower($marié);
+     if ($marié === "oui") {
+       $nbParts = $enfants / 2 + 2;
+     } else {
+       $nbParts = $enfants / 2 + 1;
+     }
+     // 1 part par enfant à partir du 3e
+     if ($enfants >= 3) {
+       // une demi-part de + pour chaque enfant à partir du 3e
+       $nbParts += 0.5 * ($enfants - 2);
+     }
+     // revenu imposable
+     $revenuImposable = getRevenuImposable($salaire);
+     // surcôte
+     $surcôte = floor($revenuImposable - 0.9 * $salaire);
+     // pour des pbs d'arrondi
+     if ($surcôte < 0) {
+       $surcôte = 0;
+     }
+     // quotient familial
+     $quotient = $revenuImposable / $nbParts;
+     // est mis à la fin du tableau limites pour arrêter la boucle qui suit
+     $limites[count($limites) - 1] = $quotient;
+     // calcul de l'impôt
+     $i = 0;
+     while ($quotient > $limites[$i]) {
+       $i++;
+     }
+     // du fait qu'on a placé $quotient à la fin du tableau $limites, la boucle précédente
+     // ne peut déborder du tableau $limites
+     // maintenant on peut calculer l'impôt
+     $impôt = floor($revenuImposable * $coeffR[$i] - $nbParts * $coeffN[$i]);
+     // résultat
+     return ["impôt" => $impôt, "surcôte" => $surcôte, "taux" => $coeffR[$i]];
+   }
+
+   // revenuImposable=salaireAnnuel-abattement
+   // l'abattement a un min et un max
+   function getRevenuImposable(float $salaire): float {
+     
+     // résultat
+     return floor($revenuImposable);
+   }
 
 **Commentaires**
 
-Dans la chaîne jSON :
+-  on applique ici le calcul de l’impôt dit au barême progressif ;
 
--  les tableaux non associatifs sont entourés de crochets [] ;
+-  ligne 9 : *strtolower($chaîne)* rend $\ *chaîne* en minuscules ;
 
--  les tableaux associatifs sont entourés d’accolades {} ;
+-  lignes 10-19 : calcul du nombre de parts du contribuable ;
 
-Le script **[json-03.php]** montre comment exploiter le fichier jSON
-**[famille.json]** suivant :
+-  ligne 21 : on calcule le revenu imposable à l’aide d’une fonction. En
+   effet, on a vu que ce n’est pas toujours 0.9*revenusAnnuels.
+   L’abattement de 10 % est en effet limité à 12502 euros ;
+
+-  ligne 23 : calcul de l’éventuelle surcôte si le revenu imposable est
+   supérieur à 0.9*revenusAnnuels ;
+
+-  lignes 25-27 : corrige le fait qu’à cause d’erreurs d’arrondis, on a
+   parfois **[$surcôte=-1]** ;
+
+-  ligne 29 : le quotient familial ;
+
+-  lignes 30-36 : ce quotient permet de trouver la tranche d’imposition
+   du contribuable ;
+
+-  ligne 40 : une fois la tranche d’imposition du contribuable trouvée,
+   son impôt brut peut être calculé. La fonction *floor($x)* rend la
+   valeur entière immédiatement inférieure à **[$x]** ;
+
+-  ligne 42 : on rend les informations calculées ;
+
+La fonction **[getRevenuImposable]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // constantes globales
+   define("ABATTEMENT_DIXPOURCENT_MAX", 12502);
+   define("ABATTEMENT_DIXPOURCENT_MIN", 437);
+   // revenuImposable=salaireAnnuel-abattement
+   // l'abattement a un min et un max
+   function getRevenuImposable(float $salaire): float {
+     // abattement de 10% du salaire
+     $abattement = 0.1 * $salaire;
+     // cet abattement ne peut dépasser ABATTEMENT_DIXPOURCENT_MAX
+     if ($abattement > ABATTEMENT_DIXPOURCENT_MAX) {
+       $abattement = ABATTEMENT_DIXPOURCENT_MAX;
+     }
+     // l'abattement ne peut être inférieur à ABATTEMENT_DIXPOURCENT_MIN
+     if ($abattement < ABATTEMENT_DIXPOURCENT_MIN) {
+       $abattement = ABATTEMENT_DIXPOURCENT_MIN;
+     }
+     // revenu imposable
+     $revenuImposable = $salaire - $abattement;
+     // résultat
+     return floor($revenuImposable);
+   }
+
+**Commentaires**
+
+-  ligne 5 : l’abattement normal est de 10 % du salaire annuel ;
+
+-  lignes 7-9 : l’abattement ne peut dépasser l’abattement maximal
+   **[ABATTEMENT_DIXPOURCENT_MAX]** ;
+
+-  lignes 10-13 : l’abattement ne peut être inférieur à l’abattement
+   minimal **[ABATTEMENT_DIXPOURCENT_MIN]** ;
+
+-  ligne 15 : calcul du revenu imposable ;
+
+La fonction **[getDecote]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // constantes globales
+   define("PLAFOND_DECOTE_CELIBATAIRE", 1196);
+   define("PLAFOND_DECOTE_COUPLE", 1970);
+   define("PLAFOND_IMPOT_COUPLE_POUR_DECOTE", 2627);
+   define("PLAFOND_IMPOT_CELIBATAIRE_POUR_DECOTE", 1595);
+   // calcule une décôte éventuelle
+   function getDecote(string $marié, float $salaire, float $impots): float {
+     // au départ, une décôt nulle
+     $décôte = 0;
+     // montant maximal d'impôt pour avoir la décôte
+     $plafondImpôtPourDécôte = $marié === "oui" ? PLAFOND_IMPOT_COUPLE_POUR_DECOTE : PLAFOND_IMPOT_CELIBATAIRE_POUR_DECOTE;
+     if ($impots < $plafondImpôtPourDécôte) {
+       // montant maximal de la décôte
+       $plafondDécôte = $marié === "oui" ? PLAFOND_DECOTE_COUPLE : PLAFOND_DECOTE_CELIBATAIRE;
+       // décôte théorique
+       $décôte = $plafondDécôte - 0.75 * $impots;
+       // la décôte ne peut dépasser le montant de l'impôt
+       if ($décôte > $impots) {
+         $décôte = $impots;
+       }
+       // pas de décôte <0
+       if ($décôte < 0) {
+         $décôte = 0;
+       }
+     }
+     // résultat
+     return ceil($décôte);
+   }
+
+**Commentaires**
+
+-  ligne 6 : montant maximal de l’impôt brut pour avoir droit à une
+   décôte. Ce montant est différent pour les célibataires et les
+   couples ;
+
+-  ligne 7 : si le contribuable a droit à la décôte ;
+
+-  ligne 11 : la formule de la décôte. **[plafondDécôte]** est le
+   montant maximal de la décôte. Ce montant maximal est calculé ligne 9.
+   Là encore il dépend de la situation du contribuable, marié ou
+   célibataire ;
+
+-  lignes 13-15 : la décôte ne peut être supérieure à l’impôt brut à
+   payer. C’est le cas par exemple si **[impots]** vaut 0 en ligne 11 ;
+
+-  lignes 17-19 : pour éviter un arrondi à -1 ;
+
+La fonction **[getRéduction]** est la suivante :
+
+.. code-block:: php 
+   :linenos:
+
+   // constantes globales
+   define("PLAFOND_REVENUS_CELIBATAIRE_POUR_REDUCTION", 21037);
+   define("PLAFOND_REVENUS_COUPLE_POUR_REDUCTION", 42074);
+   define("VALEUR_REDUC_DEMI_PART", 3797);
+   // calcule une réduction éventuelle
+   function getRéduction(string $marié, float $salaire, int $enfants, float $impots): float {
+     // le plafond des revenus pour avoir droit à la réduction de 20%
+     $plafondRevenuPourRéduction = $marié === "oui" ? PLAFOND_REVENUS_COUPLE_POUR_REDUCTION : PLAFOND_REVENUS_CELIBATAIRE_POUR_REDUCTION;
+     $plafondRevenuPourRéduction += $enfants * VALEUR_REDUC_DEMI_PART;
+     if ($enfants > 2) {
+       $plafondRevenuPourRéduction += ($enfants - 2) * VALEUR_REDUC_DEMI_PART;
+     }
+     // revenu imposable
+     $revenuImposable = getRevenuImposable($salaire);
+     // réduction
+     $réduction = 0;
+     if ($revenuImposable < $plafondRevenuPourRéduction) {
+       // réduction de 20%
+       $réduction = 0.2 * $impots;
+     }
+     // résultat
+     return ceil($réduction);
+   }
+
+**Commentaires**
+
+-  lignes 4-10 : pour avoir droit à une réduction d’impôt, il faut que
+   le revenu imposable (ligne 10) soit inférieur à un plafond calculé
+   lignes 4-8 ;
+
+-  lignes 13-16 : s’il remplit les conditions, le contribuable a droit à
+   une réduction d’impôt de 20 % (ligne 15) ;
+
+   1. .. rubric:: Résultats
+         :name: résultats
+
+Le fichier des données *taxpayersdata.txt* (marié, enfants, salaire) :
+
+.. code-block:: php 
+   :linenos:
+
+   oui,2,55555
+   oui,2,50000
+   oui,3,50000
+   non,2,100000
+   non,3,100000
+   oui,3,100000
+   oui,5,100000
+   non,0,100000
+   oui,2,30000
+   non,0,200000
+   oui,3,200000
+
+Les fichier *résultats.txt* (marié, enfants, salaire, impôt, surcôte,
+décôte, réduction, taux d’imposition) des résultats obtenus :
+
+.. code-block:: php 
+   :linenos:
+
+   {"marié":"oui","enfants":"2","salaire":"55555","impôt":2814,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
+   {"marié":"oui","enfants":"2","salaire":"50000","impôt":1384,"surcôte":0,"décôte":384,"réduction":347,"taux":0.14}
+   {"marié":"oui","enfants":"3","salaire":"50000","impôt":0,"surcôte":0,"décôte":720,"réduction":0,"taux":0.14}
+   {"marié":"non","enfants":"2","salaire":"100000","impôt":19884,"surcôte":4480,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"non","enfants":"3","salaire":"100000","impôt":16782,"surcôte":7176,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":"3","salaire":"100000","impôt":9200,"surcôte":2180,"décôte":0,"réduction":0,"taux":0.3}
+   {"marié":"oui","enfants":"5","salaire":"100000","impôt":4230,"surcôte":0,"décôte":0,"réduction":0,"taux":0.14}
+   {"marié":"non","enfants":"0","salaire":"100000","impôt":22986,"surcôte":0,"décôte":0,"réduction":0,"taux":0.41}
+   {"marié":"oui","enfants":"2","salaire":"30000","impôt":0,"surcôte":0,"décôte":0,"réduction":0,"taux":0}
+   {"marié":"non","enfants":"0","salaire":"200000","impôt":64210,"surcôte":7498,"décôte":0,"réduction":0,"taux":0.45}
+   {"marié":"oui","enfants":"3","salaire":"200000","impôt":42842,"surcôte":17283,"décôte":0,"réduction":0,"taux":0.41}
+
+Les résultats obtenus sont conformes à ceux obtenus avec le simulateur
+de l’administration fiscale.
+
+Conclusion
+~~~~~~~~~~
+
+L’algorithme de calcul de l’impôt, même dans des cas réputés simples,
+est complexe. Nous ne reviendrons plus dessus. Au fil des versions, son
+cœur restera le même malgré quelques changements de présentation. On ne
+commentera alors que ces derniers.
+
+Version 2
+---------
+
+Les modifications
+~~~~~~~~~~~~~~~~~
+
+Dans la version précédente, les données nécessaires au calcul de l’impôt
+étaient codées en dur sous la forme de constantes et de tableaux. Cette
+méthode est à prohiber. Dans la nouvelle version, ces données sont
+externalisées dans un fichier jSON :
+
+|image6|
+
+Le contenu du fichier **[taxadmindata.json]** est le suivant :
 
 .. code-block:: php 
    :linenos:
 
    {
-       "épouse": {
-           "nom": "séléné",
-           "prénom": "bénédicte",
-           "âge": 34
-       },
-       "mari": {
-           "nom": "icariù",
-           "prénom": "ignacio",
-           "âge": 35
-       },
-       "enfants": [
-           {
-               "prénom": "angèle",
-               "age": 8
-           },
-           {
-               "prénom": "andré",
-               "age": 2
-           }
-       ]
+       "limites": [9964, 27519, 73779, 156244, 0],
+       "coeffR": [0, 0.14, 0.3, 0.41, 0.45],
+       "coeffN": [0, 1394.96, 5798, 13913.69, 20163.45],
+       "PLAFOND_QF_DEMI_PART": 1551,
+       "PLAFOND_REVENUS_CELIBATAIRE_POUR_REDUCTION": 21037,
+       "PLAFOND_REVENUS_COUPLE_POUR_REDUCTION": 42074,
+       "VALEUR_REDUC_DEMI_PART": 3797,
+       "PLAFOND_DECOTE_CELIBATAIRE": 1196,
+       "PLAFOND_DECOTE_COUPLE": 1970,
+       "PLAFOND_IMPOT_COUPLE_POUR_DECOTE": 2627,
+       "PLAFOND_IMPOT_CELIBATAIRE_POUR_DECOTE": 1595,
+       "ABATTEMENT_DIXPOURCENT_MAX": 12502,
+       "ABATTEMENT_DIXPOURCENT_MIN": 437
    }
 
-Le script **[json-03.php]** est le suivant :
+La nouvelle version **[version-02/main.php]** est la suivante :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // lecture du fichier jSON
-   $json = file_get_contents("famille.json");
-   // décodage json en objet
-   $famille1 = json_decode($json);
-   print "----famille1\n";
-   var_dump($famille1);
-   // décodage json en tableau associatif
-   print "----famille2\n";
-   $famille2 = json_decode($json, true);
-   var_dump($famille2);
+   // respect strict des types déclarés des paramètres des fonctions
+   declare (strict_types=1);
 
-Commentaires
+   // définition des constantes
+   $TAXPAYERSDATA = "taxpayersdata.txt";
+   $RESULTATS = "resultats.txt";
+   $TAXADMINDATA = "taxadmindata.json";
 
--  ligne 4 : la fonction **[file_get_contents]** lit le contenu du
-   fichier nommé **[famille.json]** et le met dans la variable
-   **[$json]** ;
+   // on récupère le contenu du fichier des données fiscales
+   $fileContents = \file_get_contents($TAXADMINDATA);
+   $erreur = FALSE;
+   // erreur ?
+   if (!$fileContents) {
+     // on note l'erreur
+     $erreur = TRUE;
+     $message = "Le fichier des données [$TAXADMINDATA] n'existe pas";
+   }
 
--  la variable est ensuite décodée en objet (lignes 5-8) et en tableau
-   associatif (lignes 9-12) ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   ----famille1
-   object(stdClass)#2 (3) {
-     ["épouse"]=>
-     object(stdClass)#1 (3) {
-       ["nom"]=>
-       string(9) "séléné"
-       ["prénom"]=>
-       string(11) "bénédicte"
-       ["âge"]=>
-       int(34)
-     }
-     ["mari"]=>
-     object(stdClass)#3 (3) {
-       ["nom"]=>
-       string(7) "icariù"
-       ["prénom"]=>
-       string(7) "ignacio"
-       ["âge"]=>
-       int(35)
-     }
-     ["enfants"]=>
-     array(2) {
-       [0]=>
-       object(stdClass)#4 (2) {
-         ["prénom"]=>
-         string(7) "angèle"
-         ["age"]=>
-         int(8)
-       }
-       [1]=>
-       object(stdClass)#5 (2) {
-         ["prénom"]=>
-         string(6) "andré"
-         ["age"]=>
-         int(2)
-       }
+   if (!$erreur) {
+     // on récupère le code jSON du fichier de configuration dans un tableau associatif
+     $taxAdminData = \json_decode($fileContents, true);
+     // erreur ?
+     if (!$taxAdminData) {
+       // on note l'erreur
+       $erreur = TRUE;
+       $message = "Le fichier de données jSON [$TAXADMINDATA] n'a pu être exploité correctement";
      }
    }
-   ----famille2
-   array(3) {
-     ["épouse"]=>
-     array(3) {
-       ["nom"]=>
-       string(9) "séléné"
-       ["prénom"]=>
-       string(11) "bénédicte"
-       ["âge"]=>
-       int(34)
-     }
-     ["mari"]=>
-     array(3) {
-       ["nom"]=>
-       string(7) "icariù"
-       ["prénom"]=>
-       string(7) "ignacio"
-       ["âge"]=>
-       int(35)
-     }
-     ["enfants"]=>
-     array(2) {
-       [0]=>
-       array(2) {
-         ["prénom"]=>
-         string(7) "angèle"
-         ["age"]=>
-         int(8)
+
+   // erreur ?
+   if ($erreur) {
+     print "$message\n";
+     exit;
+   }
+
+   // ouverture fichier des résultats
+   $résultats = fopen($RESULTATS, "w");
+   if (!$résultats) {
+     print "Impossible de créer le fichier des résultats [$RESULTATS]\n";
+     // sortie
+     exit;
+   }
+
+   // ouverture fichier des données contribuables
+   $taxpayersdata = fopen($TAXPAYERSDATA, "r");
+   if (!$taxpayersdata) {
+     print "Impossible d'ouvrir le fichier des contribuables [$TAXPAYERSDATA]\n";
+     // sortie
+     exit;
+   }
+
+   // on exploite la ligne courante du fichier des données
+   while ($ligne = fgets($taxpayersdata, 100)) {
+     // on enlève l'éventuelle marque de fin de ligne
+     $ligne = cutNewLineChar($ligne);
+     // on récupère les 3 champs marié:enfants:salaire qui forment $ligne
+     list($marié, $enfants, $salaire) = explode(",", $ligne);
+     // on calcule l'impôt
+     $result = calculImpot($taxAdminData, $marié, (int) $enfants, (int) $salaire);
+     // on inscrit le résultat dans le fichier des résultats
+     $result = ["marié" => $marié, "enfants" => $enfants, "salaire" => $salaire] + $result;
+     fputs($résultats, \json_encode($result, JSON_UNESCAPED_UNICODE) . "\n");
+     // donnée suivante
+   }
+   // on ferme les fichiers
+   fclose($taxpayersdata);
+   fclose($résultats);
+
+   // fin
+   exit;
+
+   // --------------------------------------------------------------------------
+   function cutNewLinechar(string $ligne) {
+     …
+     // fin
+     return($ligne);
+   }
+
+   // calcul de l'impôt
+   // --------------------------------------------------------------------------
+   function calculImpot(array $taxAdminData, string $marié, int $enfants, float $salaire) {
+     // $marié : oui, non
+     // $enfants : nombre d'enfants
+     // $salaire : salaire annuel
+     // $taxAdminData : données de l'administration fiscale
+     //
+     // calcul de l'impôt avec enfants
+     $result1 = calculImpot2($taxAdminData, $marié, $enfants, $salaire);
+     $impot1 = $result1["impôt"];
+     // calcul de l'impôt sans les enfants
+     if ($enfants != 0) {
+       $result2 = calculImpot2($taxAdminData, $marié, 0, $salaire);
+       $impot2 = $result2["impôt"];
+       // application du plafonnement du quotient familial
+       if ($enfants < 3) {
+         // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants
+         $impot2 = $impot2 - $enfants * $taxAdminData["PLAFOND_QF_DEMI_PART"];
+       } else {
+         // $PLAFOND_QF_DEMI_PART euros pour les 2 premiers enfants, le double pour les suivants
+         $impot2 = $impot2 - 2 * $taxAdminData["PLAFOND_QF_DEMI_PART"] - ($enfants - 2) * 2 * $taxAdminData["PLAFOND_QF_DEMI_PART"];
        }
-       [1]=>
-       array(2) {
-         ["prénom"]=>
-         string(6) "andré"
-         ["age"]=>
-         int(2)
-       }
+     } else {
+       $impot2 = $impot1;
+       $result2 = $result1;
      }
+     // on prend l'impôt le plus fort avec le taux et la surcôte qui vont avec
+     if ($impot1 > $impot2) {
+       $impot = $impot1;
+       $taux = $result1["taux"];
+       $surcôte = $result1["surcôte"];
+     } else {
+       $surcôte = $impot2 - $impot1 + $result2["surcôte"];
+       $impot = $impot2;
+       $taux = $result2["taux"];
+     }
+     // calcul d'une éventuelle décôte
+     $décôte = getDecote($taxAdminData, $marié, $salaire, $impot);
+     $impot -= $décôte;
+     // calcul d'une éventuelle réduction d'impôts
+     $réduction = getRéduction($taxAdminData, $marié, $salaire, $enfants, $impot);
+     $impot -= $réduction;
+     // résultat
+     return ["impôt" => floor($impot), "surcôte" => $surcôte, "décôte" => $décôte, "réduction" => $réduction, "taux" => $taux];
+   }
+
+   // --------------------------------------------------------------------------
+   function calculImpot2(array $taxAdminData, string $marié, int $enfants, float $salaire) {
+     // $marié : oui, non
+     …
+     // résultat
+     return ["impôt" => $impôt, "surcôte" => $surcôte, "taux" => $coeffR[$i]];
+   }
+
+   // revenuImposable=salaireAnnuel-abattement
+   // l'abattement a un min et un max
+   function getRevenuImposable(array $taxAdminData, float $salaire): float {
+     …
+     // résultat
+     return floor($revenuImposable);
+   }
+
+   // calcule une décôte éventuelle
+   function getDecote(array $taxAdminData, string $marié, float $salaire, float $impots): float {
+     …
+     // résultat
+     return ceil($décôte);
+   }
+
+   // calcule une réduction éventuelle
+   function getRéduction(array $taxAdminData, string $marié, float $salaire, int $enfants, float $impots): float {
+     …
+     // résultat
+     return ceil($réduction);
    }
 
 **Commentaires**
 
--  lignes 1-38 : l’objet issu du décodage du fichier jSON
-   **[famille.json]** ;
+-  lignes 11-19 : on essaie de lire le contenu du fichier jSON nommé
+   **[TAXADMINDATA]** ;
 
--  lignes 39-76 : le tableau associatif issu du décodage du fichier jSON
-   **[famille.json]** ;
+-  lignes 21-30 : si on a réussi à lire le fichier jSON, son contenu est
+   décodé dans le tableau associatif **[$taxAdminData]** ;
+
+-  lignes 32-36 : si on a rencontré une erreur dans une des deux
+   opérations précédentes, on écrit un message d’erreur sur la console
+   et on s’arrête ;
+
+-  la différence avec la version 01 est qu’ici les données (tableaux et
+   constantes) de l’administration fiscale sont dans le tableau
+   associatif **[$taxAdminData]** alors que dans la version 01, elles
+   étaient dans des tableaux et constantes globales. C’est la globalité
+   de ces constantes qui fait la différence entre les deux versions :
+
+   -  dans la version 01, les constantes étaient connues dans toutes les
+      fonction de **[main.php]** ;
+
+   -  pour arriver au même résultat dans la version 02, il faut passer
+      le tableau associatif **[$taxAdminData]** en paramètre à toutes
+      les fonctions (lignes 83, 129, 138, 145, 152) ;
+
+-  chaque fonction de la version 02 doit utiliser le contenu du tableau
+   **[$taxAdminData]** ;
+
+-  lignes 83-126 : dans la fonction **[calculerImpot]**, là où on
+   utilisait des constantes globales ou les tableaux **[limites, coeffR,
+   coeffN]**, on utilise désormais le contenu du tableau
+   **[$taxAdminData]** reçu en paramètre (lignes 99, 102) ;
+
+-  toutes les autres fonctions sont réécrites de la même façon ;
+
+Les résultats obtenus sont les mêmes que ceux obtenus dans la version
+précédente.
+
+.. _conclusion-1:
+
+Conclusion
+~~~~~~~~~~
+
+La version 02 est bien plus souple que la version 01. En 2020,
+l’algorithme de calcul de l’impôt sera probablement le même qu’en 2019.
+Seules les tranches d’imposition et les constantes de calcul auront
+changé. Il suffira alors de mettre à jour le fichier
+**[taxadmindata.json]**. Avec la version 01, il faut aller dans le code
+modifier les tranches d’imposition et les constantes de calcul. Or il
+est probable que les gens qui ont à changer les valeurs des tranches
+d’imposition et des constantes de calcul n’ont pas accès au code de
+l’algorithme.
 
 .. |image0| image:: ./chap-04/media/image1.png
-   :width: 1.4252in
-   :height: 2.76811in
+   :width: 4.42165in
+   :height: 4.3189in
 .. |image1| image:: ./chap-04/media/image2.png
-   :width: 6.11811in
-   :height: 1.2563in
+   :width: 4.08268in
+   :height: 1.38976in
 .. |image2| image:: ./chap-04/media/image3.png
-   :width: 6.57835in
-   :height: 3.1374in
+   :width: 4.05157in
+   :height: 1.74016in
 .. |image3| image:: ./chap-04/media/image4.png
-   :width: 6.94094in
-   :height: 1.46457in
+   :width: 3.98819in
+   :height: 1.34646in
 .. |image4| image:: ./chap-04/media/image5.png
-   :width: 4.61024in
-   :height: 0.91339in
+   :width: 4.01181in
+   :height: 1.37795in
 .. |image5| image:: ./chap-04/media/image6.png
-   :width: 6.88976in
-   :height: 1.0752in
-.. |image6| image:: ./chap-04/media/image7.png
-   :width: 3.42165in
-   :height: 1.3626in
-.. |image7| image:: ./chap-04/media/image8.png
    :width: 1.38622in
-   :height: 1.01181in
+   :height: 1.48071in
+.. |image6| image:: ./chap-04/media/image7.png
+   :width: 1.69646in
+   :height: 0.93346in

@@ -1,3 +1,9 @@
+INTRODUCTION AU LANGAGE PHP 7
+
+PAR L'EXEMPLE
+
+**Serge Tahé**, juillet 2019
+
 Introduction au langage PHP 7
 =============================
 

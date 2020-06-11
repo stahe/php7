@@ -1,313 +1,854 @@
-Les interfaces
-==============
+Les exceptions et erreurs
+=========================
 
-Une interface est une structure définissant des prototypes de méthodes.
-Une classe implémentant une interface doit définir le code de toutes les
-méthodes de l'interface.
+Lorsqu’une méthode d’une classe rencontre une erreur irrécupérable
+(fichier inexistant, base de données non connectée, connexion réseau
+hors service), elle n’affiche pas une erreur sur une console (fichier,
+base de données) mais **lance une exception**. Toutes les exceptions
+étendent la classe **[\Exception]**. Outre des exceptions, le
+fonctionnement interne de PHP émet également des erreurs dont la classe
+de base est la classe **[\Error]**. Les deux classes implémentent
+l’interface PHP **[\Throwable]**.
 
 L’arborescence des scripts
 --------------------------
 
 |image0|
 
-Une première interface
+L’interface [\Throwable]
+------------------------
+
+L’interface **[\Throwable]** est la suivante :
+
+|image1|
+
+Le rôle des méthodes de l’interface est le suivant :
+
+|image2|
+
+Les exceptions prédéfinies dans PHP 7
+-------------------------------------
+
+PHP 7 définit plusieurs classes d’exceptions :
+
+|image3|
+
+-  en **[1]**, les exceptions prédéfinies dans PHP ;
+
+-  en **[2]**, les exceptions de la bibliothèque SPL (Standard PHP
+   Library) de PHP 7. la bibliothèque SPL est une collection de classes
+   et d’interfaces destinées à résoudre des problèmes rencontrés
+   fréquemment par les développeurs.
+
+Les erreurs prédéfinies dans PHP 7
+----------------------------------
+
+PHP 7 définit plusieurs classes d’erreurs :
+
+|image4|
+
+La classe **[\Error]** est la classe parent de toutes les erreurs
+prédéfinies dans PHP. La classe **[ErrorException]** permet d’encapsuler
+une instance de la classe **[\Error]** dans une instance de la classe
+**[\Exception]**. Ceci permet d’uniformiser la gestion des erreurs en ne
+traitant que des exceptions.
+
+Exemple 1
+---------
+
+Le premier exemple **[exceptions-01.php]** montre à la fois des erreurs
+PHP et une exception :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // affichage de toutes les erreurs
+   ini_set("error_reporting", E_ALL);
+   ini_set("display_errors", "on");
+   // code --------
+   $var=[];
+   // clé inconnue
+   print $var["abcd"];
+   // division par zéro
+   $var=7/0;
+   var_dump($var);
+   // tableau à bornes fixes
+   $array = new \SplFixedArray(5);
+   $array[1] = 2;
+   $array[4] = "foo";
+   // indice en-dehors des bornes
+   $array[5]=8;
+
+**Commentaires**
+
+-  ligne 4 : on demande à PHP de signaler toutes les erreurs. Le second
+   paramètre est le niveau d’erreurs demandé :
+
+|image5|
+
+|image6|
+
+-  ligne 5 : on demande d’afficher les erreurs sur la console ;
+
+-  ligne 9 : on accède à un élément inexistant du tableau **[$var]** ;
+
+-  ligne 11 : on fait une division par zéro ;
+
+-  ligne 14 : on crée une instance de la classe **[SplFixedArray]**.
+   Cette classe permet de créer un tableau à bornes fixes et à indices
+   entiers ;
+
+-  ligne 18 : on accède à un élément inexistant du tableau ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   Notice: Undefined index: abcd in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-01.php on line 9
+
+   Warning: Division by zero in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-01.php on line 11
+   float(INF)
+
+   Fatal error: Uncaught RuntimeException: Index invalid or out of range in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-01.php:18
+   Stack trace:
+   #0 {main}
+   thrown in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-01.php on line 18
+
+**Commentaires**
+
+-  ligne 1 des résultats : accéder à une clé inexistante d’un tableau
+   provoque une erreur PHP de niveau **[E_NOTICE]**. Cela n’interrompt
+   pas l’exécution du script ;
+
+-  ligne 3 des résultats : diviser un nombre par zéro provoque une
+   erreur PHP de niveau **[E_WARNING]**. Cela n’interrompt pas
+   l’exécution du script ;
+
+-  lignes 6-9 des résultats : accéder à un indice inexistant d’un
+   tableau **[SplFixedArray]** provoque une exception de type
+   **[RuntimeException]** et interrompt l’exécution du script ;
+
+Gérer les exceptions
+--------------------
+
+Le script **[exceptions-02.php]** montre comment gérer les exceptions :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // on affiche toutes les erreurs
+   ini_set("error_reporting", E_ALL);
+   ini_set("display_errors", "on");
+   // on entoure le code par un try / catch
+   try {
+     $var = [];
+     // clé inconnue
+     print $var["abcd"];
+     // division par zéro
+     $var = 7 / 0;
+     var_dump($var);
+     // tableau à bornes fixes
+     $array = new \SplFixedArray(5);
+     $array[1] = 2;
+     $array[4] = "foo";
+     // indice en-dehors des bornes
+     $array[5] = 8;
+     // vérification
+     print "ce message ne sera pas affiché\n";
+   } catch (\Throwable $ex) {
+     // \Throwable est l'interface implémentée par la plupart des erreurs et exceptions
+     // on affiche l'exception
+     print "erreur, message : " . $ex->getMessage() . ", type : " . get_class($ex) . "\n";
+   }
+
+**Commentaires**
+
+-  le script est celui qui a été présenté au paragraphe précédent.
+   Seulement maintenant on a entouré le code des lignes 8-19 susceptible
+   de provoquer des erreurs par une structure **try / catch** : si le
+   code des lignes 8-21 provoque (lance) une exception ou une erreur,
+   celle-ci sera gérée par la clause **catch** des lignes 22-26 ;
+
+-  ligne 22 : le paramètre de la clause **[catch]** est le type
+   d’exception ou d’erreur que l’on veut gérer. En mettant comme type
+   **[\Throwable]** qui est une interface, on indique qu’on veut gérer
+   toute instance de classe implémentant l’interface **[\Throwable]**.
+   Comme toutes les classes d’erreurs et d’exceptions implémentent cette
+   interface, la clause **[catch]** gère ici toute erreur / exception
+   encapsulée dans une classe ;
+
+-  ligne 19 : l’instruction qui déclenche l’erreur et donne naissance à
+   l’exception. Dès qu’il y a exception, il y a branchement sur la
+   clause **[catch]**. Le code derrière la ligne 19 ne sera donc pas
+   exécuté ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   Notice: Undefined index: abcd in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-02.php on line 10
+
+   Warning: Division by zero in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-02.php on line 12
+   float(INF)
+   erreur, message : Index invalid or out of range, type : RuntimeException
+
+**Commentaires des résultats**
+
+-  lignes 1 et 3 : on retrouve les erreurs de niveau **[E_NOTICE]** et
+   **[E_WARNING]**. Ces erreurs ne sont pas des exceptions et ne sont
+   donc pas gérées par la clause **[catch]** ;
+
+-  ligne 5 : on a le message d’erreur écrit dans la clause **[catch]**.
+   Il s’est donc produit une exception dérivée de **[\Exception]** ou
+   une erreur dérivée de **[\Error]**. Nous voyons ici qu’il s’agit de
+   la classe **[\RuntimeException]** ;
+
+Paramètres de la clause [catch]
+-------------------------------
+
+Examinons le script **[exceptions-03.php]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // on affiche toutes les erreurs
+   ini_set("error_reporting", E_ALL);
+   ini_set("display_errors", "on");
+
+   // un tableau à bornes fixes
+   $array = new \SplFixedArray(5);
+   try {
+     // indice en-dehors des bornes
+     $array[5] = 8;
+   } catch (\Throwable $ex) {
+     // affichage message d'erreur
+     print "Erreur 1 : " . $ex->getMessage() . "\n";
+   }
+
+   try {
+     // indice en-dehors des bornes
+     $array[5] = 8;
+   } catch (\Exception $ex) {
+     // affichage message d'erreur
+     print "Erreur 2 : " . $ex->getMessage() . "\n";
+   }
+
+   try {
+     // indice en-dehors des bornes
+     $array[5] = 8;
+   } catch (\RuntimeException $ex) {
+     // affichage message d'erreur
+     print "Erreur 3 : " . $ex->getMessage() . "\n";
+   }
+   try {
+     // division par 0
+     intdiv(5, 0);
+   } catch (\Throwable $ex) {
+     // affichage message d'erreur
+     print "Erreur 4 : " . $ex->getMessage() . "\n";
+   }
+
+   try {
+     // division par 0
+     intdiv(5, 0);
+   } catch (\DivisionByzeroError $ex) {
+     // affichage message d'erreur
+     print "Erreur 5 : " . $ex->getMessage() . "\n";
+   }
+
+   try {
+     // division par 0
+     intdiv(5, 0);
+   } catch (\Error $ex) {
+     // affichage message d'erreur
+     print "Erreur 6 : " . $ex->getMessage() . "\n";
+   }
+
+   try {
+     // division par 0
+     intdiv(5, 0);
+   } catch (\Exception $ex) {
+     // affichage message d'erreur
+     print "Erreur 6 : " . $ex->getMessage() . "\n";
+   }
+
+**Commentaires**
+
+-  lignes 8-31 : 3 façons différentes de gérer l’exception générée par
+   l’utilisation d’un indice incorrect avec la classe
+   **[\SplFixedArray]**. Nous avons vu que cette erreur générait une
+   exception de type **[RuntimeException]** ;
+
+   -  ligne 12 : gère une erreur de type **[\Throwable]**. C’est valide
+      puisque le type **[RuntimeException]** dérive du type
+      **[\Exception]** qui implémente l’interface **[\Throwable]** ;
+
+   -  ligne 20 : gère une erreur de type **[\Exception]**. C’est valide
+      puisque le type **[RuntimeException]** dérive du type
+      **[\Exception]** ;
+
+   -  ligne 28 : gère une erreur de type **[\RuntimeException]**. C’est
+      la méthode à privilégier puisque c’est le type exact de
+      l’exception générée ;
+
+-  lignes 32-62 : 4 façons différentes de gérer l’exception générée par
+   la fonction **[intdiv]** lorsqu’on passe à celle-ci un diviseur égal
+   à 0. La fonction **[ intdiv ( int $dividend , int $divisor ) : int]**
+   fait la division entière $dividend / $divisor. Lorsque le diviseur
+   est nul, l’exception **[\DivisionByzeroError]** est lancée ;
+
+   -  ligne 35 : on intercepte toute erreur implémentant l’interface
+      **[\Throwable]**. C’est valide ;
+
+   -  ligne 43 : on intercepte le type exact de l’erreur : c’est la
+      méthode à privilégier ;
+
+   -  ligne 51 : on intercepte le type **[\Error]**. C’est valide
+      puisque la classe **[DivisionByzeroError]** étend la classe
+      **[Error]** ;
+
+   -  ligne 59 : on intercepte le type **[\Exception]**. C’est invalide
+      car la classe **[DivisionByzeroError]** n’a aucun lien avec la
+      classe **[\Exception]** ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   Erreur 1 : Index invalid or out of range
+   Erreur 2 : Index invalid or out of range
+   Erreur 3 : Index invalid or out of range
+   Erreur 4 : Division by zero
+   Erreur 5 : Division by zero
+   Erreur 6 : Division by zero
+
+   Fatal error: Uncaught DivisionByZeroError: Division by zero in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-03.php:58
+   Stack trace:
+   #0 C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-03.php(58): intdiv(5, 0)
+   #1 {main}
+   thrown in C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-03.php on line 58
+
+Clause [finally]
+----------------
+
+La structure try / catch peut avoir un troisième élément et devenir une
+structure **try / catch / finally**. Le code de la clausse **[finally]**
+est exécuté dans les deux cas suivants :
+
+-  la clause **[try]** ne lance pas d’exception. Elle est alors exécutée
+   entièrement puis l’exécution du code passe à la clause **[finally]**
+   qui est exécutée entièrement ;
+
+-  la clause **[try]** lance une exception. Elle est alors exécutée
+   jusqu’à l’instruction qui lance l’exception. L’exécution du code
+   passe alors à la clause **[catch]** qui est exécutée entièrement.
+   Puis l’exécution du code passe à la clause **[finally]** qui est
+   exécutée entièrement ;
+
+Finalement, le code de la clause **[finally]** est toujours exécuté. Ce
+scénario est utile dans le cas suivant :
+
+-  dans le **[try]**, le code a obtenu des ressources (fichiers, bases
+   de données, connexions réseau, files d’attente). En général ces
+   ressources sont coûteuses en mémoire. Il faut alors les rendre (on
+   dit le plus souvent **fermer**) dès que c’est possible ;
+
+-  si l’acquisition des ressources a été faite dans le **[try]**, on
+   mettra leur restitution dans le **[finally]**. Cela nous assure que
+   dans tous les cas (erreur ou pas), les ressources acquises sont
+   restituées au système ;
+
+Le script suivant **[exemples/exceptions/exceptions-04.php]** nous
+montre le fonctionnement de la clause **[finally]** dans diverses
+situations :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // ou crée une instance d'exception
+   $e = new \Exception("Erreur…");	
+   var_dump($e);
+
+   // premier test
+   try {
+     print "Premier test\n";
+     throw $e;
+   } catch (\Exception $ex1) {
+     print $ex1->getMessage() . "\n";
+   } finally {
+     print "Terminé\n";
+   }
+
+   // second test
+   try {
+     print "Second test\n";
+   } catch (\Exception $ex1) {
+     print $ex1->getMessage() . "\n";
+   } finally {
+     print "Terminé\n";
+   }
+
+   // trosième test
+   try {
+     print "Troisième test\n";
+     return;
+   } catch (\Exception $ex1) {
+     print $ex1->getMessage() . "\n";
+   } finally {
+     print "Terminé\n";
+   }
+
+**Commentaires du code**
+
+-  ligne 4 : $e est une instance de la classe prédéfinie
+   **[\Exception]**. On va la lancer à différents endroits ;
+
+-  lignes 8-15 : l’exception $e est lancée dans le **[try]** (ligne
+   10) ;
+
+-  ligne 11 : l’exception **[\Exception]** est interceptée et son
+   message d’erreur écrit sur la console ;
+
+-  lignes 13-15 : la clause **[finally]** écrit un message. D’après ce
+   qui a été dit précédemment, ce message devrait être tout le temps
+   écrit, erreur ou pas dans le **[try]** ;
+
+-  lignes 18-24 : il n’y a pas d’erreur dans le **[try]**. On devrait là
+   également passer dans le **[finally]** ;
+
+-  lignes 27-34 : il y a une instruction **[return]** dans le try et pas
+   d’erreur. On peut se demander alors si on va passer dans la clause
+   **[finally]**. L’exécution montre que oui ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   Premier test
+   Erreur…
+   Terminé
+   Second test
+   Terminé
+   Troisième test
+   Terminé
+
+Examinons un autre cas **[exceptions-05.php]** :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // quatrième test
+   try {
+     print "Quatrième test\n";
+     exit;
+   } finally {
+     print "Terminé\n";
+   }
+
+**Commentaires**
+
+-  ligne 6 : l’instruction **[exit]** arrête immédiatement l’exécution
+   du script : la clause **[finally]** n’est pas exécutée ;
+
+-  lignes 4-9 : un exemple de try / catch / finally sans clause
+   **[catch]**. C’est possible ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   Quatrième test
+
+Créer ses propres classes d’exceptions
+--------------------------------------
+
+Dans un projet un peu important, il est utile de différentier les
+différentes erreurs en les encapsulant dans différentes classes
+d’exceptions. Dans le script précédent, nous avons vu que toute
+exception pouvait être interceptée par une clause **[catch
+(\Throwable]**. C’est recommandé si on n’a aucune idée de l’erreur
+interceptée et que le traitement est le même pour toutes les erreurs.
+C’est parfois le cas mais on a souvent besoin d’adapter le traitement au
+type exact de l’erreur. Il faut alors différentier les erreurs
+entre-elles.
+
+Examinons le script **[exceptions-06.php]** suivant :
+
+.. code-block:: php 
+   :linenos:
+
+   <?php
+
+   // on définit notre propre famille d'exceptions
+   class Exception1 extends \RuntimeException {
+     
+   }
+
+   class Exception2 extends \RuntimeException {
+     
+   }
+
+   // ou utilise nos exceptions
+   $e1 = new Exception1("Erreur1…");
+   var_dump($e1);
+   $e2 = new Exception2("Erreur2…");
+   var_dump($e2);
+
+   // premier test
+   print ("premier test\n");
+   try {
+     // on lance un type Exception1
+     throw $e1;
+   } catch (Exception1 $ex1) {
+     print "Exception 1" . "\n";
+     print $ex1->getMessage() . "\n";
+   } catch (Exception2 $ex2) {
+     print "Exception 2" . "\n";
+     print $ex2->getMessage() . "\n";
+   }
+
+   // second test
+   print ("second test\n");
+   try {
+     // on lance un type Exception2
+     throw $e2;
+   } catch (Exception1 $ex1) {
+     print "Exception 1" . "\n";
+     print $ex1->getMessage() . "\n";
+   } catch (Exception2 $ex2) {
+     print "Exception 2" . "\n";
+     print $ex2->getMessage() . "\n";
+   }
+
+   // troisième test
+   print ("troisième test\n");
+   try {
+     // on lance un type Exception1
+     throw $e1;
+   } catch (Exception1 | Exception2 $ex) {
+     print "Exception 1 ou 2" . "\n";
+     print $ex->getMessage() . "\n";
+   }
+
+   // quatrième test
+   print ("quatrième test\n");
+   try {
+     // on lance un type Exception2
+     throw $e2;
+   } catch (Exception1 | Exception2 $ex) {
+     print "Exception 1 ou 2" . "\n";
+     print $ex->getMessage() . "\n";
+   }
+
+**Commentaires**
+
+-  lignes 4-10 : on définit deux classes **[Exception1]** et
+   **[Exception2]** toutes deux dérivées de la classe prédéfinie
+   **[\RuntimeException]**. Le corps de ces classes est vide. Autrement
+   dit, on ne les utilise que pour leurs types : c’est parce qu’elles
+   ont des types différents qu’on va pouvoir différentier ces deux
+   exceptions dans les clauses **[catch]** ;
+
+-  lignes 13-16 : on définit deux variables $e1 et $e2 ayant
+   respectivement les types **[Exception1]** et **[Exception2]** ;
+
+-  lignes 20-29 : on a une structure try / catch / catch. Cela permet de
+   gérer différents types d’exception avec différentes clauses
+   **[catch]** ;
+
+-  ligne 23 : intercepte les exceptions de type **[Exception1]** ;
+
+-  ligne 26 : intercepte les exceptions de type **[Exception2]** ;
+
+-  ligne 49 : intercepte les exceptions de type **[Exception1]** ou (|)
+   **[Exception2]** ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   object(Exception1)#1 (7) {
+     ["message":protected]=>
+     string(10) "Erreur1…"
+     ["string":"Exception":private]=>
+     string(0) ""
+     ["code":protected]=>
+     int(0)
+     ["file":protected]=>
+     string(76) "C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-06.php"
+     ["line":protected]=>
+     int(13)
+     ["trace":"Exception":private]=>
+     array(0) {
+     }
+     ["previous":"Exception":private]=>
+     NULL
+   }
+   object(Exception2)#2 (7) {
+     ["message":protected]=>
+     string(10) "Erreur2…"
+     ["string":"Exception":private]=>
+     string(0) ""
+     ["code":protected]=>
+     int(0)
+     ["file":protected]=>
+     string(76) "C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-06.php"
+     ["line":protected]=>
+     int(15)
+     ["trace":"Exception":private]=>
+     array(0) {
+     }
+     ["previous":"Exception":private]=>
+     NULL
+   }
+   premier test
+   Exception 1
+   Erreur1…
+   second test
+   Exception 2
+   Erreur2…
+   troisième test
+   Exception 1 ou 2
+   Erreur1…
+   quatrième test
+   Exception 1 ou 2
+   Erreur2…
+
+**Commentaires des résultats**
+
+-  lignes 1-17 : le ‘contenu’ d’une exception :
+
+   -  lignes 2-3 : le message d’erreur ;
+
+   -  lignes 6-7 : le code d’erreur ;
+
+   -  lignes 8-9 : le nom du fichier dans lequel s’est produite
+      l’exception ;
+
+   -  lignes 10-11 : la ligne à laquelle s’est produite l’exception ;
+
+   -  lignes 15-16 : l’exception précédente. Une exception peut
+      encapsuler une autre exception et définir ainsi une pile
+      d’exceptions. L’attribut **[previous]** va permettre d’exploiter
+      cette pile ;
+
+Relancer une exception
 ----------------------
 
-Nous définissons une interface **[IExemple]** dans un script
-**[IExemple.php]**. Dans ce même script, nous définissons deux classes
-implémentant l’interface **[IExemple]** :
+Une exception peut être lancée plusieurs fois comme le montre le script
+**[exceptions-07.php]** suivant :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // respect strict des types des paramètres des fonctions
-   declare(strict_types=1);
-
-   // espace de noms
-   namespace Exemples;
-
-   // une interface
-   interface IExemple {
-       // les méthodes de l'interface
-       public function ajouter(int $i, int $j): int;
-       public function soustraire(int $i, int $j): int;
-   }
-
-   // implémentation 1 de l'interface IExemple
-   class Classe1 implements IExemple {
-       public function ajouter(int $a, int $b): int {
-           return $a + $b + 10;
-       }
-
-       public function soustraire(int $a, int $b): int {
-           return $a - $b + 20;
-       }
-
-   }
-
-   // implémentation 2 de l'interface IExemple
-   class Classe2 implements IExemple {
-       public function ajouter(int $a, int $b) : int{
-           return $a + $b + 100;
-       }
-
-       public function soustraire(int $a, int $b) : int {
-           return $a - $b + 200;
-       }
-
+   try {
+     try {
+       // on lance une exception
+       throw new \Exception("test");
+     } catch (\Exception $ex) {
+       // on relance l'exception interceptée
+       throw $ex;
+     } finally {
+       // on passera bien dans le finally
+       print "finally 1\n";
+     }
+   } catch (\Exception $ex2) {
+     // on récupère bien l'exception initiale
+     print $ex2->getMessage() . " dans try / catch / finally externe\n";
+   } finally {
+     // on passera bien dans le finally
+     print "finally 2\n";
    }
 
 **Commentaires**
 
--  lignes 10-14 : l'interface *IExemple* définit deux méthodes : la
-   fonction *ajouter* (ligne 12) et la fonction *soustraire* (ligne 13).
-   L'interface ne définit pas le code de ces méthodes. Ce sont les
-   classes implémentant l'interface qui vont le faire ;
+-  ligne 6 : on lance une exception ;
 
--  ligne 17 : la classe *Classe1* implémente (**implements**)
-   l'interface *IExemple*. Elle définit donc un code pour les méthodes
-   *ajouter* (ligne 18) et *soustraire* (ligne 22) ;
+-  ligne 7 : on l’intercepte ;
 
--  lignes 29-38 : idem pour la classe *Classe2 ;*
+-  ligne 9 : on la relance. Elle passe alors dans la structure try /
+   catch / finally du niveau supérieur ;
 
-Nous utilisons l’interface **[IExemple]** dans le script
-**[interfaces-01.php]** suivant :
+-  ligne 14 : on l’intercepte de nouveau ;
 
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   require_once "IExemple.php";
-   use \Exemples\Classe1;
-   use \Exemples\Classe2;
-   use \Exemples\IExemple;
-
-   // fonction
-   function calculer(int $a, int $b, IExemple $interface) : void {
-     print $interface->ajouter($a, $b)."\n";
-     print $interface->soustraire($a, $b)."\n";
-   }
-
-   // ------------------- main
-   // création de 2 objets de type Classe1 et Classe2
-   $c1 = new Classe1();
-   $c2 = new Classe2();
-   // appel de la fonction calculer
-   calculer(4, 3, $c1);
-   calculer(14, 13, $c2);
-
-**Commentaires**
-
--  lignes 3-6 : inclusion et définition des classes et interfaces
-   utilisées par le script ;
-
--  ligne 3 : au lieu de l’instruction **include** nous avons utilisé ici
-   l’instruction **require_once**. L’instruction **include** inclut un
-   fichier dans le script en cours même si celui-ci a déjà été inclus
-   alors que l’instruction **require_once** ne l’inclut qu’une fois.
-   Donc pour ce qui est de l’inclusion de code, on préfèrera
-   l’instruction **require_once **;
-
--  lignes 9-12 : on définit une fonction ;
-
--  ligne 9 : nous avons déclaré ici le type des trois paramètres. Si à
-   l’exécution, le paramètre effectif n’est pas du type attendu, une
-   erreur est lancée. Le 3\ :sup:`e` paramètre est de type
-   **[IExemple]**. Cela veut dire que le paramètre effectif doit être
-   une instance de classe implémentant l’interface **[IExemple]**, donc
-   dans notre exemple, une instance des classes **[Classe1]** ou
-   **[Classe2]** ;
-
--  lignes 10-11 : nous utilisons les méthodes **[ajouter, soustraire]**
-   de l’interface **[IExemple]** ;
-
--  ligne 19 : le 3\ :sup:`e` paramètre effectif est de type
-   **[Classe1]** compatible avec le type **[IExemple]** du 3\ :sup:`e`
-   paramètre formel de la fonction ;
-
--  ligne 20 : idem pour la classe **[Classe2]** ;
+-  lignes 10-12 : l’exécution montre que même après le **[throw]** de la
+   ligne 9, on passe bien dans la clause **[finally]** du try / catch /
+   finally ;
 
 **Résultats**
 
 .. code-block:: php 
    :linenos:
 
-   17
-   21
-   127
-   201
+   finally 1
+   test dans try / catch / finally externe
+   finally 2
 
-Dérivation d’une interface
---------------------------
+Exploitation d’une pile d’exceptions
+------------------------------------
 
-De la même façon qu’une classe fille peut étendre une classe parent, une
-interface fille peut étendre une interface parent.
-
-Considérons l’interface **[IExemple2]** définie dans le fichier
-**[IExemple2.php]** :
+Une exception peut encapsuler une autre exception qui elle-même peut en
+encapsuler une autre formant finalement une pile d’exceptions. Voici un
+exemple **[exceptions-08.php]** :
 
 .. code-block:: php 
    :linenos:
 
    <?php
 
-   // respect strict des types des paramètres des fonctions
-   declare(strict_types=1);
-   // espace de noms
-   namespace Exemples;
-
-   // inclusion de la définition de l'interface IExemple
-   require_once __DIR__."/IExemple.php";
-
-   // une interface qui dérive de IExemple
-   interface IExemple2 extends IExemple {
-       // la méthode de l'interface
-       public function multiplier(int $i, int $j): int;
+   // on définit notre propre famille d'exceptions
+   class Exception1 extends \RuntimeException {
+     
    }
 
-   // implémentation de l'interface IExemple2
-   class Classe3 extends Classe2 implements IExemple2 {
-      
-       public function multiplier(int $a, int $b): int {
-           return $a * $b;
+   class Exception2 extends \RuntimeException {
+     
+   }
+
+   class Exception3 extends \RuntimeException {
+     
+   }
+
+   // ou utilise nos exceptions
+   $e1 = new Exception1("Erreur 1…", 1, new Exception2("Erreur 2…", 2, new Exception3("Erreur 3…")));
+   var_dump($e1);
+   // exploitation de l'exception courante
+   print $e1->getMessage() . "\n";
+   $e = $e1;
+   while ($e->getPrevious() !== NULL) {
+     // exception précédente
+     $e = $e->getPrevious();
+     // message d'erreur
+     print $e->getMessage() . "\n";
+   }
+
+**Commentaires**
+
+-  lignes 4-14 : définissent trois classes d’exceptions dérivées de
+   l’exception prédéfinie **[RuntimeException]** ;
+
+-  ligne 17 : une instance de la classe **[Exception3]** est encapsulée
+   dans une instance de la classe **[Exception2]** qui elle-même est
+   encapsulée dans une instance de la classe **[Exception1]**. Le
+   constructeur utilisé ici est le constructeur de la classe
+   **[Exception]** :
+
+|image7|
+
+   Le 3\ :sup:`e` paramètre du constructeur permet d’encapsuler une
+   exception. Cela peut être utile dans le scénario suivant :
+
+-  on définit une méthode M qui peut générer une exception de type
+   **[Exception1]** et seulement de ce type pour des raisons de
+   compatibilité par exemple avec une interface ;
+
+-  or dans la méthode M peuvent se produire d’autres types d’exceptions.
+   Pour remonter une erreur au code appelant la méthode M, on
+   encapsulera alors ces exceptions dans le type **[Exception1]** que
+   l’on lancera. Cela permet de ne pas perdre l’information contenue
+   dans l’exception encapsulée et qui a été la cause originelle de
+   l’erreur ;
+
+-  les lignes 20-27 montrent comment gérer la pile des exceptions
+   internes à une exception ;
+
+**Résultats**
+
+.. code-block:: php 
+   :linenos:
+
+   object(Exception1)#1 (7) {
+     ["message":protected]=>
+     string(11) "Erreur 1…"
+     ["string":"Exception":private]=>
+     string(0) ""
+     ["code":protected]=>
+     int(1)
+     ["file":protected]=>
+     string(76) "C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-08.php"
+     ["line":protected]=>
+     int(17)
+     ["trace":"Exception":private]=>
+     array(0) {
+     }
+     ["previous":"Exception":private]=>
+     object(Exception2)#2 (7) {
+       ["message":protected]=>
+       string(11) "Erreur 2…"
+       ["string":"Exception":private]=>
+       string(0) ""
+       ["code":protected]=>
+       int(2)
+       ["file":protected]=>
+       string(76) "C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-08.php"
+       ["line":protected]=>
+       int(17)
+       ["trace":"Exception":private]=>
+       array(0) {
        }
-
+       ["previous":"Exception":private]=>
+       object(Exception3)#3 (7) {
+         ["message":protected]=>
+         string(11) "Erreur 3…"
+         ["string":"Exception":private]=>
+         string(0) ""
+         ["code":protected]=>
+         int(0)
+         ["file":protected]=>
+         string(76) "C:\Data\st-2019\dev\php7\php5-exemples\exemples\exceptions\exceptions-08.php"
+         ["line":protected]=>
+         int(17)
+         ["trace":"Exception":private]=>
+         array(0) {
+         }
+         ["previous":"Exception":private]=>
+         NULL
+       }
+     }
    }
-
-**Commentaires**
-
--  ligne 6 : l’interface **[IExemple2]** sera dans le même espace de
-   noms que l’interface **[Iexemple]** ;
-
--  ligne 9 : on inclut le fichier de définition de l’interface
-   **[Iexemple]** ;
-
--  lignes 12-15 : définissent l’interface **[IExemple2]** qui étend
-   (hérite) l’interface **[Iexemple]** (**extends**) et lui ajoute une
-   nouvelle méthode (ligne 14);
-
--  lignes 18-24 : la classe **[Classe3]** étend la classe **[Classe2]**.
-   Comme celle-ci implémente l’interface **[IExemple]**, ce sera
-   également le cas de la classe **[Classe3]**. En effet, **[Classe3]**
-   hérite de toutes les méthodes publiques et protégées de la classe
-   **[Classe2]**, donc des méthodes **ajouter** et **soustraire**. Par
-   ailleurs, on indique que **[Classe3]** implémente l’interface
-   **[IExemple2]**. A ce titre, elle doit également implémenter la
-   méthode **multiplier**, ce que ne fait pas **[Classe2]**. C’est ce
-   que font les lignes 20-22;
-
-L’interface **[IExemple2]** est exploitée par le script
-**[interfaces-02]** suivant:
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict des types des paramètres des fonctions
-   declare(strict_types=1);
-
-   // inclusion et qualifications des classes et interfaces nécessaires au script
-   require_once __DIR__."/Iexemple2.php";
-   use \Exemples\IExemple2;
-   use \Exemples\Classe3;
-
-   // fonction
-   function calculer(int $a, int $b, IExemple2 $interface) {
-       print $interface->ajouter($a, $b) . "\n";
-       print $interface->soustraire($a, $b) . "\n";
-       print $interface->multiplier($a, $b) . "\n";
-   }
-
-   // ------------------- main
-   // création d'1 objet de type Classe3 qui implémente IExemple2
-   $c3 = new Classe3();
-   // appel de la fonction calculer
-   calculer(4, 3, $c3);
-
-**Commentaires**
-
--  ligne 12 : le 3\ :sup:`e` paramètre de la fonction **[calculer]** est
-   de type **[IExemple2]** ;
-
--  lignes 13-15 : on utilise les trois méthodes de l’interface
-   **[IExemple2]** ;
-
--  ligne 22 : on appelle la fonction **[calculer]** avec comme
-   3\ :sup:`e` paramètre un objet de type **[IExemple2]** (ligne 20) ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   107
-   201
-   12
-
-Passage d’une interface en paramètre d’une fonction
----------------------------------------------------
-
-Nous avons vu au `paragraphe <#_Passage_d’un_objet>`__ que lorsque le
-type attendu pour un paramètre de fonction est une classe alors le
-paramètre effectif peut être un objet du type attendu **ou dérivé**. Il
-en est de même pour les interfaces comme le montre le script suivant
-**[interfaces-03.php]** :
-
-.. code-block:: php 
-   :linenos:
-
-   <?php
-
-   // respect strict des types des paramètres des fonctions
-   declare(strict_types=1);
-
-   // inclusion et qualifications des classes et interfaces nécessaires au script
-   require_once __DIR__."/IExemple.php";
-   use \Exemples\IExemple;
-   require_once __DIR__."/IExemple2.php";
-   use \Exemples\Classe3;
-
-   // fonction
-   function calculer(int $a, int $b, IExemple $interface) {
-     print $interface->ajouter($a, $b) . "\n";
-     print $interface->soustraire($a, $b) . "\n";
-   }
-
-   // ------------------- main
-   // création d'1 objet de type Classe3 qui implémente IExemple2 et donc IExemple
-   $c3 = new Classe3();
-   // appel de la fonction calculer
-   calculer(4, 3, $c3);
-
-**Commentaires**
-
--  ligne 13, la fonction **[calculer]** attend comme troisième paramètre
-   un type **[IExemple]**. Cela signifie que le type du paramètre
-   effectif pourra être de type **[IExemple]** **ou dérivé** ;
-
--  ligne 20 : on instancie un objet $\ **c3** de type **[Classe3]**,
-   classe qui implémente l’interface **[IExemple2]** qui elle-même étend
-   l’interface **[IExemple]**. Donc finalement $\ **c3** implémente
-   l’interface **[IExemple]** ;
-
--  ligne 22 : on appelle la fonction **[calculer]** avec comme troisième
-   paramètre un objet $\ **c3** de type **[Classe3]**. Par le jeu des
-   héritages de classes et des implémentations, on a vu que l’objet
-   $\ **c3** implémentait le type **[IExemple]**. On peut donc
-   l’utiliser comme troisième paramètre ;
-
-**Résultats**
-
-.. code-block:: php 
-   :linenos:
-
-   107
-   201
+   Erreur 1…
+   Erreur 2…
+   Erreur 3…
 
 .. |image0| image:: ./chap-07/media/image1.png
-   :width: 1.50433in
-   :height: 1.7563in
+   :width: 1.40551in
+   :height: 1.82717in
+.. |image1| image:: ./chap-07/media/image2.png
+   :width: 2.9689in
+   :height: 2.43346in
+.. |image2| image:: ./chap-07/media/image3.png
+   :width: 4.91339in
+   :height: 1.30709in
+.. |image3| image:: ./chap-07/media/image4.png
+   :width: 6.15748in
+   :height: 3.65748in
+.. |image4| image:: ./chap-07/media/image5.png
+   :width: 1.59842in
+   :height: 2.08661in
+.. |image5| image:: ./chap-07/media/image6.png
+   :width: 6.23189in
+   :height: 2.85433in
+.. |image6| image:: ./chap-07/media/image7.png
+   :width: 6.23189in
+   :height: 2.29921in
+.. |image7| image:: ./chap-07/media/image8.png
+   :width: 5.61024in
+   :height: 0.40551in
