@@ -10,17 +10,17 @@ Introduction au langage PHP 7
 Ce document fait partie d’une série de quatre articles :
 
 1. [`Introduction au langage PHP7 par
-   l’exemple <https://tahe.developpez.com/tutoriels-cours/php7>`__].
+   l’exemple <https://stahe-php7.readthedocs.io/fr/latest/>`__].
    **C’est le document présent** ;
 
 2. [`Introduction au langage ECMASCRIPT 6 par
-   l’exemple <https://tahe.developpez.com/tutoriels-cours/ecmascript6>`__] ;
+   l’exemple <https://stahe-ecmascript6.readthedocs.io/fr/latest/>`__] ;
 
 3. [`Introduction au framework VUE.JS par
-   l’exemple <https://tahe.developpez.com/tutoriels-cours/vuejs>`__] ;
+   l’exemple <https://stahe-vuejs.readthedocs.io/fr/latest/>`__] ;
 
 4. [`Introduction au framework NUXT.JS par
-   l’exemple <https://tahe.developpez.com/tutoriels-cours/nuxtjs>`__] ;
+   l’exemple <https://stahe-nuxtjs.readthedocs.io/fr/latest/>`__] ;
 
 Ce sont tous des documents pour **débutants**. Les articles ont une
 suite logique mais **sont faiblement couplés** :
