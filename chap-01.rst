@@ -1,11 +1,5 @@
-INTRODUCTION AU LANGAGE PHP 7
-
-PAR L'EXEMPLE
-
-**Serge Tahé**, juillet 2019
-
-Introduction au langage PHP 7
-=============================
+Présentation du cours
+=====================
 
 Ce document fait partie d’une série de quatre articles :
 
@@ -121,7 +115,7 @@ faut à la fois lire son code, ses commentaires et ses résultats
 d'exécution.
 
 Les exemples du document sont disponibles
-\|\ `ici <https://tahe.developpez.com/tutoriels-cours/php7/documents/php7.rar>`__\ **\ \|**.
+\|\ `ici <http://sergetahe.com/cours-tutoriels-de-programmation/wp-content/uploads/documents/php7-ecmascript6-vuejs-nuxtjs/php7.rar>`__\ **\ \|**.
 
 L’application serveur PHP 7 peut être testée
 \|\ `ici <https://sergetahe.com/apps/impot/serveur-php7/>`__\ **\ \|**.
